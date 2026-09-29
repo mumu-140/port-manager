@@ -22,7 +22,7 @@ struct MenuBarProcessGroupRow: View {
                     if group.ports.contains(where: { state.isWatching($0.port) }) { Image(systemName: "eye.fill").font(.caption2).foregroundStyle(.blue) }
                 }
                 Spacer()
-                Text(group.pids.count == 1 ? "PID \(group.pids[0])" : "\(group.pids.count) PIDs").font(.caption2).foregroundStyle(.secondary)
+                Text(group.pids.count == 1 ? L("menubar.pid", group.pids[0]) : L("menubar.pidCount", group.pids.count)).font(.caption2).foregroundStyle(.secondary)
                 if !(isHovered || showConfirm) {
                     Text("\(group.ports.count)").font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 5).background(.tertiary.opacity(0.5)).clipShape(Capsule())
                 } else if !showConfirm {

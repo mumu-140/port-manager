@@ -20,15 +20,15 @@ struct ShortcutsSection: View {
     @State private var hasAccessibility = AXIsProcessTrusted()
 
     var body: some View {
-        SettingsGroup("Keyboard Shortcuts", icon: "command.square.fill") {
+        SettingsGroup(L("settings.section.shortcuts"), icon: "command.square.fill") {
             VStack(spacing: 0) {
                 // Toggle Main Window Shortcut
                 SettingsRowContainer {
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Toggle Main Window")
+                            Text(L("settings.shortcuts.toggleMainWindow"))
                                 .fontWeight(.medium)
-                            Text("Show or hide the PortKiller window")
+                            Text(L("settings.shortcuts.toggleMainWindow.subtitle"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -45,7 +45,7 @@ struct ShortcutsSection: View {
                                 .font(.caption)
                         }
                         .buttonStyle(.borderless)
-                        .help("Reset to default (⌘⇧P)")
+                        .help(L("settings.shortcuts.resetHelp"))
                     }
                 }
 
@@ -60,16 +60,16 @@ struct ShortcutsSection: View {
                                 .foregroundStyle(.orange)
 
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Accessibility Required")
+                                Text(L("settings.shortcuts.accessibilityRequired"))
                                     .fontWeight(.medium)
-                                Text("Global shortcuts need Accessibility permission")
+                                Text(L("settings.shortcuts.accessibilityRequired.subtitle"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
 
                             Spacer()
 
-                            Button("Grant Access") {
+                            Button(L("settings.permissions.grantAccess")) {
                                 promptAccessibility()
                             }
                             .controlSize(.small)
@@ -88,10 +88,4 @@ struct ShortcutsSection: View {
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
-}
-
-#Preview {
-    ShortcutsSection()
-        .padding()
-        .frame(width: 500)
 }

@@ -1,0 +1,40 @@
+import Foundation
+
+/// Shared, reused-everywhere strings: verbs, common nouns, generic status words.
+enum CommonStrings {
+    static let entries: [String: (en: String, zh: String)] = [
+        "common.ok": (en: "OK", zh: "确定"),
+        "common.cancel": (en: "Cancel", zh: "取消"),
+        "common.save": (en: "Save", zh: "保存"),
+        "common.done": (en: "Done", zh: "完成"),
+        "common.close": (en: "Close", zh: "关闭"),
+        "common.add": (en: "Add", zh: "添加"),
+        "common.edit": (en: "Edit", zh: "编辑"),
+        "common.delete": (en: "Delete", zh: "删除"),
+        "common.remove": (en: "Remove", zh: "移除"),
+        "common.copy": (en: "Copy", zh: "复制"),
+        "common.copied": (en: "Copied", zh: "已复制"),
+        "common.clear": (en: "Clear", zh: "清除"),
+        "common.refresh": (en: "Refresh", zh: "刷新"),
+        "common.enable": (en: "Enable", zh: "启用"),
+        "common.disable": (en: "Disable", zh: "停用"),
+        "common.enabled": (en: "Enabled", zh: "已启用"),
+        "common.disabled": (en: "Disabled", zh: "已停用"),
+        "common.start": (en: "Start", zh: "启动"),
+        "common.stop": (en: "Stop", zh: "停止"),
+        "common.retry": (en: "Retry", zh: "重试"),
+        "common.loading": (en: "Loading…", zh: "加载中…"),
+        "common.search": (en: "Search", zh: "搜索"),
+        "common.none": (en: "None", zh: "无"),
+        "common.unknown": (en: "Unknown", zh: "未知"),
+        "common.all": (en: "All", zh: "全部"),
+        "common.open": (en: "Open", zh: "打开"),
+        "common.quit": (en: "Quit", zh: "退出"),
+        "common.error": (en: "Error", zh: "错误"),
+        "common.restart": (en: "Restart", zh: "重启"),
+        "common.openInBrowser": (en: "Open in Browser", zh: "在浏览器中打开"),
+        "common.copyURL": (en: "Copy URL", zh: "复制链接"),
+        "common.checkForUpdates": (en: "Check for Updates…", zh: "检查更新…"),
+        "common.openPortForwarder": (en: "Open Port Forwarder", zh: "打开端口转发"),
+    ]
+}

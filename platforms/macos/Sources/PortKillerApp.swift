@@ -27,16 +27,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    /// The main window keeps "PortKiller" as its untranslated product-name
+    /// title. Match the scene identifier too (when SwiftUI exposes it), so the
+    /// Dock policy keeps working even if the title is ever localized.
+    private func isMainWindow(_ window: NSWindow) -> Bool {
+        window.identifier?.rawValue == "main" || window.title == "PortKiller"
+    }
+
     @objc private func windowDidBecomeKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
-              window.title == "PortKiller" else { return }
+              isMainWindow(window) else { return }
         // Show in Dock when main window is open
         NSApp.setActivationPolicy(.regular)
     }
 
     @objc private func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
-              window.title == "PortKiller" else { return }
+              isMainWindow(window) else { return }
         // Hide from Dock when main window closes
         NSApp.setActivationPolicy(.accessory)
     }
@@ -64,6 +71,9 @@ struct PortKillerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var state = AppState()
     @State private var sponsorManager = SponsorManager()
+    /// Live UI language. Keying each scene on `localization.language` rebuilds
+    /// the whole subtree on change, so every `L(...)` re-resolves.
+    @State private var localization = Localization.shared
     @State private var showOnboarding = !Defaults[.hasCompletedOnboarding]
     @Environment(\.openWindow) private var openWindow
 
@@ -78,6 +88,10 @@ struct PortKillerApp: App {
             MainWindowView()
                 .environment(state)
                 .environment(sponsorManager)
+                .environment(localization)
+                // Rebuild the subtree (not the lifecycle modifiers) on language
+                // change, so .task/.sheet/.onChange below survive the switch.
+                .id(localization.language)
                 .sheet(isPresented: $showOnboarding) {
                     OnboardingView()
                 }
@@ -109,14 +123,14 @@ struct PortKillerApp: App {
             CommandGroup(replacing: .newItem) {} // Disable Cmd+N
 
             CommandGroup(after: .appInfo) {
-				Button("Check for Updates...", systemImage: "arrow.triangle.2.circlepath") {
+				Button(L("common.checkForUpdates"), systemImage: "arrow.triangle.2.circlepath") {
 					state.updateManager.checkForUpdates()
 				}
 				.disabled(!state.updateManager.canCheckForUpdates)
             }
 
             CommandGroup(after: .newItem) {
-                Button("Open Port Forwarder Window") {
+                Button(L("common.openPortForwarder")) {
                     NSApp.activate(ignoringOtherApps: true)
                     openWindow(id: "port-forwarder")
                 }
@@ -125,9 +139,12 @@ struct PortKillerApp: App {
         }
 
         // Port Forwarder Window
-        Window("Port Forwarder", id: "port-forwarder") {
+        Window(L("portForwarder.title"), id: "port-forwarder") {
             PortForwarderWindowView()
                 .environment(state)
+                .environment(localization)
+            // Language-driven rebuild happens INSIDE PortForwarderWindowView
+            // (scoped to the TabView) so window-local @State survives the switch.
         }
         .windowStyle(.automatic)
         .defaultSize(width: 900, height: 650)
@@ -135,6 +152,8 @@ struct PortKillerApp: App {
         // Menu Bar (quick access)
         MenuBarExtra {
             MenuBarView(state: state)
+                .environment(localization)
+                .id(localization.language)
         } label: {
             Image(nsImage: menuBarIcon())
         }

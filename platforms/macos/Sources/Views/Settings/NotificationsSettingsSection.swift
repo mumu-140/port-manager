@@ -5,13 +5,13 @@ struct NotificationsSettingsSection: View {
     @Default(.notifyProcessTypes) private var enabledTypes
 
     var body: some View {
-        SettingsGroup("Port Notifications", icon: "bell.fill") {
+        SettingsGroup(L("settings.notifications.title"), icon: "bell.fill") {
             VStack(spacing: 0) {
                 SettingsRowContainer {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Notify on new ports by process type")
+                        Text(L("settings.notifications.header"))
                             .fontWeight(.medium)
-                        Text("Get notified when a port opens for selected process types")
+                        Text(L("settings.notifications.subtitle"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

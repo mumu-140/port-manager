@@ -21,14 +21,14 @@ struct CloudflaredSettingsSection: View {
     }
 
     var body: some View {
-        SettingsGroup("Cloudflare Tunnels", icon: "cloud.fill") {
+        SettingsGroup(L("settings.section.cloudflare"), icon: "cloud.fill") {
             VStack(spacing: 0) {
                 SettingsRowContainer {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Tunnel protocol")
+                            Text(L("settings.cloudflared.protocol"))
                                 .fontWeight(.medium)
-                            Text("Choose how cloudflared connects to Cloudflare (applies to new tunnels)")
+                            Text(L("settings.cloudflared.protocol.subtitle"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -51,7 +51,7 @@ struct CloudflaredSettingsSection: View {
                 SettingsRowContainer {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Text("cloudflared path")
+                            Text(L("settings.cloudflared.path"))
                                 .fontWeight(.medium)
 
                             Spacer()
@@ -60,7 +60,7 @@ struct CloudflaredSettingsSection: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.green)
-                                    Text("Installed")
+                                    Text(L("settings.portForwarding.installed"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -68,7 +68,7 @@ struct CloudflaredSettingsSection: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundStyle(.red)
-                                    Text("Not found")
+                                    Text(L("settings.portForwarding.notFound"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -76,7 +76,7 @@ struct CloudflaredSettingsSection: View {
                         }
 
                         HStack(spacing: 8) {
-                            TextField("Custom path (leave empty for auto)", text: $pathInput)
+                            TextField(L("settings.portForwarding.customPath"), text: $pathInput)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.caption, design: .monospaced))
                                 .onAppear {
@@ -91,7 +91,7 @@ struct CloudflaredSettingsSection: View {
                                 }
 
                             if !pathInput.isEmpty {
-                                Button("Clear") {
+                                Button(L("common.clear")) {
                                     pathInput = ""
                                     Defaults[.customCloudflaredPath] = nil
                                 }
@@ -102,13 +102,13 @@ struct CloudflaredSettingsSection: View {
 
                         if let path = effectivePath {
                             HStack(spacing: 4) {
-                                Text("Using:")
+                                Text(L("settings.portForwarding.using"))
                                     .font(.caption)
                                     .foregroundStyle(.tertiary)
                                 Text(path)
                                     .font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.secondary)
-                                Text(service.isUsingCustomPath ? "(custom)" : "(auto)")
+                                Text(service.isUsingCustomPath ? L("settings.portForwarding.custom") : L("settings.portForwarding.auto"))
                                     .font(.caption2)
                                     .foregroundStyle(service.isUsingCustomPath ? Color.orange : Color.gray)
                             }

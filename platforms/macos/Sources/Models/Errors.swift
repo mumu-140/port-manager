@@ -30,13 +30,13 @@ enum PortKillerError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .scanFailed(let reason):
-            return "Failed to scan ports: \(reason)"
+            return L("error.scanFailed", reason)
         case .killFailed(let pid, let reason):
-            return "Failed to kill process \(pid): \(reason)"
+            return L("error.killFailed", pid, reason)
         case .permissionDenied:
-            return "Permission denied. PortKiller requires accessibility permissions to manage processes."
+            return L("error.permissionDenied")
         case .networkError(let reason):
-            return "Network error: \(reason)"
+            return L("error.networkError", reason)
         }
     }
 
@@ -44,13 +44,13 @@ enum PortKillerError: Error, LocalizedError {
     var failureReason: String? {
         switch self {
         case .scanFailed:
-            return "The port scanning operation could not complete successfully."
+            return L("error.scanFailed.reason")
         case .killFailed:
-            return "The process termination request was denied or failed."
+            return L("error.killFailed.reason")
         case .permissionDenied:
-            return "PortKiller does not have the necessary system permissions."
+            return L("error.permissionDenied.reason")
         case .networkError:
-            return "A network or system-level error occurred."
+            return L("error.networkError.reason")
         }
     }
 
@@ -58,13 +58,13 @@ enum PortKillerError: Error, LocalizedError {
     var recoverySuggestion: String? {
         switch self {
         case .scanFailed:
-            return "Try refreshing the port list or restarting PortKiller."
+            return L("error.scanFailed.recovery")
         case .killFailed:
-            return "The process may require elevated privileges. Try running 'sudo kill -9 \(pid)' in Terminal."
+            return L("error.killFailed.recovery", pid)
         case .permissionDenied:
-            return "Go to System Settings > Privacy & Security > Accessibility and enable PortKiller."
+            return L("error.permissionDenied.recovery")
         case .networkError:
-            return "Check your network connection and try again."
+            return L("error.networkError.recovery")
         }
     }
 

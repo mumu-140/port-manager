@@ -37,7 +37,7 @@ struct MenuBarPortForwardRow: View {
                     } else {
                         Image(systemName: connection.isFullyConnected ? "stop.fill" : "play.fill")
                     }
-                    Text(connection.isFullyConnected ? "Stop" : "Start")
+                    Text(connection.isFullyConnected ? L("common.stop") : L("common.start"))
                 }
                 .font(.caption)
                 .foregroundStyle(connection.isFullyConnected ? .red : .green)
@@ -51,12 +51,12 @@ struct MenuBarPortForwardRow: View {
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .contextMenu {
-            Button { state.portForwardManager.restartConnection(connection.id) } label: { Label("Restart", systemImage: "arrow.clockwise") }
+            Button { state.portForwardManager.restartConnection(connection.id) } label: { Label(L("common.restart"), systemImage: "arrow.clockwise") }
             Divider()
-            Button { if let url = URL(string: "http://localhost:" + String(connection.effectivePort)) { NSWorkspace.shared.open(url) } } label: { Label("Open in Browser", systemImage: "globe.fill") }
-            Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString("http://localhost:" + String(connection.effectivePort), forType: .string) } label: { Label("Copy URL", systemImage: "document.on.clipboard") }
+            Button { if let url = URL(string: "http://localhost:" + String(connection.effectivePort)) { NSWorkspace.shared.open(url) } } label: { Label(L("common.openInBrowser"), systemImage: "globe.fill") }
+            Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString("http://localhost:" + String(connection.effectivePort), forType: .string) } label: { Label(L("common.copyURL"), systemImage: "document.on.clipboard") }
             Divider()
-            Button(role: .destructive) { state.portForwardManager.removeConnection(connection.id) } label: { Label("Remove", systemImage: "trash") }
+            Button(role: .destructive) { state.portForwardManager.removeConnection(connection.id) } label: { Label(L("common.remove"), systemImage: "trash") }
         }
     }
 }

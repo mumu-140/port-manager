@@ -19,7 +19,7 @@ struct MenuBarHeader: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.tertiary)
                     .font(.caption)
-                TextField("Search...", text: $searchText)
+                TextField(L("menubar.searchPlaceholder"), text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.callout)
                 if !searchText.isEmpty {

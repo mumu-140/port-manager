@@ -24,7 +24,7 @@ struct IngressRuleDetailRow: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                Text("(fallback)")
+                Text(L("tunnel.fallbackRule"))
                     .font(.system(.callout, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
@@ -50,7 +50,7 @@ struct IngressRuleDetailRow: View {
                         .font(.caption)
                 }
                 .buttonStyle(.borderless)
-                .help("Copy URL")
+                .help(L("common.copyURL"))
             }
         }
         .padding(.horizontal, 10)

@@ -6,6 +6,12 @@ set -e
 APP_NAME="PortKiller"
 BUNDLE_ID="com.portkiller.app"
 
+# Pin the SDK to 26.5 when building with Command Line Tools: the 27.0 SDK
+# turns SwiftUI's @State into a macro whose plugin ships only with full Xcode.
+if [ -z "$SDKROOT" ] && [ ! -d ~/Library/Developer/Xcode ]; then
+    export SDKROOT="/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
+fi
+
 # Swift PM Universal Build Output Directory
 # When building for multiple architectures, SPM puts products in apple/Products/Release
 BUILD_DIR=".build/apple/Products/Release"

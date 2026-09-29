@@ -19,11 +19,11 @@ struct MenuBarTunnelRow: View {
                     .foregroundStyle(.blue)
                     .lineLimit(1)
             } else if tunnel.status == .starting {
-                Text("Starting...")
+                Text(L("tunnel.starting"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if tunnel.status == .error {
-                Text("Error")
+                Text(L("common.error"))
                     .font(.caption)
                     .foregroundStyle(.red)
             }
@@ -69,21 +69,21 @@ struct MenuBarTunnelRow: View {
                 Button {
                     ClipboardService.copy(url)
                 } label: {
-                    Label("Copy URL", systemImage: "doc.on.doc")
+                    Label(L("common.copyURL"), systemImage: "doc.on.doc")
                 }
                 Button {
                     if let tunnelURL = URL(string: url) {
                         NSWorkspace.shared.open(tunnelURL)
                     }
                 } label: {
-                    Label("Open in Browser", systemImage: "globe.fill")
+                    Label(L("common.openInBrowser"), systemImage: "globe.fill")
                 }
                 Divider()
             }
             Button(role: .destructive) {
                 state.tunnelManager.stopTunnel(id: tunnel.id)
             } label: {
-                Label("Stop Tunnel", systemImage: "stop.fill")
+                Label(L("tunnel.stopTunnel"), systemImage: "stop.fill")
             }
         }
     }

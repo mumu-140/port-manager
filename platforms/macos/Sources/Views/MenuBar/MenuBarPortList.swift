@@ -37,7 +37,7 @@ struct MenuBarPortList: View {
                 if filteredPorts.isEmpty && filteredPortForwardConnections.isEmpty && state.tunnelManager.tunnels.isEmpty && menuBarNamedTunnels.isEmpty {
                     emptyState
                 } else if !filteredPorts.isEmpty {
-                    sectionHeader("Local Ports", icon: "network", color: .green)
+                    sectionHeader(L("menubar.section.localPorts"), icon: "network", color: .green)
 
                     if useTreeView {
                         treeView
@@ -48,7 +48,7 @@ struct MenuBarPortList: View {
 
                 // K8s Port Forward connections grouped by namespace
                 if !filteredPortForwardConnections.isEmpty {
-                    sectionHeader("K8s Port Forward", icon: "point.3.connected.trianglepath.dotted", color: .blue)
+                    sectionHeader(L("menubar.section.k8sPortForward"), icon: "point.3.connected.trianglepath.dotted", color: .blue)
 
                     ForEach(connectionsByNamespace, id: \.namespace) { group in
                         namespaceHeader(group.namespace, count: group.connections.count)
@@ -60,7 +60,7 @@ struct MenuBarPortList: View {
 
                 // Active Quick Tunnels (port-derived)
                 if !state.tunnelManager.tunnels.isEmpty {
-                    sectionHeader("Quick Tunnels", icon: "bolt.fill", color: .yellow)
+                    sectionHeader(L("menubar.section.quickTunnels"), icon: "bolt.fill", color: .yellow)
 
                     ForEach(state.tunnelManager.tunnels) { tunnel in
                         MenuBarTunnelRow(tunnel: tunnel, state: state)
@@ -70,7 +70,7 @@ struct MenuBarPortList: View {
                 // Named (persistent) Cloudflare Tunnels — at the bottom: a tunnel
                 // runner is the least-frequent quick action versus inspecting/killing ports.
                 if !menuBarNamedTunnels.isEmpty {
-                    sectionHeader("My Tunnels", icon: "cloud.fill", color: .orange)
+                    sectionHeader(L("menubar.section.myTunnels"), icon: "cloud.fill", color: .orange)
 
                     ForEach(menuBarNamedTunnels) { tunnel in
                         MenuBarNamedTunnelRow(tunnel: tunnel, state: state)
@@ -126,7 +126,7 @@ struct MenuBarPortList: View {
             Image(systemName: "network.slash")
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
-            Text("No open ports")
+            Text(L("menubar.noOpenPorts"))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)

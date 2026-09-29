@@ -57,19 +57,19 @@ struct SettingsView: View {
                 )
 
                 // MARK: - Updates
-                SettingsGroup("Software Update", icon: "arrow.triangle.2.circlepath") {
+                SettingsGroup(L("settings.section.updates"), icon: "arrow.triangle.2.circlepath") {
                     VStack(spacing: 0) {
                         SettingsRowContainer {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("PortKiller \(AppInfo.versionString)")
+                                    Text(L("settings.updates.appVersion", AppInfo.versionString))
                                         .fontWeight(.medium)
                                     if let lastCheck = updateManager.lastUpdateCheckDate {
-                                        Text("Last checked \(lastCheck.formatted(.relative(presentation: .named)))")
+                                        Text(L("settings.updates.lastChecked", lastCheck.formatted(.relative(presentation: .named))))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     } else {
-                                        Text("Never checked for updates")
+                                        Text(L("settings.updates.neverChecked"))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -77,7 +77,7 @@ struct SettingsView: View {
 
                                 Spacer()
 
-                                Button("Check Now") {
+                                Button(L("settings.updates.checkNow")) {
                                     updateManager.checkForUpdates()
                                 }
                                 .disabled(!updateManager.canCheckForUpdates)
@@ -87,8 +87,8 @@ struct SettingsView: View {
                         SettingsDivider()
 
                         SettingsToggleRow(
-                            title: "Check automatically",
-                            subtitle: "Look for updates in the background",
+                            title: L("settings.updates.checkAutomatically"),
+                            subtitle: L("settings.updates.checkAutomatically.subtitle"),
                             isOn: Binding(
                                 get: { updateManager.automaticallyChecksForUpdates },
                                 set: { updateManager.automaticallyChecksForUpdates = $0 }
@@ -98,8 +98,8 @@ struct SettingsView: View {
                         SettingsDivider()
 
                         SettingsToggleRow(
-                            title: "Download automatically",
-                            subtitle: "Download updates when available",
+                            title: L("settings.updates.downloadAutomatically"),
+                            subtitle: L("settings.updates.downloadAutomatically.subtitle"),
                             isOn: Binding(
                                 get: { updateManager.automaticallyDownloadsUpdates },
                                 set: { updateManager.automaticallyDownloadsUpdates = $0 }
@@ -109,14 +109,14 @@ struct SettingsView: View {
                 }
 
                 // MARK: - Sponsors
-                SettingsGroup("Sponsors", icon: "heart.fill") {
+                SettingsGroup(L("settings.section.sponsors"), icon: "heart.fill") {
                     VStack(spacing: 0) {
                         SettingsRowContainer {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Show Sponsors Window")
+                                    Text(L("settings.sponsors.showWindow"))
                                         .fontWeight(.medium)
-                                    Text("How often to display the sponsors window")
+                                    Text(L("settings.sponsors.showWindow.subtitle"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -140,16 +140,16 @@ struct SettingsView: View {
                         SettingsRowContainer {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("View Sponsors")
+                                    Text(L("settings.sponsors.view"))
                                         .fontWeight(.medium)
-                                    Text("See all current supporters")
+                                    Text(L("settings.sponsors.view.subtitle"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
 
                                 Spacer()
 
-                                Button("Show Window") {
+                                Button(L("settings.sponsors.showWindowButton")) {
                                     sponsorManager.showSponsorsWindow()
                                     openWindow(id: "sponsors")
                                 }
@@ -159,12 +159,12 @@ struct SettingsView: View {
                 }
 
                 // MARK: - About
-                SettingsGroup("About", icon: "info.circle.fill") {
+                SettingsGroup(L("settings.section.about"), icon: "info.circle.fill") {
                     VStack(spacing: 0) {
                         SettingsRowContainer {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Developer")
+                                    Text(L("settings.about.developer"))
                                         .fontWeight(.medium)
                                     Text("productdevbook")
                                         .font(.caption)
@@ -176,17 +176,17 @@ struct SettingsView: View {
 
                         SettingsDivider()
 
-                        SettingsLinkRow(title: "GitHub", subtitle: "Star the project", icon: "star.fill", url: AppInfo.githubRepo)
+                        SettingsLinkRow(title: "GitHub", subtitle: L("settings.about.github.subtitle"), icon: "star.fill", url: AppInfo.githubRepo)
                         SettingsDivider()
-                        SettingsLinkRow(title: "Sponsor", subtitle: "Support development", icon: "heart.fill", url: AppInfo.githubSponsors)
+                        SettingsLinkRow(title: L("settings.about.sponsor"), subtitle: L("settings.about.sponsor.subtitle"), icon: "heart.fill", url: AppInfo.githubSponsors)
                         SettingsDivider()
-                        SettingsLinkRow(title: "Report Issue", subtitle: "Found a bug?", icon: "ladybug.fill", url: AppInfo.githubIssues)
+                        SettingsLinkRow(title: L("settings.about.reportIssue"), subtitle: L("settings.about.reportIssue.subtitle"), icon: "ladybug.fill", url: AppInfo.githubIssues)
                         SettingsDivider()
                         SettingsLinkRow(title: "Twitter/X", subtitle: "@productdevbook", icon: "at", url: AppInfo.twitterURL)
                         SettingsDivider()
                         SettingsButtonRow(
-                            title: "Show Welcome Screen",
-                            subtitle: "Replay the onboarding wizard",
+                            title: L("settings.about.showWelcome"),
+                            subtitle: L("settings.about.showWelcome.subtitle"),
                             icon: "hand.wave.fill",
                             action: {
                                 Defaults[.hasCompletedOnboarding] = false

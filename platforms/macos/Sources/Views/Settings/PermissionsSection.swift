@@ -19,7 +19,7 @@ struct PermissionsSection: View {
     let onOpenNotificationSettings: () -> Void
 
     var body: some View {
-        SettingsGroup("Permissions", icon: "lock.shield.fill") {
+        SettingsGroup(L("settings.section.permissions"), icon: "lock.shield.fill") {
             VStack(spacing: 0) {
                 // Accessibility Permission
                 SettingsRowContainer {
@@ -29,9 +29,9 @@ struct PermissionsSection: View {
                             .foregroundStyle(hasAccessibility ? .green : .orange)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Accessibility")
+                            Text(L("settings.permissions.accessibility"))
                                 .fontWeight(.medium)
-                            Text(hasAccessibility ? "Permission granted" : "Required for global shortcuts")
+                            Text(hasAccessibility ? L("settings.permissions.accessibility.granted") : L("settings.permissions.accessibility.required"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -39,7 +39,7 @@ struct PermissionsSection: View {
                         Spacer()
 
                         if hasAccessibility {
-                            Text("Granted")
+                            Text(L("settings.permissions.grantedBadge"))
                                 .font(.caption)
                                 .foregroundStyle(.green)
                                 .padding(.horizontal, 8)
@@ -47,7 +47,7 @@ struct PermissionsSection: View {
                                 .background(.green.opacity(0.1))
                                 .clipShape(Capsule())
                         } else {
-                            Button("Grant Access") {
+                            Button(L("settings.permissions.grantAccess")) {
                                 promptAccessibility()
                             }
                             .buttonStyle(.borderedProminent)
@@ -66,7 +66,7 @@ struct PermissionsSection: View {
                             .foregroundStyle(notificationStatusColor)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Notifications")
+                            Text(L("settings.permissions.notifications"))
                                 .fontWeight(.medium)
                             Text(notificationStatusText)
                                 .font(.caption)
@@ -76,7 +76,7 @@ struct PermissionsSection: View {
                         Spacer()
 
                         if notificationStatus == .authorized {
-                            Text("Enabled")
+                            Text(L("common.enabled"))
                                 .font(.caption)
                                 .foregroundStyle(.green)
                                 .padding(.horizontal, 8)
@@ -84,13 +84,13 @@ struct PermissionsSection: View {
                                 .background(.green.opacity(0.1))
                                 .clipShape(Capsule())
                         } else if notificationStatus == .notDetermined {
-                            Button("Enable") {
+                            Button(L("common.enable")) {
                                 onRequestNotification()
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
                         } else {
-                            Button("Open Settings") {
+                            Button(L("settings.permissions.openSettings")) {
                                 onOpenNotificationSettings()
                             }
                             .controlSize(.small)
@@ -127,12 +127,12 @@ struct PermissionsSection: View {
     /// Returns descriptive text for notification status
     private var notificationStatusText: String {
         switch notificationStatus {
-        case .authorized: return "Alerts enabled for port watch"
-        case .denied: return "Notifications disabled in System Settings"
-        case .notDetermined: return "Required for port watch alerts"
-        case .provisional: return "Provisional notifications enabled"
-        case .ephemeral: return "Temporary notifications enabled"
-        @unknown default: return "Unknown status"
+        case .authorized: return L("settings.permissions.notif.authorized")
+        case .denied: return L("settings.permissions.notif.denied")
+        case .notDetermined: return L("settings.permissions.notif.notDetermined")
+        case .provisional: return L("settings.permissions.notif.provisional")
+        case .ephemeral: return L("settings.permissions.notif.ephemeral")
+        @unknown default: return L("settings.permissions.notif.unknown")
         }
     }
 }

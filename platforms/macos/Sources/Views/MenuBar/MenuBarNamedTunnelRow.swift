@@ -30,7 +30,7 @@ struct MenuBarNamedTunnelRow: View {
                 Text("\(tunnel.activeConnectionCount)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.green)
-                    .help("\(tunnel.activeConnectionCount) active edge connections")
+                    .help(L("tunnel.activeEdgeConnections", tunnel.activeConnectionCount))
             }
 
             trailingControls
@@ -45,19 +45,19 @@ struct MenuBarNamedTunnelRow: View {
     @ViewBuilder
     private var subtitle: some View {
         if tunnel.runSafety == .managedElsewhere {
-            Text("Managed elsewhere")
+            Text(L("tunnel.managedElsewhere"))
                 .font(.caption2)
                 .foregroundStyle(.orange)
         } else if tunnel.status == .starting {
-            Text("Starting…").font(.caption2).foregroundStyle(.secondary)
+            Text(L("tunnel.starting")).font(.caption2).foregroundStyle(.secondary)
         } else if tunnel.status == .running {
             Text(tunnel.status.rawValue)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         } else if tunnel.ingressRules.isEmpty {
-            Text("No ingress").font(.caption2).foregroundStyle(.tertiary)
+            Text(L("tunnel.noIngress")).font(.caption2).foregroundStyle(.tertiary)
         } else {
-            Text("\(tunnel.ingressRules.compactMap { $0.publicURL }.count) route(s)")
+            Text(L("tunnel.routeCount", tunnel.ingressRules.compactMap { $0.publicURL }.count))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -76,7 +76,7 @@ struct MenuBarNamedTunnelRow: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.green)
                 .opacity(isHovered ? 1 : 0.7)
-                .help("Run tunnel")
+                .help(L("tunnel.runHelp"))
             }
         case .starting, .stopping:
             ProgressView().scaleEffect(0.5).frame(width: 14, height: 14)
@@ -88,7 +88,7 @@ struct MenuBarNamedTunnelRow: View {
             }
             .buttonStyle(.plain)
             .opacity(isHovered ? 1 : 0.7)
-            .help("Stop tunnel")
+            .help(L("tunnel.stopHelp"))
         }
     }
 
@@ -97,11 +97,11 @@ struct MenuBarNamedTunnelRow: View {
         if tunnel.status == .running {
             Button(role: .destructive) {
                 state.namedTunnelManager.stop(tunnel)
-            } label: { Label("Stop Tunnel", systemImage: "stop.fill") }
+            } label: { Label(L("tunnel.stopTunnel"), systemImage: "stop.fill") }
         } else if tunnel.runSafety != .managedElsewhere {
             Button {
                 state.namedTunnelManager.run(tunnel)
-            } label: { Label("Run Tunnel", systemImage: "play.fill") }
+            } label: { Label(L("tunnel.runTunnel"), systemImage: "play.fill") }
         }
         if let route = primaryRoute {
             Divider()
@@ -109,7 +109,7 @@ struct MenuBarNamedTunnelRow: View {
                 if let url = URL(string: route) {
                     NSWorkspace.shared.open(url)
                 }
-            } label: { Label("Open \(route)", systemImage: "globe") }
+            } label: { Label(L("tunnel.openRoute", route), systemImage: "globe") }
         }
     }
 }

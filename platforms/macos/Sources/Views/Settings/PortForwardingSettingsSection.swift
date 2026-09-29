@@ -12,12 +12,12 @@ struct PortForwardingSettingsSection: View {
     @AppStorage("portForwardAutoStart") private var autoStart = false
 
     var body: some View {
-        SettingsGroup("Port Forwarding", icon: "point.3.connected.trianglepath.dotted") {
+        SettingsGroup(L("settings.section.portForwarding"), icon: "point.3.connected.trianglepath.dotted") {
             VStack(spacing: 0) {
                 // Auto-start toggle
                 SettingsToggleRow(
-                    title: "Auto-start connections",
-                    subtitle: "Start all connections when app launches",
+                    title: L("settings.portForwarding.autoStart"),
+                    subtitle: L("settings.portForwarding.autoStart.subtitle"),
                     isOn: $autoStart
                 )
 
@@ -89,7 +89,7 @@ private struct DependencySettingsRow: View {
                             .fontWeight(.medium)
 
                         if !dependency.isRequired {
-                            Text("(optional)")
+                            Text(L("settings.portForwarding.optional"))
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                         }
@@ -101,7 +101,7 @@ private struct DependencySettingsRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            Text("Installed")
+                            Text(L("settings.portForwarding.installed"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -109,7 +109,7 @@ private struct DependencySettingsRow: View {
                         HStack(spacing: 8) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(.red)
-                            Text("Not found")
+                            Text(L("settings.portForwarding.notFound"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
@@ -117,7 +117,7 @@ private struct DependencySettingsRow: View {
                                 ProgressView()
                                     .scaleEffect(0.7)
                             } else {
-                                Button("Install") {
+                                Button(L("settings.portForwarding.install")) {
                                     install()
                                 }
                                 .buttonStyle(.bordered)
@@ -129,7 +129,7 @@ private struct DependencySettingsRow: View {
 
                 // Path input
                 HStack(spacing: 8) {
-                    TextField("Custom path (leave empty for auto)", text: $pathInput)
+                    TextField(L("settings.portForwarding.customPath"), text: $pathInput)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.caption, design: .monospaced))
                         .onAppear {
@@ -144,7 +144,7 @@ private struct DependencySettingsRow: View {
                         }
 
                     if !pathInput.isEmpty {
-                        Button("Clear") {
+                        Button(L("common.clear")) {
                             pathInput = ""
                             Defaults[customPathKey] = nil
                         }
@@ -156,19 +156,19 @@ private struct DependencySettingsRow: View {
                 // Current path info
                 if let path = effectivePath {
                     HStack(spacing: 4) {
-                        Text("Using:")
+                        Text(L("settings.portForwarding.using"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                         Text(path)
                             .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(.secondary)
-                        Text(isUsingCustom ? "(custom)" : "(auto)")
+                        Text(isUsingCustom ? L("settings.portForwarding.custom") : L("settings.portForwarding.auto"))
                             .font(.caption2)
                             .foregroundStyle(isUsingCustom ? Color.orange : Color.gray)
                     }
                 } else if let auto = autoPath {
                     HStack(spacing: 4) {
-                        Text("Auto-detected:")
+                        Text(L("settings.portForwarding.autoDetected"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                         Text(auto)
