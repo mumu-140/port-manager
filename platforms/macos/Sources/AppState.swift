@@ -9,6 +9,7 @@ import Sparkle
 extension Defaults.Keys {
     static let favorites = Key<Set<Int>>("favorites", default: [])
     static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
+    static let managedServices = Key<[ManagedServiceConfig]>("managedServices", default: [])
     static let useTreeView = Key<Bool>("useTreeView", default: false)
     static let hideSystemProcesses = Key<Bool>("hideSystemProcesses", default: false)
     static let skipKillConfirmation = Key<Bool>("skipKillConfirmation", default: false)
@@ -156,7 +157,7 @@ final class AppState {
         var result: [PortInfo]
 
         switch selectedSidebarItem {
-        case .allPorts, .settings, .sponsors, .kubernetesPortForward, .cloudflareTunnels:
+        case .allPorts, .settings, .sponsors, .kubernetesPortForward, .cloudflareTunnels, .managedServices:
             result = ports
         case .favorites:
             var activePorts = Set<Int>()
@@ -231,6 +232,9 @@ final class AppState {
     /// Evaluates auto-kill rules against the scanned ports
     let autoKillManager = AutoKillManager()
 
+    /// Manages user-defined local services and their owned runtimes
+    let managedServiceManager: ManagedServiceManager
+
     // MARK: - Internal Properties (for extensions)
 
     /// Port scanning actor
@@ -255,6 +259,16 @@ final class AppState {
         let cloudflared = CloudflaredService()
         self.tunnelManager = TunnelManager(cloudflaredService: cloudflared)
         self.namedTunnelManager = NamedTunnelManager(cloudflaredService: cloudflared)
+
+        let managedServices = ManagedServiceManager(scanner: scanner)
+        self.managedServiceManager = managedServices
+        managedServices.tunnelCoordinator = self.tunnelManager
+
+        // Runtime logs are not profile data: drop anything a previous session
+        // (including one that quit while a managed child survived) left on disk
+        // before this session can launch new runtimes.
+        ManagedServiceRuntimeLogStore.removeAll()
+        managedServices.load()
 
         setupKeyboardShortcuts()
         startAutoRefresh()

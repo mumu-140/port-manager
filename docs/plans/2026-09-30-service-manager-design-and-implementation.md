@@ -260,7 +260,8 @@ Before launch:
 5. Inherit the current application environment.
 6. Add `PORT_MANAGER_SERVICE_ID=<profile-id>` to the child environment for diagnostics/future compatibility.
 7. Redirect stdout and stderr.
-8. Read output asynchronously so the child cannot deadlock on a full pipe.
+8. Read the runtime log files asynchronously: the child never blocks on a full
+   pipe, and it never dies with SIGPIPE once Port Manager exits.
 9. Keep at most 200 recent output lines in memory.
 
 ### 7.2 Foreground-process requirement
@@ -1011,7 +1012,7 @@ Keep Cloudflare tunnel behavior routed through the existing TunnelViewModel.
 | Profile storage | Defaults | settings.json |
 | Default command shell | `/bin/zsh -lc` | `cmd.exe /d /s /c` |
 | Working directory | `Process.currentDirectoryURL` | `ProcessStartInfo.WorkingDirectory` |
-| Output capture | Pipe async lines | redirected async stdout/stderr |
+| Output capture | File-backed runtime logs (tailed) | redirected async stdout/stderr |
 | Graceful stop | SIGTERM owned tree | close when possible |
 | Force stop | SIGKILL owned tree | `Kill(entireProcessTree: true)` |
 | Port inspection | existing `PortScannerProtocol` | existing scanner through interface |

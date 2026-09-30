@@ -73,3 +73,6 @@ __pycache__/
 AppDir/
 *.AppImage
 appimagetool
+
+# Local agent knowledge base (never committed)
+.helloagents/
