@@ -9,6 +9,7 @@ on:
     tags-ignore:
       - 'v*'
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     branches: [main]
     paths:
       - 'platforms/windows/**'
@@ -154,3 +155,24 @@ jobs:
                 body: body
               });
             }
+
+  # Opt-in app-quit survival test (design notes, section 6.5). Enable by adding
+  # the `survival-smoke` label to the pull request; it launches a real managed
+  # service, lets the launching process exit, then proves in a fresh process
+  # that the child survived and is reported as an unowned Conflict.
+  survival:
+    name: Survival Smoke
+    runs-on: windows-latest
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'survival-smoke')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Run app-quit survival smoke
+        shell: pwsh
+        run: ./platforms/windows/scripts/smoke-service-survival.ps1
