@@ -182,11 +182,9 @@ public sealed class ManagedServiceState : INotifyPropertyChanged
 
     public void AppendOutput(string text, ManagedServiceLogStream stream)
     {
-        var trimmed = (text ?? string.Empty).Trim('', '
-');
+        var trimmed = (text ?? string.Empty).Trim('\r', '\n');
         if (trimmed.Length == 0) return;
-        foreach (var line in trimmed.Split('
-'))
+        foreach (var line in trimmed.Split('\n'))
         {
             RecentOutput.Add(new ManagedServiceLogEntry { Stream = stream, Text = line.TrimEnd('') });
         }
