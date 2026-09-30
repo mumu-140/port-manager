@@ -22,7 +22,7 @@ final class UpdateManager {
     // MARK: - Public Properties
 
     /// Whether the independently configured updater is ready.
-    var canCheckForUpdates = Self.isRunningFromBundle && Self.isUpdaterConfigured
+    var canCheckForUpdates = UpdateManager.isRunningFromBundle && UpdateManager.isUpdaterConfigured
 
     /// Timestamp of the last update check
     var lastUpdateCheckDate: Date?
