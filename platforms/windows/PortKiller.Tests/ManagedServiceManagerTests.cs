@@ -147,6 +147,7 @@ public class ManagedServiceManagerTests
 
         // The owned process stops, but a foreign listener grabs the port.
         ports.Occupy(8080, 9999);
+        processes.OnStop = _ => ports.ReleasePid(8080, 7777);
 
         var stopped = await manager.StopAsync(config.Id);
 
@@ -366,6 +367,11 @@ public class ManagedServiceManagerTests
 
         public void Release(int port) => _occupants.Remove(port);
 
+        public void ReleasePid(int port, int pid)
+        {
+            if (_occupants.TryGetValue(port, out var list)) list.RemoveAll(p => p.Pid == pid);
+        }
+
         public Task<IReadOnlyList<PortInfo>> ScanAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<PortInfo>>(_occupants.Values.SelectMany(v => v).ToList());
 
@@ -378,6 +384,7 @@ public class ManagedServiceManagerTests
             if (_later.TryGetValue(port, out var later) && calls > later.Threshold)
             {
                 Occupy(port, later.Pid);
+                _later.Remove(port);
             }
 
             var result = _occupants.TryGetValue(port, out var list)
