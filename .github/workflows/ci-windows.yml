@@ -176,3 +176,32 @@ jobs:
       - name: Run app-quit survival smoke
         shell: pwsh
         run: ./platforms/windows/scripts/smoke-service-survival.ps1
+
+  # Opt-in GUI smoke test. Enable by adding the `gui-smoke` label to the pull
+  # request. It publishes the win-x64 artifact, launches the real WPF app and
+  # drives it with UI Automation through lifecycle, threading, edit, conflict
+  # and delete, uploading tree dumps and screenshots as evidence.
+  gui-smoke:
+    name: GUI Smoke
+    runs-on: windows-latest
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'gui-smoke')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Run GUI smoke
+        shell: pwsh
+        run: ./platforms/windows/scripts/smoke-gui.ps1
+
+      - name: Upload GUI smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-smoke-evidence
+          path: artifacts/gui-smoke-evidence
+          retention-days: 7
