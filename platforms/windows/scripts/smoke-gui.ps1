@@ -111,19 +111,21 @@ function Dump-Desktop([string]$name) {
 
 function Invoke-Element($element, [string]$label) {
     Log "invoke: $label"
-    $invoked = $false
-    try {
-        $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        $pattern.Invoke()
-        $invoked = $true
-    } catch {
-        # Native MessageBox buttons expose LegacyIAccessible instead of Invoke.
-    }
-    if (-not $invoked) {
-        $legacy = $element.GetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern)
-        $legacy.DoDefaultAction()
-    }
+    $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+    $pattern.Invoke()
     Start-Sleep -Milliseconds 500
+}
+
+function Confirm-Dialog([string]$title) {
+    $dialog = Wait-Element $Desktop (New-NameCondition $title) 15 "$title dialog"
+    Dump-Tree $dialog ("dialog-" + ($title -replace " ", "-"))
+    [void][GuiSmokeNative]::SetForegroundWindow([IntPtr]$dialog.Current.NativeWindowHandle)
+    Start-Sleep -Milliseconds 500
+    Add-Type -AssemblyName System.Windows.Forms
+    # Native MessageBox buttons are not Invoke-able; the default button is OK.
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Log "confirmed '$title' with ENTER"
+    Start-Sleep -Seconds 1
 }
 
 function Set-ElementText($root, [string]$automationId, [string]$text) {
@@ -329,13 +331,7 @@ try {
     Start-Sleep -Seconds 2
     Dump-Desktop "07a-after-delete-click"
     Dump-Tree $mainWindow "07b-after-delete-click"
-    $dialog = Wait-Element $Desktop (New-NameCondition "Delete service") 15 "delete confirmation window"
-    Dump-Tree $dialog "07c-delete-dialog"
-    $okCondition = New-Object System.Windows.Automation.AndCondition(
-        (New-NameCondition "OK"),
-        (New-Object System.Windows.Automation.PropertyCondition($UIA::ControlTypeProperty, [System.Windows.Automation.ControlType]::Pane)))
-    $okButton = Wait-Element $dialog $okCondition 15 "delete confirmation OK button"
-    Invoke-Element $okButton "delete confirmation OK"
+    Confirm-Dialog "Delete service"
     Start-Sleep -Seconds 2
     if ($occupantProcess.HasExited) { throw "deleting a conflict profile killed the occupant" }
     Log "conflict profile deleted; external occupant still alive"
