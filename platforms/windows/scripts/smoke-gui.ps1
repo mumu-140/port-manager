@@ -86,6 +86,29 @@ function Wait-TopLevel([string]$name, [int]$timeoutSeconds) {
     throw "Timed out waiting for the '$name' window"
 }
 
+function Get-AncestorWindow($element) {
+    $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+    $current = $element
+    while ($current) {
+        if ($current.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) { return $current }
+        $current = $walker.GetParent($current)
+    }
+    return $element
+}
+
+function Dump-Desktop([string]$name) {
+    $path = Join-Path $evidenceDir "desktop-$name.txt"
+    $elements = $Desktop.FindAll([System.Windows.Automation.TreeScope]::Children, $TrueCondition)
+    $lines = foreach ($element in $elements) {
+        try {
+            $info = $element.Current
+            "pid={0} | {1} | id={2} | name={3}" -f $info.ProcessId, $info.ControlType.ProgrammaticName, $info.AutomationId, $info.Name
+        } catch { }
+    }
+    Set-Content -Path $path -Value $lines
+    Log "desktop dump: $path ($($lines.Count) windows)"
+}
+
 function Invoke-Element($element, [string]$label) {
     Log "invoke: $label"
     $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
@@ -238,8 +261,11 @@ try {
     Save-Screenshot $mainWindow "01-local-services"
 
     Invoke-Element (Wait-Element $mainWindow (New-NameCondition "Add Service") 15 "Add Service button") "Add Service"
+    Start-Sleep -Seconds 2
+    Dump-Desktop "02a-after-add"
 
-    $editor = Wait-TopLevel "Service profile" 20
+    $nameBox = Wait-Element $Desktop (New-IdCondition "NameBox") 25 "editor NameBox"
+    $editor = Get-AncestorWindow $nameBox
     Log "editor window: $($editor.Current.Name)"
     Dump-Tree $editor "02-editor"
 
@@ -268,7 +294,8 @@ try {
     Log "service stopped"
 
     Invoke-Element (Wait-Element $mainWindow (New-NameCondition "Edit") 15 "Edit button") "Edit"
-    $editor2 = Wait-TopLevel "Service profile" 20
+    $nameBox2 = Wait-Element $Desktop (New-IdCondition "NameBox") 25 "editor NameBox (stopped edit)"
+    $editor2 = Get-AncestorWindow $nameBox2
     Set-ElementText $editor2 "NameBox" "GUI Smoke Edited"
     Invoke-Element (Wait-Element $editor2 (New-NameCondition "Save") 10 "editor Save button") "editor Save (stopped edit)"
     Start-Sleep -Seconds 1
