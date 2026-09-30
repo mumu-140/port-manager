@@ -152,7 +152,7 @@ internal static class ManagedServiceRuntimeLauncher
         var startup = new STARTUPINFO
         {
             cb = Marshal.SizeOf<STARTUPINFO>(),
-            dwFlags = STARTF_USESTDHANDLES,
+            dwFlags = (int)STARTF_USESTDHANDLES,
             hStdInput = stdinHandle,
             hStdOutput = stdoutHandle,
             hStdError = stderrHandle,
