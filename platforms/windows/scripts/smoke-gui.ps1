@@ -316,8 +316,10 @@ try {
     Save-Screenshot $mainWindow "06-conflict"
 
     Invoke-Element (Wait-Element $mainWindow (New-NameCondition "Delete") 15 "Delete button") "Delete"
-    $dialog = Wait-TopLevel "Delete service" 15
-    Invoke-Element (Wait-Element $dialog (New-NameCondition "OK") 10 "delete confirmation OK button") "delete confirmation OK"
+    Start-Sleep -Seconds 2
+    Dump-Desktop "07a-after-delete-click"
+    $okButton = Wait-Element $Desktop (New-NameCondition "OK") 15 "delete confirmation OK button"
+    Invoke-Element $okButton "delete confirmation OK"
     Start-Sleep -Seconds 2
     if ($occupantProcess.HasExited) { throw "deleting a conflict profile killed the occupant" }
     Log "conflict profile deleted; external occupant still alive"
