@@ -20,6 +20,9 @@ extension AppState {
             let didChange = updatePorts(scanned)
             didChangeAny = didChangeAny || didChange
 
+            // Reconcile managed service runtime state with the latest scan.
+            managedServiceManager.reconcile(with: ports)
+
             // Check process type notifications for newly appeared ports
             if didChange {
                 checkProcessTypeNotifications(oldPorts: previousPorts, newPorts: scanned)

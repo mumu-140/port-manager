@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await appState.portForwardManager.killStuckProcesses()
             await appState.tunnelManager.stopAllTunnels()
+            await appState.stopAllManagedServices()
             await MainActor.run {
                 NSApp.reply(toApplicationShouldTerminate: true)
             }
