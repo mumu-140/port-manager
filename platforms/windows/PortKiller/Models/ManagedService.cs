@@ -186,7 +186,7 @@ public sealed class ManagedServiceState : INotifyPropertyChanged
         if (trimmed.Length == 0) return;
         foreach (var line in trimmed.Split('\n'))
         {
-            RecentOutput.Add(new ManagedServiceLogEntry { Stream = stream, Text = line.TrimEnd('') });
+            RecentOutput.Add(new ManagedServiceLogEntry { Stream = stream, Text = line.TrimEnd('\r') });
         }
         while (RecentOutput.Count > MaxOutputLines)
         {
