@@ -2,20 +2,8 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>PortKiller Updates</title>
-    <link>https://github.com/productdevbook/port-killer</link>
-    <description>Most recent updates to PortKiller</description>
+    <link>https://github.com/mumu-140/port-manager</link>
+    <description>Reserved update feed for the independently maintained mumu-140/port-manager fork.</description>
     <language>en</language>
-    <item>
-      <title>Version 3.3.3</title>
-      <pubDate>Sun, 21 Jun 2026 21:40:05 +0000</pubDate>
-      <sparkle:version>226</sparkle:version>
-      <sparkle:shortVersionString>3.3.3</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <enclosure
-        url="https://github.com/productdevbook/port-killer/releases/download/v3.3.3/PortKiller-v3.3.3-macos.dmg"
-        length="6421269"
-        type="application/octet-stream"
-        sparkle:edSignature="MyS9ptmNu1vn0J58fOHdzpAkBDsbUrcR5flzIZOVCoP09bRcPtc7et+cgZTdD603sYl3bqhMULpcnY0MWSQSDw==" />
-    </item>
   </channel>
 </rss>

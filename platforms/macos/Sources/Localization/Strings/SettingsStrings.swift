@@ -14,7 +14,7 @@ enum SettingsStrings {
         "settings.section.shortcuts": (en: "Keyboard Shortcuts", zh: "键盘快捷键"),
         "settings.section.permissions": (en: "Permissions", zh: "权限"),
         "settings.section.updates": (en: "Software Updates", zh: "软件更新"),
-        "settings.section.sponsors": (en: "Sponsors", zh: "赞助"),
+        "settings.section.sponsors": (en: "Community", zh: "社区"),
         "settings.section.about": (en: "About", zh: "关于"),
 
         // Language selector (goal 5)
@@ -134,20 +134,22 @@ enum SettingsStrings {
         ),
 
         // Sponsors
-        "settings.sponsors.showWindow": (en: "Show Sponsors Window", zh: "显示赞助窗口"),
+        "settings.sponsors.showWindow": (en: "Show Community Window", zh: "显示社区窗口"),
         "settings.sponsors.showWindow.subtitle": (
-            en: "How often to display the sponsors window",
-            zh: "显示赞助窗口的频率"
+            en: "How often to display the community window",
+            zh: "显示社区窗口的频率"
         ),
-        "settings.sponsors.view": (en: "View Sponsors", zh: "查看赞助者"),
-        "settings.sponsors.view.subtitle": (en: "See all current supporters", zh: "查看所有当前支持者"),
+        "settings.sponsors.view": (en: "View Community", zh: "查看社区"),
+        "settings.sponsors.view.subtitle": (en: "See project supporters and contributors", zh: "查看项目支持者和贡献者"),
         "settings.sponsors.showWindowButton": (en: "Show Window", zh: "显示窗口"),
 
         // About
-        "settings.about.developer": (en: "Developer", zh: "开发者"),
-        "settings.about.github.subtitle": (en: "Star the project", zh: "为项目点赞"),
-        "settings.about.sponsor": (en: "Sponsor", zh: "赞助"),
-        "settings.about.sponsor.subtitle": (en: "Support development", zh: "支持开发"),
+        "settings.about.developer": (en: "Maintainer", zh: "维护者"),
+        "settings.about.github.subtitle": (en: "Independent project repository", zh: "独立维护的项目仓库"),
+        "settings.about.support": (en: "Support Project", zh: "支持项目"),
+        "settings.about.support.subtitle": (en: "Ways to support development", zh: "查看支持项目的方式"),
+        "settings.about.upstream": (en: "Fork Origin", zh: "Fork 来源"),
+        "settings.about.upstream.subtitle": (en: "Original upstream repository", zh: "原始上游仓库"),
         "settings.about.reportIssue": (en: "Report Issue", zh: "反馈问题"),
         "settings.about.reportIssue.subtitle": (en: "Found a bug?", zh: "发现了 Bug？"),
         "settings.about.showWelcome": (en: "Show Welcome Screen", zh: "显示欢迎界面"),

@@ -29,16 +29,16 @@
     <key>NSUserNotificationAlertStyle</key>
     <string>alert</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2025 PortKiller Contributors</string>
-    <!-- Sparkle Configuration -->
-    <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/productdevbook/port-killer/main/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>F/FTbv7ZnucHLHqUmAF0w3peyir2Jxsf1k3J5TU85U0=</string>
+    <string>Copyright © 2025 PortKiller Contributors; 2026 mumu-140/port-manager contributors</string>
+    <!--
+      Sparkle is retained as an optional framework, but this fork does not
+      reuse the upstream feed or signing key. Automatic updates remain
+      disabled until this repository provisions its own signed feed.
+    -->
     <key>SUEnableAutomaticChecks</key>
-    <true/>
+    <false/>
     <key>SUAllowsAutomaticUpdates</key>
-    <true/>
+    <false/>
     <key>SUScheduledCheckInterval</key>
     <integer>86400</integer>
     <key>SUShowReleaseNotes</key>

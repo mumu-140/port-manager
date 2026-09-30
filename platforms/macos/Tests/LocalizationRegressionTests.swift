@@ -55,7 +55,7 @@ struct LocalizationRegressionTests {
         let pattern = try NSRegularExpression(
             pattern: "(?:\(initializers))\\s*\\(\\s*\"((?:[^\"\\\\]|\\\\.)*)\""
         )
-        let allowlist: Set<String> = ["productdevbook"]
+        let allowlist: Set<String> = []
         var offenders: [String] = []
         for url in try swiftSources() {
             let source = try String(contentsOf: url, encoding: .utf8)

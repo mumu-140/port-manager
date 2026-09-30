@@ -38,7 +38,7 @@ struct SponsorsPageView: View {
 
                     Spacer()
 
-                    if let url = URL(string: AppInfo.githubSponsors) {
+                    if let url = URL(string: AppInfo.supportURL) {
                         Link(destination: url) {
                             HStack(spacing: 6) {
                                 Image(systemName: "heart.fill")
@@ -56,7 +56,7 @@ struct SponsorsPageView: View {
                 .padding(.top, 20)
 
                 // Sponsors Content
-                if sponsorManager.sponsors.isEmpty && !sponsorManager.isLoading {
+                if sponsorManager.sponsors.isEmpty && sponsorManager.contributors.isEmpty && !sponsorManager.isLoading {
                     emptyState
                 } else {
                     VStack(spacing: 24) {
@@ -177,7 +177,7 @@ struct SponsorsPageView: View {
                     .font(.title2)
                     .fontWeight(.medium)
 
-                if let url = URL(string: AppInfo.githubSponsors) {
+                if let url = URL(string: AppInfo.supportURL) {
                     Link(L("sponsor.becomeSponsor"), destination: url)
                         .buttonStyle(.borderedProminent)
                         .tint(.pink)

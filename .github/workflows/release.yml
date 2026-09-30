@@ -6,20 +6,15 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: 'Dry run (skip upload to release)'
-        required: false
-        default: 'false'
-        type: boolean
       version:
-        description: 'Version to test (e.g., v3.2.0-test)'
-        required: false
+        description: 'Version label for a dry-run build (e.g. v0.0.0-test)'
+        required: true
         default: 'v0.0.0-test'
         type: string
   workflow_call:
     inputs:
       is_pr_build:
-        description: 'Is this a PR build?'
+        description: 'Build only the macOS PR artifact'
         type: boolean
         default: false
       pr_number:
@@ -27,11 +22,11 @@ on:
         type: string
         default: ''
       version_override:
-        description: 'Version override (e.g., 0.0.0-pr123)'
+        description: 'Version override for reusable builds'
         type: string
         default: ''
       ref:
-        description: 'Git ref to checkout (branch name)'
+        description: 'Git ref to checkout'
         type: string
         default: ''
 
@@ -39,369 +34,72 @@ permissions:
   contents: write
 
 env:
-  # Use input version for workflow_dispatch, otherwise use tag
   RELEASE_VERSION: ${{ inputs.version_override || inputs.version || github.ref_name }}
 
 jobs:
   create-release:
-    name: Create Release
+    name: Create GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    # Skip for PR builds and dry runs
-    if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
-      - name: Create GitHub Release with Changelog
-        run: npx changelogithub
+      - name: Create release from pushed tag
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$RELEASE_VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "PortKiller $RELEASE_VERSION" \
+            --generate-notes
 
   build-macos:
     name: Build macOS
     needs: create-release
     if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
     runs-on: macos-latest
-
     defaults:
       run:
         working-directory: platforms/macos
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || '' }}
-          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - name: Import Code Signing Certificate
-        env:
-          CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ github.run_id }}
-        run: |
-          # Create temporary keychain
-          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # Import certificate
-          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
-          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-      - name: Update version in Info.plist
-        run: |
-          VERSION="${RELEASE_VERSION#v}"  # Remove 'v' prefix (v1.2.4 -> 1.2.4)
-          BUILD_NUMBER=$(git rev-list --count HEAD)
-
-          # Update version strings using PlistBuddy
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" Resources/Info.plist
-
-          echo "Updated version to ${VERSION} (build ${BUILD_NUMBER})"
-
-      - name: Build app bundle
+      - name: Build universal app bundle
         run: ./scripts/build-app.sh
 
-      - name: Sign app with Developer ID
+      - name: Package macOS app
+        run: |
+          ARCHIVE="PortKiller-$RELEASE_VERSION-macos-universal.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            ".build/apple/Products/Release/PortKiller.app" "$ARCHIVE"
+          echo "MACOS_ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
-          DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
-        run: |
-          APP_PATH=".build/apple/Products/Release/PortKiller.app"
-          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
-          SPARKLE="$FRAMEWORKS_PATH/Sparkle.framework/Versions/B"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$RELEASE_VERSION" "$MACOS_ARCHIVE" --clobber --repo "$GITHUB_REPOSITORY"
 
-          # Sign Sparkle framework components (inside out, bottom-up)
-          # Note: XPC services removed in build-app.sh for non-sandboxed apps
-          if [ -d "$FRAMEWORKS_PATH/Sparkle.framework" ]; then
-            echo "Signing Sparkle framework components..."
-
-            # Autoupdate binary
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" \
-              "$SPARKLE/Autoupdate"
-
-            # Updater app
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" \
-              "$SPARKLE/Updater.app"
-
-            # Main framework
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" \
-              "$FRAMEWORKS_PATH/Sparkle.framework"
-          fi
-
-          # Sign main app
-          codesign --force --options runtime --timestamp \
-            --sign "$DEVELOPER_ID_NAME" \
-            "$APP_PATH"
-
-          # Verify signatures
-          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-
-      - name: Notarize app
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          APP_PATH=".build/apple/Products/Release/PortKiller.app"
-
-          # Create ZIP for notarization
-          ditto -c -k --keepParent "$APP_PATH" "PortKiller.zip"
-
-          # Submit for notarization and capture output
-          SUBMIT_OUTPUT=$(xcrun notarytool submit "PortKiller.zip" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait 2>&1) || true
-
-          echo "$SUBMIT_OUTPUT"
-
-          # Extract submission ID and get detailed log if failed
-          SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep -o 'id: [a-f0-9-]*' | head -1 | cut -d' ' -f2)
-          if echo "$SUBMIT_OUTPUT" | grep -q "Invalid"; then
-            echo "=== NOTARIZATION FAILED - Getting detailed log ==="
-            xcrun notarytool log "$SUBMISSION_ID" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_ID_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID"
-            exit 1
-          fi
-
-          # Staple the notarization ticket
-          xcrun stapler staple "$APP_PATH"
-
-          # Cleanup
-          rm "PortKiller.zip"
-
-      - name: Create DMG
-        run: |
-          APP_NAME="PortKiller"
-          VERSION="${RELEASE_VERSION}"
-
-          # Use different naming for PR builds
-          if [ "${{ inputs.is_pr_build }}" = "true" ]; then
-            DMG_NAME="${APP_NAME}-pr${{ inputs.pr_number }}-macos.dmg"
-          else
-            DMG_NAME="${APP_NAME}-${VERSION}-macos.dmg"
-          fi
-
-          # Create temporary directory for DMG contents
-          mkdir -p dmg_contents
-          # Use ditto to preserve symlinks and extended attributes
-          ditto .build/apple/Products/Release/PortKiller.app dmg_contents/PortKiller.app
-
-          # Create Applications symlink
-          ln -s /Applications dmg_contents/Applications
-
-          # Create DMG
-          hdiutil create -volname "$APP_NAME" \
-            -srcfolder dmg_contents \
-            -ov -format UDZO \
-            "$DMG_NAME"
-
-          # Cleanup
-          rm -rf dmg_contents
-
-          echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
-
-      - name: Sign DMG
-        env:
-          DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
-        run: |
-          codesign --force --sign "$DEVELOPER_ID_NAME" --timestamp "$DMG_NAME"
-
-      - name: Notarize DMG
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          # Notarize DMG
-          SUBMIT_OUTPUT=$(xcrun notarytool submit "$DMG_NAME" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait 2>&1) || true
-
-          echo "Notarization Output: $SUBMIT_OUTPUT"
-
-          if echo "$SUBMIT_OUTPUT" | grep -q "Accepted"; then
-            xcrun stapler staple "$DMG_NAME" || echo "Stapling failed but continuing..."
-          fi
-
-      - name: Generate Sparkle EdDSA signature
-        if: ${{ !inputs.is_pr_build }}
-        env:
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: |
-          # Download Sparkle tools
-          curl -L -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz"
-          mkdir -p sparkle_tools
-          tar -xf sparkle.tar.xz -C sparkle_tools
-
-          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_private_key
-
-          # Generate signature
-          SIGN_OUTPUT=$(sparkle_tools/bin/sign_update "$DMG_NAME" -f /tmp/sparkle_private_key)
-          SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"$//')
-          echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
-
-          rm /tmp/sparkle_private_key
-
-      - name: Upload DMG to Release
-        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
-        working-directory: platforms/macos
-        run: |
-          gh release upload ${{ env.RELEASE_VERSION }} "$DMG_NAME" --clobber
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifact (PR build)
-        if: ${{ inputs.is_pr_build }}
+      - name: Upload CI artifact
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
         uses: actions/upload-artifact@v4
         with:
-          name: PortKiller-PR${{ inputs.pr_number }}
-          path: platforms/macos/${{ env.DMG_NAME }}
+          name: PortKiller-macOS-${{ inputs.pr_number || github.run_number }}
+          path: platforms/macos/PortKiller-*-macos-universal.zip
           retention-days: 7
-
-      - name: Dry run summary
-        if: ${{ inputs.dry_run && !inputs.is_pr_build }}
-        run: |
-          echo "🧪 DRY RUN - Build completed successfully!"
-          echo "📦 DMG created: $DMG_NAME"
-          echo "📏 DMG size: $(stat -f%z "$DMG_NAME") bytes"
-          echo "🔏 Sparkle signature: $SPARKLE_SIGNATURE"
-          echo ""
-          echo "In a real release, this DMG would be uploaded to:"
-          echo "  https://github.com/productdevbook/port-killer/releases/download/${RELEASE_VERSION}/${DMG_NAME}"
-
-      - name: Update appcast.xml
-        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
-        run: |
-          VERSION="${RELEASE_VERSION#v}"  # Remove 'v' prefix (v1.2.7 -> 1.2.7)
-          BUILD_NUMBER=$(git rev-list --count HEAD)  # Same as CFBundleVersion in app
-          DMG_SIZE=$(stat -f%z "$DMG_NAME")
-          DMG_URL="https://github.com/productdevbook/port-killer/releases/download/${RELEASE_VERSION}/${DMG_NAME}"
-
-          echo "Version: $VERSION, Build: $BUILD_NUMBER"
-
-          # Create or update appcast.xml
-          cat > appcast.xml << 'APPCAST_EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-            <channel>
-              <title>PortKiller Updates</title>
-              <link>https://github.com/productdevbook/port-killer</link>
-              <description>Most recent updates to PortKiller</description>
-              <language>en</language>
-              <item>
-                <title>Version VERSIONPLACEHOLDER</title>
-                <pubDate>DATEPLACEHOLDER</pubDate>
-                <sparkle:version>BUILDPLACEHOLDER</sparkle:version>
-                <sparkle:shortVersionString>VERSIONPLACEHOLDER</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-                <enclosure
-                  url="URLPLACEHOLDER"
-                  length="SIZEPLACEHOLDER"
-                  type="application/octet-stream"
-                  sparkle:edSignature="SIGPLACEHOLDER" />
-              </item>
-            </channel>
-          </rss>
-          APPCAST_EOF
-
-          # Replace placeholders
-          sed -i '' "s|BUILDPLACEHOLDER|${BUILD_NUMBER}|g" appcast.xml
-          sed -i '' "s|VERSIONPLACEHOLDER|${VERSION}|g" appcast.xml
-          sed -i '' "s|DATEPLACEHOLDER|$(date -R)|g" appcast.xml
-          sed -i '' "s|URLPLACEHOLDER|${DMG_URL}|g" appcast.xml
-          sed -i '' "s|SIZEPLACEHOLDER|${DMG_SIZE}|g" appcast.xml
-          sed -i '' "s|SIGPLACEHOLDER|${SPARKLE_SIGNATURE}|g" appcast.xml
-
-      - name: Commit appcast.xml
-        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
-        working-directory: ${{ github.workspace }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout main
-          # Move appcast.xml to root level (SUFeedURL points to main/appcast.xml)
-          mv platforms/macos/appcast.xml appcast.xml
-          git add appcast.xml
-          git commit -m "chore: update appcast.xml for ${RELEASE_VERSION}" || echo "No changes to commit"
-          git push origin main
-
-      - name: Update Homebrew Tap
-        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          VERSION="${RELEASE_VERSION#v}"
-
-          # Get SHA256 of the Universal DMG
-          SHA256=$(shasum -a 256 "$DMG_NAME" | cut -d' ' -f1)
-
-          # Clone homebrew-tap repo
-          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/productdevbook/homebrew-tap.git /tmp/homebrew-tap
-          cd /tmp/homebrew-tap
-
-          # Update cask formula
-          cat > Casks/portkiller.rb << EOF
-          cask "portkiller" do
-            version "${VERSION}"
-            sha256 "${SHA256}"
-
-            url "https://github.com/productdevbook/port-killer/releases/download/v#{version}/PortKiller-v#{version}-macos.dmg"
-
-            name "PortKiller"
-            desc "Menu bar app to find and kill processes running on open ports"
-            homepage "https://github.com/productdevbook/port-killer"
-
-            depends_on macos: :sequoia
-
-            app "PortKiller.app"
-
-            zap trash: [
-              "~/Library/Preferences/com.productdevbook.PortKiller.plist",
-              "~/Library/Caches/com.productdevbook.PortKiller",
-            ]
-          end
-          EOF
-
-          # Commit and push
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/portkiller.rb
-          git commit -m "Update portkiller to ${VERSION}"
-          git push
+          if-no-files-found: error
 
   build-windows:
     name: Build Windows
     needs: create-release
-    # Skip for PR builds (macOS only)
     if: ${{ always() && !inputs.is_pr_build && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
     runs-on: windows-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -414,48 +112,42 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore platforms/windows/PortKiller/PortKiller.csproj
 
-      - name: Build and publish x64
+      - name: Publish x64
+        run: dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-x64 --self-contained false -o publish/win-x64
+
+      - name: Publish arm64
+        run: dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-arm64 --self-contained false -o publish/win-arm64
+
+      - name: Package Windows builds
+        shell: pwsh
         run: |
-          dotnet publish platforms/windows/PortKiller/PortKiller.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained false `
-            -o publish/win-x64
+          Compress-Archive -Path publish/win-x64/* -DestinationPath "PortKiller-$env:RELEASE_VERSION-windows-x64.zip"
+          Compress-Archive -Path publish/win-arm64/* -DestinationPath "PortKiller-$env:RELEASE_VERSION-windows-arm64.zip"
 
-      - name: Build and publish arm64
-        run: |
-          dotnet publish platforms/windows/PortKiller/PortKiller.csproj `
-            -c Release `
-            -r win-arm64 `
-            --self-contained false `
-            -o publish/win-arm64
-
-      - name: Create ZIP archives
-        run: |
-          $version = "${{ env.RELEASE_VERSION }}"
-
-          # Create x64 ZIP
-          Compress-Archive -Path publish/win-x64/* -DestinationPath "PortKiller-${version}-windows-x64.zip"
-
-          # Create arm64 ZIP
-          Compress-Archive -Path publish/win-arm64/* -DestinationPath "PortKiller-${version}-windows-arm64.zip"
-
-      - name: Upload to Release
-        if: ${{ !inputs.dry_run }}
+      - name: Upload to GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
         run: |
-          $version = "${{ env.RELEASE_VERSION }}"
-          gh release upload $version "PortKiller-${version}-windows-x64.zip" --clobber
-          gh release upload $version "PortKiller-${version}-windows-arm64.zip" --clobber
+          gh release upload "$env:RELEASE_VERSION" `
+            "PortKiller-$env:RELEASE_VERSION-windows-x64.zip" `
+            "PortKiller-$env:RELEASE_VERSION-windows-arm64.zip" `
+            --clobber --repo "$env:GITHUB_REPOSITORY"
+
+      - name: Upload Windows artifacts
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PortKiller-Windows-${{ github.run_number }}
+          path: PortKiller-*-windows-*.zip
+          retention-days: 7
 
   build-linux:
     name: Build Linux
     needs: create-release
-    # Skip for PR builds (macOS only)
     if: ${{ always() && !inputs.is_pr_build && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
     runs-on: ubuntu-22.04
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -470,11 +162,7 @@ jobs:
 
       - name: Build AppImage
         run: |
-          VERSION="${{ env.RELEASE_VERSION }}"
-          VERSION="${VERSION#v}"
           APPDIR=AppDir
-
-          # Lay out the AppDir
           mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/port-killer"
           mkdir -p "$APPDIR/usr/share/applications"
           mkdir -p "$APPDIR/usr/share/icons/hicolor/scalable/apps"
@@ -483,10 +171,8 @@ jobs:
           cp platforms/linux/port-killer.py "$APPDIR/usr/share/port-killer/"
           chmod +x "$APPDIR/usr/share/port-killer/port-killer.py"
 
-          # Icon: AppImage needs it at the AppDir root as well as in the theme
           cp platforms/macos/Resources/AppIcon.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/port-killer.svg"
           cp platforms/macos/Resources/AppIcon.svg "$APPDIR/port-killer.svg"
-          # Some desktop environments will not read an SVG-only AppImage icon
           rsvg-convert -w 256 -h 256 platforms/macos/Resources/AppIcon.svg -o "$APPDIR/port-killer.png"
 
           cat > "$APPDIR/usr/share/applications/port-killer.desktop" <<'DESKTOP'
@@ -504,67 +190,43 @@ jobs:
           cp "$APPDIR/usr/share/applications/port-killer.desktop" "$APPDIR/port-killer.desktop"
           desktop-file-validate "$APPDIR/port-killer.desktop"
 
-          # Launcher. The GTK stack is taken from the host rather than bundled:
-          # PyGObject binds tightly to the system GLib/GTK, and bundling them
-          # breaks on distros whose versions differ from the build image.
           cat > "$APPDIR/usr/bin/port-killer" <<'LAUNCH'
           #!/bin/bash
           HERE="$(dirname "$(readlink -f "${0}")")"
           APPROOT="$(dirname "$(dirname "$HERE")")"
-
-          for dep in "gi:python3-gi" "gi.repository.Gtk:gir1.2-gtk-3.0"; do
-              mod="${dep%%:*}"
-              if ! python3 -c "import ${mod%%.*}" 2>/dev/null; then
-                  echo "PortKiller: missing ${dep##*:}." >&2
-                  echo "Install the GTK Python bindings, e.g.:" >&2
-                  echo "  Debian/Ubuntu: sudo apt install python3-gi gir1.2-ayatanaappindicator3-0.1" >&2
-                  echo "  Fedora:        sudo dnf install python3-gobject libayatana-appindicator-gtk3" >&2
-                  echo "  Arch:          sudo pacman -S python-gobject libayatana-appindicator" >&2
-                  exit 1
-              fi
-          done
-
           exec python3 "$APPROOT/usr/share/port-killer/port-killer.py" "$@"
           LAUNCH
           chmod +x "$APPDIR/usr/bin/port-killer"
-
-          # AppRun -> launcher
           ln -s usr/bin/port-killer "$APPDIR/AppRun"
 
-          # Package
           curl -fsSL -o appimagetool \
             "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
           chmod +x appimagetool
 
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
-            "$APPDIR" "PortKiller-${{ env.RELEASE_VERSION }}-linux-x86_64.AppImage"
+            "$APPDIR" "PortKiller-$RELEASE_VERSION-linux-x86_64.AppImage"
 
       - name: Verify AppImage
         run: |
-          FILE="PortKiller-${{ env.RELEASE_VERSION }}-linux-x86_64.AppImage"
+          FILE="PortKiller-$RELEASE_VERSION-linux-x86_64.AppImage"
           [ -f "$FILE" ] || { echo "AppImage not produced"; exit 1; }
           chmod +x "$FILE"
-          file "$FILE"
-
-          # Confirm the payload is actually in there
           ./"$FILE" --appimage-extract >/dev/null
-          [ -f squashfs-root/usr/share/port-killer/port-killer.py ] || { echo "Missing entry point"; exit 1; }
-          [ -f squashfs-root/usr/share/port-killer/src/ui/tray.py ] || { echo "Missing src/"; exit 1; }
-          [ -x squashfs-root/AppRun ] || { echo "AppRun not executable"; exit 1; }
+          [ -f squashfs-root/usr/share/port-killer/port-killer.py ] || exit 1
+          [ -f squashfs-root/usr/share/port-killer/src/ui/tray.py ] || exit 1
+          [ -x squashfs-root/AppRun ] || exit 1
           rm -rf squashfs-root
-          echo "AppImage verified"
 
-      - name: Upload to Release
-        if: ${{ !inputs.dry_run }}
+      - name: Upload to GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ env.RELEASE_VERSION }}" \
-            "PortKiller-${{ env.RELEASE_VERSION }}-linux-x86_64.AppImage" --clobber
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$RELEASE_VERSION" "PortKiller-$RELEASE_VERSION-linux-x86_64.AppImage" --clobber --repo "$GITHUB_REPOSITORY"
 
-      - name: Upload artifact (dry run)
-        if: ${{ inputs.dry_run }}
+      - name: Upload Linux artifact
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
         uses: actions/upload-artifact@v4
         with:
-          name: linux-appimage
+          name: PortKiller-Linux-${{ github.run_number }}
           path: PortKiller-*-linux-x86_64.AppImage
+          retention-days: 7

@@ -39,7 +39,7 @@ extension Defaults.Keys {
     // Sponsor-related keys
     static let sponsorCache = Key<SponsorCache?>("sponsorCache", default: nil)
     static let lastSponsorWindowShown = Key<Date?>("lastSponsorWindowShown", default: nil)
-    static let sponsorDisplayInterval = Key<SponsorDisplayInterval>("sponsorDisplayInterval", default: .bimonthly)
+    static let sponsorDisplayInterval = Key<SponsorDisplayInterval>("sponsorDisplayInterval", default: .never)
 }
 
 // MARK: - Keyboard Shortcuts

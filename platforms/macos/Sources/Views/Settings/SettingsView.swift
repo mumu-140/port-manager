@@ -166,7 +166,7 @@ struct SettingsView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(L("settings.about.developer"))
                                         .fontWeight(.medium)
-                                    Text("productdevbook")
+                                    Text(AppInfo.maintainer)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -178,11 +178,11 @@ struct SettingsView: View {
 
                         SettingsLinkRow(title: "GitHub", subtitle: L("settings.about.github.subtitle"), icon: "star.fill", url: AppInfo.githubRepo)
                         SettingsDivider()
-                        SettingsLinkRow(title: L("settings.about.sponsor"), subtitle: L("settings.about.sponsor.subtitle"), icon: "heart.fill", url: AppInfo.githubSponsors)
+                        SettingsLinkRow(title: L("settings.about.support"), subtitle: L("settings.about.support.subtitle"), icon: "heart.fill", url: AppInfo.supportURL)
                         SettingsDivider()
                         SettingsLinkRow(title: L("settings.about.reportIssue"), subtitle: L("settings.about.reportIssue.subtitle"), icon: "ladybug.fill", url: AppInfo.githubIssues)
                         SettingsDivider()
-                        SettingsLinkRow(title: "Twitter/X", subtitle: "@productdevbook", icon: "at", url: AppInfo.twitterURL)
+                        SettingsLinkRow(title: L("settings.about.upstream"), subtitle: L("settings.about.upstream.subtitle"), icon: "arrow.triangle.branch", url: AppInfo.upstreamRepo)
                         SettingsDivider()
                         SettingsButtonRow(
                             title: L("settings.about.showWelcome"),

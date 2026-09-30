@@ -1,4 +1,5 @@
-# PR build workflow - calls release.yml as reusable workflow
+# Manual/comment-triggered macOS PR build.
+# Uses the repository-local release workflow in artifact-only mode.
 name: PR Build Test
 
 on:
@@ -12,36 +13,22 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
+  issues: write
 
 jobs:
-  # Setup job: React to comment and get PR info
   setup:
-    name: Setup
+    name: Resolve PR
     runs-on: ubuntu-latest
-    # Run on PR comments with /test-build OR manual dispatch
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event.issue.pull_request && contains(github.event.comment.body, '/test-build'))
     outputs:
       ref: ${{ steps.pr.outputs.ref }}
       pr_number: ${{ steps.pr.outputs.pr_number }}
-
     steps:
-      - name: React to comment
-        if: github.event_name == 'issue_comment'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: context.payload.comment.id,
-              content: 'rocket'
-            });
-
-      - name: Get PR branch
+      - name: Resolve PR branch
         id: pr
         uses: actions/github-script@v7
         env:
@@ -52,52 +39,45 @@ jobs:
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: parseInt(prNumber)
+              pull_number: Number(prNumber)
             });
             core.setOutput('ref', pr.data.head.ref);
-            core.setOutput('pr_number', prNumber);
+            core.setOutput('pr_number', String(prNumber));
 
-  # Build job: Call release.yml as reusable workflow
   build:
-    name: Build
+    name: Build macOS artifact
     needs: setup
     uses: ./.github/workflows/release.yml
     with:
       is_pr_build: true
       pr_number: ${{ needs.setup.outputs.pr_number }}
-      version_override: '0.0.0-pr${{ needs.setup.outputs.pr_number }}'
+      version_override: 'v0.0.0-pr${{ needs.setup.outputs.pr_number }}'
       ref: ${{ needs.setup.outputs.ref }}
-    secrets: inherit
 
-  # Comment job: Post download link on PR
   comment:
-    name: Comment on PR
+    name: Comment artifact link
     needs: [setup, build]
     runs-on: ubuntu-latest
-
+    if: ${{ always() && needs.build.result == 'success' }}
     steps:
-      - name: Comment on PR
+      - name: Post download instructions
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
         with:
           script: |
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-            const prNumber = process.env.PR_NUMBER;
-            const dmgName = `PortKiller-pr${prNumber}-macos.dmg`;
             const body = [
-              '## Build completed!',
+              '## macOS test build ready',
               '',
-              `**DMG:** \`${dmgName}\``,
-              `**Download:** [View artifacts](${runUrl}#artifacts)`,
+              `Download the artifact from [this workflow run](${runUrl}#artifacts).`,
               '',
-              '_Fully signed and notarized. Artifact expires in 7 days._'
+              '_This is an unsigned/unnotarized CI test build, not a production release._'
             ].join('\n');
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: parseInt(prNumber),
-              body: body
+              issue_number: Number(process.env.PR_NUMBER),
+              body
             });
-
