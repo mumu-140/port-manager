@@ -264,6 +264,10 @@ final class AppState {
         self.managedServiceManager = managedServices
         managedServices.tunnelCoordinator = self.tunnelManager
 
+        // Runtime logs are not profile data: drop anything a previous session
+        // (including one that quit while a managed child survived) left on disk
+        // before this session can launch new runtimes.
+        ManagedServiceRuntimeLogStore.removeAll()
         managedServices.load()
 
         setupKeyboardShortcuts()

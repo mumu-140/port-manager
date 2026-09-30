@@ -146,6 +146,7 @@ final class ManagedServiceManager {
         services.remove(at: index)
         exitTasks[id]?.cancel()
         exitTasks[id] = nil
+        ManagedServiceRuntimeLogStore.removeLogs(for: id)
         persist()
         if selectedServiceID == id {
             selectedServiceID = services.first?.id
@@ -400,8 +401,11 @@ final class ManagedServiceManager {
         guard state.status == .running else { return }
 
         guard !owned.isEmpty, let rootPID = state.rootPID, owned.contains(rootPID) else {
-            // The owned runtime exited. The exit watcher normally wins the
-            // race, but reconciliation must never leave a dead runtime Running.
+            // The owned runtime exited, or ownership bookkeeping is already
+            // split. Terminate anything still tracked before dropping to
+            // failed: a service may only leave Running once no live runtime
+            // remains owned under its identifier (design notes, section 6.4).
+            await releaseOwnedRuntime(state)
             state.clearRuntime()
             state.status = .failed
             state.lastError = L("service.error.ownedRuntimeLost")
@@ -410,7 +414,9 @@ final class ManagedServiceManager {
 
         if listeners.isEmpty {
             // Readiness lost while the root is still alive: the service is not
-            // usable, so it must stop reporting Running.
+            // usable, so it must stop reporting Running. Terminate only the
+            // owned managed-service tree; never fall back to killing by port.
+            await releaseOwnedRuntime(state)
             state.clearRuntime()
             state.status = .failed
             state.lastError = L("service.error.readinessLost", state.port)
@@ -418,12 +424,14 @@ final class ManagedServiceManager {
         }
 
         if listeners.isDisjoint(with: owned) {
-            // The listener was replaced by an unrelated process. Ownership is
-            // lost and nothing may be killed from here.
+            // The listener was replaced by an unrelated process. Terminate only
+            // the owned tree so no live runtime stays owned under this
+            // identifier, then report the external occupants. The replacement
+            // process is never signalled and no port-based kill is issued.
+            await releaseOwnedRuntime(state)
+            state.clearRuntime()
             state.status = .conflict
-            state.rootPID = nil
             state.listenerPIDs = current.map(\.pid)
-            state.startedAt = nil
             state.conflict = makeConflict(for: state, listeners: rawListeners)
             state.lastError = nil
             return
@@ -506,6 +514,21 @@ final class ManagedServiceManager {
             try? await Task.sleep(for: stopPollInterval)
         }
         return await listeners(for: port).isEmpty
+    }
+
+    /// Cancels the exit watcher and terminates any runtime still owned by the
+    /// service identifier.
+    ///
+    /// Every transition out of `running` into `failed` or an unowned
+    /// `conflict` goes through here, so a service can never report a
+    /// non-running status while `processes` still tracks a live runtime under
+    /// its identifier. Only the owned process tree is signalled; the port
+    /// scanner's kill paths are never used (design notes, sections 6.4, 9.1).
+    private func releaseOwnedRuntime(_ state: ManagedServiceState) async {
+        exitTasks[state.id]?.cancel()
+        exitTasks[state.id] = nil
+        guard !(await processes.ownedPIDs(state.id)).isEmpty else { return }
+        _ = await processes.terminate(state.id)
     }
 
     private func startExitWatcher(for state: ManagedServiceState) {

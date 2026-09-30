@@ -562,6 +562,8 @@ struct ManagedServiceManagerTests {
         #expect(sut.manager.add(makeConfig()) == nil)
         await sut.processes.configure(serviceID: serviceID, port: 38902)
         await sut.manager.start(id: serviceID)
+        // The replacement occupant is a real, unrelated listener.
+        await sut.world.addListener(occupant(pid: 7777))
 
         await sut.manager.reconcile(with: [occupant(pid: 7777)])
 
@@ -569,6 +571,21 @@ struct ManagedServiceManagerTests {
         #expect(state?.status == .conflict)
         #expect(state?.rootPID == nil)
         #expect(state?.conflict?.occupants.first?.pid == 7777)
+
+        // The owned runtime is terminated before the unowned conflict is
+        // reported, so no live runtime stays owned under this identifier.
+        let owned = await sut.processes.ownedPIDs(serviceID)
+        #expect(owned.isEmpty)
+        let terminated = await sut.processes.terminated
+        #expect(terminated == [serviceID])
+
+        // The external occupant is untouched and no scanner kill is issued.
+        let live = await sut.world.liveListeners
+        #expect(live.contains { $0.pid == 7777 })
+        let graceful = await sut.scanner.gracefulKills
+        let forced = await sut.scanner.forcedKills
+        #expect(graceful.isEmpty)
+        #expect(forced.isEmpty)
     }
 
     @Test func reconcileRunningFailsWhenPortStopsListening() async {
@@ -583,6 +600,48 @@ struct ManagedServiceManagerTests {
         #expect(state?.status == .failed)
         #expect(state?.rootPID == nil)
         #expect(state?.lastError == L("service.error.readinessLost", 38902))
+
+        // The still-live owned runtime is terminated, never abandoned.
+        let owned = await sut.processes.ownedPIDs(serviceID)
+        #expect(owned.isEmpty)
+        let terminated = await sut.processes.terminated
+        #expect(terminated == [serviceID])
+
+        // Cleanup never falls back to killing by port.
+        let graceful = await sut.scanner.gracefulKills
+        let forced = await sut.scanner.forcedKills
+        #expect(graceful.isEmpty)
+        #expect(forced.isEmpty)
+    }
+
+    /// A readiness-loss failure must leave no owned runtime behind, otherwise
+    /// the retrying Start could overwrite the controller's entry for this
+    /// service identifier and orphan the previous process.
+    @Test func retryingStartAfterReadinessLossCannotLeaveOlderOwnedRuntime() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902, pid: 4242)
+        await sut.manager.start(id: serviceID)
+        #expect(sut.manager.service(id: serviceID)?.status == .running)
+
+        await sut.manager.reconcile(with: [])
+        #expect(sut.manager.service(id: serviceID)?.status == .failed)
+        let abandoned = await sut.processes.ownedPIDs(serviceID)
+        #expect(abandoned.isEmpty)
+
+        // Retry with a fresh runtime identity: the old one must be gone, so
+        // the new launch replaces nothing.
+        await sut.processes.configure(serviceID: serviceID, port: 38902, pid: 5151)
+        await sut.manager.start(id: serviceID)
+
+        let retried = sut.manager.service(id: serviceID)
+        #expect(retried?.status == .running)
+        #expect(retried?.rootPID == 5151)
+        #expect(retried?.listenerPIDs == [5151])
+        let launches = await sut.processes.launchCount
+        #expect(launches == 2)
+        let terminated = await sut.processes.terminated
+        #expect(terminated == [serviceID])
     }
 
     @Test func reconcileRunningFailsWhenOwnedRuntimeExited() async {

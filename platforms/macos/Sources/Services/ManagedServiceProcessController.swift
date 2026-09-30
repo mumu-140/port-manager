@@ -102,6 +102,10 @@ actor ManagedServiceProcessController: ManagedServiceProcessControlling {
         let process: Process
         let rootPID: Int
         var exitCode: Int32?
+        let stdoutHandle: FileHandle
+        let stderrHandle: FileHandle
+        let stdoutTail: Task<Void, Never>
+        let stderrTail: Task<Void, Never>
     }
 
     private var runtimes: [UUID: Runtime] = [:]
@@ -124,21 +128,32 @@ actor ManagedServiceProcessController: ManagedServiceProcessControlling {
         environment["PORT_MANAGER_SERVICE_ID"] = serviceID.uuidString
         process.environment = environment
 
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
+        // Runtime output goes to files, never to a parent-owned pipe: a
+        // managed child is allowed to outlive Port Manager, and a pipe write
+        // after the app exits would kill it with SIGPIPE (design notes, 6.5).
+        do {
+            try ManagedServiceRuntimeLogStore.prepare(for: serviceID)
+        } catch {
+            return .failed(L("service.error.launchFailed", error.localizedDescription))
+        }
 
-        stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            onOutput(ManagedServiceLogEntry(stream: .standardOutput, text: text))
+        let stdoutURL = ManagedServiceRuntimeLogStore.stdoutURL(for: serviceID)
+        let stderrURL = ManagedServiceRuntimeLogStore.stderrURL(for: serviceID)
+        let stdoutHandle: FileHandle
+        let stderrHandle: FileHandle
+        do {
+            stdoutHandle = try FileHandle(forWritingTo: stdoutURL)
+            stderrHandle = try FileHandle(forWritingTo: stderrURL)
+        } catch {
+            ManagedServiceRuntimeLogStore.removeLogs(for: serviceID)
+            return .failed(L("service.error.launchFailed", error.localizedDescription))
         }
-        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            onOutput(ManagedServiceLogEntry(stream: .standardError, text: text))
-        }
+
+        // Detach stdin as well: nothing about the child should depend on the
+        // app's terminal or pipe lifetime.
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = stdoutHandle
+        process.standardError = stderrHandle
 
         process.terminationHandler = { [weak self] finished in
             let code = finished.terminationStatus
@@ -148,14 +163,23 @@ actor ManagedServiceProcessController: ManagedServiceProcessControlling {
         do {
             try process.run()
         } catch {
-            stdoutPipe.fileHandleForReading.readabilityHandler = nil
-            stderrPipe.fileHandleForReading.readabilityHandler = nil
+            try? stdoutHandle.close()
+            try? stderrHandle.close()
             process.terminationHandler = nil
+            ManagedServiceRuntimeLogStore.removeLogs(for: serviceID)
             return .failed(L("service.error.launchFailed", error.localizedDescription))
         }
 
         let rootPID = Int(process.processIdentifier)
-        runtimes[serviceID] = Runtime(process: process, rootPID: rootPID, exitCode: nil)
+        runtimes[serviceID] = Runtime(
+            process: process,
+            rootPID: rootPID,
+            exitCode: nil,
+            stdoutHandle: stdoutHandle,
+            stderrHandle: stderrHandle,
+            stdoutTail: makeTailTask(url: stdoutURL, stream: .standardOutput, onOutput: onOutput),
+            stderrTail: makeTailTask(url: stderrURL, stream: .standardError, onOutput: onOutput)
+        )
         return .launched(ManagedServiceRuntimeHandle(serviceID: serviceID, rootPID: rootPID))
     }
 
@@ -221,6 +245,8 @@ actor ManagedServiceProcessController: ManagedServiceProcessControlling {
     private func handleExit(serviceID: UUID, code: Int32) {
         if var runtime = runtimes[serviceID] {
             runtime.exitCode = code
+            runtime.stdoutTail.cancel()
+            runtime.stderrTail.cancel()
             runtimes[serviceID] = runtime
         }
         let continuations = exitContinuations.removeValue(forKey: serviceID) ?? []
@@ -231,14 +257,63 @@ actor ManagedServiceProcessController: ManagedServiceProcessControlling {
 
     private func cleanup(_ serviceID: UUID) {
         guard let runtime = runtimes[serviceID] else { return }
-        if let stdoutPipe = runtime.process.standardOutput as? Pipe {
-            stdoutPipe.fileHandleForReading.readabilityHandler = nil
-        }
-        if let stderrPipe = runtime.process.standardError as? Pipe {
-            stderrPipe.fileHandleForReading.readabilityHandler = nil
-        }
+        runtime.stdoutTail.cancel()
+        runtime.stderrTail.cancel()
+        try? runtime.stdoutHandle.close()
+        try? runtime.stderrHandle.close()
         runtime.process.terminationHandler = nil
         runtimes[serviceID] = nil
+    }
+
+    /// Polls an append-only runtime log and forwards complete lines.
+    ///
+    /// Runs independently of the app's lifetime: it only reads the file, so a
+    /// child keeps writing whether or not the tail is alive.
+    private nonisolated func makeTailTask(
+        url: URL,
+        stream: ManagedServiceLogEntry.Stream,
+        onOutput: @escaping @Sendable (ManagedServiceLogEntry) -> Void
+    ) -> Task<Void, Never> {
+        Task.detached(priority: .utility) {
+            var offset: UInt64 = 0
+            var pending = Data()
+
+            func emit(_ lineData: Data) {
+                var bytes = lineData
+                if bytes.last == 0x0D { bytes.removeLast() }
+                guard !bytes.isEmpty else { return }
+                onOutput(ManagedServiceLogEntry(
+                    stream: stream,
+                    text: String(decoding: bytes, as: UTF8.self)
+                ))
+            }
+
+            func emitCompleteLines() {
+                while let newline = pending.firstIndex(of: 0x0A) {
+                    let line = pending[pending.startIndex..<newline]
+                    pending.removeSubrange(pending.startIndex...newline)
+                    emit(line)
+                }
+            }
+
+            while !Task.isCancelled {
+                let read = managedServiceReadAppendedBytes(url: url, offset: offset)
+                guard !read.data.isEmpty else {
+                    try? await Task.sleep(for: .milliseconds(150))
+                    continue
+                }
+                offset = read.offset
+                pending.append(read.data)
+                emitCompleteLines()
+            }
+
+            // Final drain so output written without a trailing newline is not
+            // lost when the runtime is torn down.
+            let finalRead = managedServiceReadAppendedBytes(url: url, offset: offset)
+            if !finalRead.data.isEmpty { pending.append(finalRead.data) }
+            emitCompleteLines()
+            if !pending.isEmpty { emit(pending) }
+        }
     }
 
     private func descendants(of rootPID: Int) async -> [Int] {
@@ -247,4 +322,20 @@ actor ManagedServiceProcessController: ManagedServiceProcessControlling {
         }
         return ManagedServiceProcessTree.descendants(of: rootPID, inPSOutput: output)
     }
+}
+
+/// Reads the bytes appended to a file since `offset`.
+///
+/// File scope so the tail loop never needs actor isolation; the function only
+/// touches the file and its own arguments.
+private func managedServiceReadAppendedBytes(url: URL, offset: UInt64) -> (data: Data, offset: UInt64) {
+    guard let handle = try? FileHandle(forReadingFrom: url) else { return (Data(), offset) }
+    defer { try? handle.close() }
+    do {
+        try handle.seek(toOffset: offset)
+    } catch {
+        return (Data(), offset)
+    }
+    let data = ((try? handle.readToEnd()) ?? nil) ?? Data()
+    return (data, offset + UInt64(data.count))
 }
