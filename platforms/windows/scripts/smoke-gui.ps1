@@ -111,8 +111,18 @@ function Dump-Desktop([string]$name) {
 
 function Invoke-Element($element, [string]$label) {
     Log "invoke: $label"
-    $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-    $pattern.Invoke()
+    $invoked = $false
+    try {
+        $pattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+        $pattern.Invoke()
+        $invoked = $true
+    } catch {
+        # Native MessageBox buttons expose LegacyIAccessible instead of Invoke.
+    }
+    if (-not $invoked) {
+        $legacy = $element.GetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern)
+        $legacy.DoDefaultAction()
+    }
     Start-Sleep -Milliseconds 500
 }
 
@@ -319,10 +329,12 @@ try {
     Start-Sleep -Seconds 2
     Dump-Desktop "07a-after-delete-click"
     Dump-Tree $mainWindow "07b-after-delete-click"
+    $dialog = Wait-Element $Desktop (New-NameCondition "Delete service") 15 "delete confirmation window"
+    Dump-Tree $dialog "07c-delete-dialog"
     $okCondition = New-Object System.Windows.Automation.AndCondition(
         (New-NameCondition "OK"),
-        (New-Object System.Windows.Automation.PropertyCondition($UIA::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
-    $okButton = Wait-Element $Desktop $okCondition 15 "delete confirmation OK button"
+        (New-Object System.Windows.Automation.PropertyCondition($UIA::ControlTypeProperty, [System.Windows.Automation.ControlType]::Pane)))
+    $okButton = Wait-Element $dialog $okCondition 15 "delete confirmation OK button"
     Invoke-Element $okButton "delete confirmation OK"
     Start-Sleep -Seconds 2
     if ($occupantProcess.HasExited) { throw "deleting a conflict profile killed the occupant" }
