@@ -49,6 +49,7 @@ public static class GuiSmokeNative {
 "@
 
 $UIA = [System.Windows.Automation.AutomationElement]
+$Desktop = [System.Windows.Automation.AutomationElement]::RootElement
 $TrueCondition = [System.Windows.Automation.Condition]::TrueCondition
 
 function New-IdCondition([string]$id) { New-Object System.Windows.Automation.PropertyCondition($UIA::AutomationIdProperty, $id) }
@@ -63,6 +64,26 @@ function Wait-Element($root, $condition, [int]$timeoutSeconds, [string]$label) {
         Start-Sleep -Milliseconds 300
     } while ((Get-Date) -lt $deadline)
     throw "Timed out waiting for $label"
+}
+
+function Wait-Window([int]$processId, [int]$timeoutSeconds) {
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+    do {
+        $found = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-PidCondition $processId))
+        if ($found) { return $found }
+        Start-Sleep -Milliseconds 300
+    } while ((Get-Date) -lt $deadline)
+    throw "Timed out waiting for a window of process $processId"
+}
+
+function Wait-TopLevel([string]$name, [int]$timeoutSeconds) {
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+    do {
+        $found = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-NameCondition $name))
+        if ($found) { return $found }
+        Start-Sleep -Milliseconds 300
+    } while ((Get-Date) -lt $deadline)
+    throw "Timed out waiting for the '$name' window"
 }
 
 function Invoke-Element($element, [string]$label) {
@@ -204,7 +225,7 @@ try {
     $appProcess = Start-Process -FilePath $exe -PassThru
     Start-Sleep -Seconds 2
 
-    $mainWindow = Wait-Element $UIA (New-PidCondition $appProcess.Id) 40 "main window"
+    $mainWindow = Wait-Window $appProcess.Id 40
     [void][GuiSmokeNative]::ShowWindow([IntPtr]$mainWindow.Current.NativeWindowHandle, 9)
     [void][GuiSmokeNative]::SetForegroundWindow([IntPtr]$mainWindow.Current.NativeWindowHandle)
     Log "main window: $($mainWindow.Current.Name)"
@@ -218,7 +239,7 @@ try {
 
     Invoke-Element (Wait-Element $mainWindow (New-NameCondition "Add Service") 15 "Add Service button") "Add Service"
 
-    $editor = Wait-Element $UIA (New-NameCondition "Service profile") 20 "service editor"
+    $editor = Wait-TopLevel "Service profile" 20
     Log "editor window: $($editor.Current.Name)"
     Dump-Tree $editor "02-editor"
 
@@ -247,7 +268,7 @@ try {
     Log "service stopped"
 
     Invoke-Element (Wait-Element $mainWindow (New-NameCondition "Edit") 15 "Edit button") "Edit"
-    $editor2 = Wait-Element $UIA (New-NameCondition "Service profile") 20 "service editor (stopped edit)"
+    $editor2 = Wait-TopLevel "Service profile" 20
     Set-ElementText $editor2 "NameBox" "GUI Smoke Edited"
     Invoke-Element (Wait-Element $editor2 (New-NameCondition "Save") 10 "editor Save button") "editor Save (stopped edit)"
     Start-Sleep -Seconds 1
@@ -268,8 +289,8 @@ try {
     Save-Screenshot $mainWindow "06-conflict"
 
     Invoke-Element (Wait-Element $mainWindow (New-NameCondition "Delete") 15 "Delete button") "Delete"
-    $confirm = Wait-Element $UIA (New-NameCondition "OK") 15 "delete confirmation"
-    Invoke-Element $confirm "delete confirmation OK"
+    $dialog = Wait-TopLevel "Delete service" 15
+    Invoke-Element (Wait-Element $dialog (New-NameCondition "OK") 10 "delete confirmation OK button") "delete confirmation OK"
     Start-Sleep -Seconds 2
     if ($occupantProcess.HasExited) { throw "deleting a conflict profile killed the occupant" }
     Log "conflict profile deleted; external occupant still alive"
