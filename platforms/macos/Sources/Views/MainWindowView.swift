@@ -14,7 +14,12 @@ struct MainWindowView: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
         } content: {
             contentView
-                .searchable(text: $state.filter.searchText, prompt: L("ports.searchPlaceholder"))
+                .searchable(
+                    text: $state.filter.searchText,
+                    prompt: appState.selectedSidebarItem == .managedServices
+                        ? L("service.searchPlaceholder")
+                        : L("ports.searchPlaceholder")
+                )
                 .navigationSplitViewColumnWidth(min: 300, ideal: 400, max: .infinity)
         } detail: {
             detailView
@@ -85,6 +90,11 @@ struct MainWindowView: View {
                 .id("cloudflare-tunnels")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationSplitViewColumnWidth(min: 400, ideal: 600, max: .infinity)
+        case .managedServices:
+            ManagedServicesListView()
+                .id("managed-services")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 400, max: .infinity)
         default:
             VStack(spacing: 0) {
                 PortTableView()
@@ -101,6 +111,8 @@ struct MainWindowView: View {
             EmptyView()
         } else if appState.selectedSidebarItem == .kubernetesPortForward {
             ConnectionLogPanel(connection: appState.selectedPortForwardConnection)
+        } else if appState.selectedSidebarItem == .managedServices {
+            ManagedServiceDetailView()
         } else if appState.selectedSidebarItem == .cloudflareTunnels {
             if let tunnel = appState.selectedNamedTunnel {
                 NamedTunnelDetailView(tunnel: tunnel)

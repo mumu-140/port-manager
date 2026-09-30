@@ -23,6 +23,7 @@ struct SidebarView: View {
             Section(L("ports.section.networking")) {
                 kubernetesPortForwardRow
                 cloudflareTunnelsRow
+                managedServicesRow
             }
 
             Section(L("ports.section.processTypes")) {
@@ -182,6 +183,35 @@ struct SidebarView: View {
                 .foregroundStyle(.orange)
         }
         .tag(SidebarItem.cloudflareTunnels)
+    }
+
+    // MARK: - Local Services Row
+
+    private var managedServicesRow: some View {
+        Label {
+            HStack {
+                Text(L("service.title"))
+                Spacer()
+
+                let conflictCount = appState.managedServiceManager.services
+                    .filter { $0.status == .conflict }
+                    .count
+                if conflictCount > 0 {
+                    StatusDot(color: .orange)
+                } else if appState.managedServiceManager.runningCount > 0 {
+                    StatusDot(color: Theme.Colors.statusSuccess)
+                }
+
+                Text("\(appState.managedServiceManager.services.count)")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .frame(minWidth: 20)
+            }
+        } icon: {
+            Image(systemName: "server.rack")
+                .foregroundStyle(.green)
+        }
+        .tag(SidebarItem.managedServices)
     }
 
     // MARK: - Standard Row
