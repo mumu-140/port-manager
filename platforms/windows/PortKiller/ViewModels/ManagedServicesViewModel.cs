@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PortKiller.Models;
@@ -18,8 +17,8 @@ namespace PortKiller.ViewModels;
 public partial class ManagedServicesViewModel : ObservableObject
 {
     private readonly ManagedServiceManager _manager;
-    private readonly TunnelViewModel _tunnels;
-    private readonly Dispatcher _dispatcher;
+    private readonly IManagedServiceTunnelHost _tunnels;
+    private readonly IPortScanCoordinator? _scanCoordinator;
 
     [ObservableProperty] private ObservableCollection<ManagedServiceState> _services = new();
     [ObservableProperty] private ObservableCollection<ManagedServiceState> _filteredServices = new();
@@ -27,11 +26,14 @@ public partial class ManagedServicesViewModel : ObservableObject
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private string? _statusMessage;
 
-    public ManagedServicesViewModel(ManagedServiceManager manager, TunnelViewModel tunnels, Dispatcher dispatcher)
+    public ManagedServicesViewModel(
+        ManagedServiceManager manager,
+        IManagedServiceTunnelHost tunnels,
+        IPortScanCoordinator? scanCoordinator = null)
     {
         _manager = manager;
         _tunnels = tunnels;
-        _dispatcher = dispatcher;
+        _scanCoordinator = scanCoordinator;
 
         _tunnels.Tunnels.CollectionChanged += OnTunnelCollectionChanged;
         foreach (var tunnel in _tunnels.Tunnels) tunnel.PropertyChanged += OnTunnelPropertyChanged;
@@ -39,6 +41,11 @@ public partial class ManagedServicesViewModel : ObservableObject
 
     public bool HasSelection => SelectedService is not null;
     public bool CanEdit => SelectedService is { IsTransitioning: false };
+    public bool CanDelete => SelectedService is { IsTransitioning: false };
+
+    /// <summary>True when editing must stop a running service first.</summary>
+    public bool RequiresStopBeforeEdit => SelectedService?.Status == ManagedServiceStatus.Running;
+
     public bool HasConflict => SelectedService?.Conflict is not null;
 
     // MARK: - Quick Tunnel projection
@@ -77,10 +84,21 @@ public partial class ManagedServicesViewModel : ObservableObject
         SelectedService = Services.FirstOrDefault();
     }
 
-    /// <summary>Reconciles runtime state with a fresh scan of the shared scanner.</summary>
+    /// <summary>
+    /// Reconciles runtime state after a refresh. The refresh goes through the
+    /// shared scanner so managed services are reconciled by the same scan that
+    /// updates the port list.
+    /// </summary>
     public async Task RefreshAsync()
     {
-        await _manager.ReconcileWithScanAsync().ConfigureAwait(true);
+        if (_scanCoordinator is not null)
+        {
+            await _scanCoordinator.RefreshPortsAsync().ConfigureAwait(true);
+        }
+        else
+        {
+            await _manager.ReconcileWithScanAsync().ConfigureAwait(true);
+        }
         ApplyFilter();
         OnPropertyChanged(nameof(HasConflict));
     }
@@ -91,6 +109,8 @@ public partial class ManagedServicesViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(CanEdit));
+        OnPropertyChanged(nameof(CanDelete));
+        OnPropertyChanged(nameof(RequiresStopBeforeEdit));
         OnPropertyChanged(nameof(HasConflict));
         NotifyTunnelChanged();
     }
@@ -181,12 +201,20 @@ public partial class ManagedServicesViewModel : ObservableObject
         ApplyFilter();
     }
 
-    [RelayCommand]
-    private async Task StopForEditAsync()
+    /// <summary>
+    /// Stops an owned, running service so it can be edited. Returns true only
+    /// when the service is no longer owned and no longer transitioning, so the
+    /// editor may be opened safely. Saving edits never restarts the service.
+    /// </summary>
+    public async Task<bool> PrepareForEditAsync()
     {
-        if (RequireSelection() is not { } state) return;
+        var state = SelectedService;
+        if (state is null) return false;
+        if (!state.IsOwned) return !state.IsTransitioning;
+
         await _manager.StopForEditingAsync(state.Id).ConfigureAwait(true);
         ApplyFilter();
+        return !state.IsOwned && !state.IsTransitioning;
     }
 
     [RelayCommand]
@@ -199,15 +227,17 @@ public partial class ManagedServicesViewModel : ObservableObject
             return;
         }
 
-        var url = $"http://{state.Config.NormalizedHost}:{state.Config.Port}";
         try
         {
-            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
-            StatusMessage = $"Opened {url}.";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = $"http://localhost:{state.Config.Port}",
+                UseShellExecute = true,
+            });
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Could not open {url}: {ex.Message}";
+            StatusMessage = ex.Message;
         }
     }
 
@@ -249,16 +279,40 @@ public partial class ManagedServicesViewModel : ObservableObject
         if (ServiceTunnelUrl is { Length: > 0 } url) _tunnels.OpenUrlInBrowser(url);
     }
 
+    /// <summary>
+    /// Deletes a profile. The UI entry is only removed when the manager
+    /// confirms removal, so a failed deletion never leaves the collection out
+    /// of sync. A running service is stopped first; a conflict profile is
+    /// deleted without ever signalling the occupant.
+    /// </summary>
     [RelayCommand]
     private async Task DeleteAsync()
     {
         if (RequireSelection() is not { } state) return;
-        if (state.Status == ManagedServiceStatus.Running || state.IsTransitioning)
+        if (state.IsTransitioning)
         {
-            await _manager.StopAsync(state.Id).ConfigureAwait(true);
+            StatusMessage = $"Wait for {state.Name} to finish its current operation.";
+            return;
         }
 
-        await _manager.RemoveAsync(state.Id).ConfigureAwait(true);
+        if (state.Status == ManagedServiceStatus.Running)
+        {
+            await _manager.StopAsync(state.Id).ConfigureAwait(true);
+            ApplyFilter();
+            if (state.IsOwned || state.IsTransitioning)
+            {
+                StatusMessage = state.LastError ?? $"Could not stop {state.Name}; it was not deleted.";
+                return;
+            }
+        }
+
+        var removed = await _manager.RemoveAsync(state.Id).ConfigureAwait(true);
+        if (!removed)
+        {
+            StatusMessage = state.LastError ?? $"Could not delete {state.Name}.";
+            return;
+        }
+
         Services.Remove(state);
         ApplyFilter();
         StatusMessage = $"{state.Name} deleted.";
@@ -292,6 +346,8 @@ public partial class ManagedServicesViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(CanEdit));
+        OnPropertyChanged(nameof(CanDelete));
+        OnPropertyChanged(nameof(RequiresStopBeforeEdit));
         OnPropertyChanged(nameof(HasConflict));
     }
 }

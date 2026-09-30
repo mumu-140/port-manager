@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PortKiller.Models;
 using PortKiller.ViewModels;
 
 namespace PortKiller.Views;
@@ -20,10 +21,34 @@ public partial class ManagedServicesView : UserControl
         editor.ShowDialog();
     }
 
-    private void Edit_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Editing always stops a running service first (design notes, section 12).
+    /// The editor opens only once the service has reached Stopped, and saving
+    /// never restarts it.
+    /// </summary>
+    private async void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel is not { } vm || vm.SelectedService is null) return;
-        var editor = new ManagedServiceEditorWindow(vm, vm.SelectedService.Config) { Owner = Window.GetWindow(this) };
+        if (ViewModel is not { } vm || vm.SelectedService is not { } state) return;
+        if (state.IsTransitioning) return;
+
+        if (state.IsOwned)
+        {
+            var confirm = MessageBox.Show(
+                $"Stop \"{state.Name}\" before editing? The service is stopped first and is not restarted automatically.",
+                "Edit service", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.OK) return;
+
+            var stopped = await vm.PrepareForEditAsync();
+            if (!stopped || state.IsOwned || state.Status != ManagedServiceStatus.Stopped)
+            {
+                MessageBox.Show(
+                    vm.StatusMessage ?? $"Could not stop \"{state.Name}\".",
+                    "Edit service", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
+        var editor = new ManagedServiceEditorWindow(vm, state.Config) { Owner = Window.GetWindow(this) };
         editor.ShowDialog();
     }
 
@@ -56,12 +81,29 @@ public partial class ManagedServicesView : UserControl
         ViewModel?.OpenCommand.Execute(null);
     }
 
+    /// <summary>
+    /// Deleting a conflict profile removes configuration only; the process
+    /// holding the port is never signalled from here.
+    /// </summary>
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel is not { } vm || vm.SelectedService is null) return;
-        var confirm = MessageBox.Show(
-            $"Delete \"{vm.SelectedService.Name}\"? A running service is stopped first.",
-            "Delete service", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (ViewModel is not { } vm || vm.SelectedService is not { } state) return;
+        if (state.IsTransitioning)
+        {
+            MessageBox.Show(
+                $"Wait for \"{state.Name}\" to finish its current operation.",
+                "Delete service", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var message = state.Status switch
+        {
+            ManagedServiceStatus.Running => $"Delete \"{state.Name}\"? The owned service is stopped first.",
+            ManagedServiceStatus.Conflict => $"Delete \"{state.Name}\"? The process using port {state.Config.Port} is left running.",
+            _ => $"Delete \"{state.Name}\"?",
+        };
+
+        var confirm = MessageBox.Show(message, "Delete service", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.OK) return;
         await vm.DeleteCommand.ExecuteAsync(null);
     }

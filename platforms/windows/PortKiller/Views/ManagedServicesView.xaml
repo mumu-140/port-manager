@@ -64,8 +64,10 @@
                         <Button Content="Stop" Click="Stop_Click" Padding="16,8" Margin="0,0,8,0"/>
                         <Button Content="Restart" Click="Restart_Click" Padding="16,8" Margin="0,0,8,0"/>
                         <Button Content="Open" Click="Open_Click" Padding="16,8" Margin="0,0,8,0"/>
-                        <Button Content="Edit" Click="Edit_Click" Padding="16,8" Margin="0,0,8,0"/>
-                        <Button Content="Delete" Click="Delete_Click" Padding="16,8"/>
+                        <Button Content="Edit" Click="Edit_Click" Padding="16,8" Margin="0,0,8,0"
+                                IsEnabled="{Binding CanEdit}"/>
+                        <Button Content="Delete" Click="Delete_Click" Padding="16,8"
+                                IsEnabled="{Binding CanDelete}"/>
                     </StackPanel>
 
                     <Border Margin="0,20,0,0" Padding="12" Background="#22302F" CornerRadius="8">

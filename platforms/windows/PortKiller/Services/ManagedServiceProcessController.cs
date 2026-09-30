@@ -1,21 +1,25 @@
-using System.Diagnostics;
+using System.IO;
+using System.Text;
 using PortKiller.Models;
 
 namespace PortKiller.Services;
 
 /// <summary>
-/// Launches and terminates managed service processes.
+/// Windows process controller for managed services.
 ///
-/// A service runs through <c>cmd.exe /d /s /c &lt;command&gt;</c> with
-/// <c>CreateNoWindow</c>, a redirected stdout/stderr and the
-/// <c>PORT_MANAGER_SERVICE_ID</c> environment marker. Stop only ever targets
-/// the tracked owned root and its tree; the controller never discovers kill
-/// targets by port.
+/// A runtime is owned by this controller for the lifetime of this instance and
+/// is keyed by <c>serviceId</c>. Ownership is never re-derived from a PID: if a
+/// service is not in the tracked table, this controller neither reports it as
+/// running nor signals it. Output is tailed from the file-backed runtime logs
+/// so a child that outlives Port Manager keeps writing (design notes, section
+/// 6.5).
 /// </summary>
 public sealed class ManagedServiceProcessController : IManagedServiceProcessController
 {
+    private static readonly TimeSpan TailPollInterval = TimeSpan.FromMilliseconds(100);
+
     private readonly object _gate = new();
-    private readonly Dictionary<int, Process> _processes = new();
+    private readonly Dictionary<Guid, Runtime> _runtimes = new();
 
     public event EventHandler<ManagedServiceOutputEventArgs>? Output;
 
@@ -24,111 +28,269 @@ public sealed class ManagedServiceProcessController : IManagedServiceProcessCont
         cancellationToken.ThrowIfCancellationRequested();
 
         var command = ManagedServiceCommandRenderer.Render(config.StartCommand, config.Port);
-        var psi = new ProcessStartInfo(ResolveShell())
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WorkingDirectory = config.WorkingDirectory,
-        };
-        psi.ArgumentList.Add("/d");
-        psi.ArgumentList.Add("/s");
-        psi.ArgumentList.Add("/c");
-        psi.ArgumentList.Add(command);
-        psi.Environment["PORT_MANAGER_SERVICE_ID"] = config.Id.ToString("D");
+        ManagedServiceRuntimeLogStore.Prepare(config.Id, out var stdoutPath, out var stderrPath);
 
-        var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        process.OutputDataReceived += (_, e) =>
+        int pid;
+        IntPtr processHandle;
+        IntPtr jobHandle;
+        try
         {
-            if (e.Data is not null)
-                Output?.Invoke(this, new ManagedServiceOutputEventArgs(config.Id, ManagedServiceLogStream.StandardOutput, e.Data));
-        };
-        process.ErrorDataReceived += (_, e) =>
+            pid = ManagedServiceRuntimeLauncher.Launch(
+                command,
+                config.WorkingDirectory,
+                config.Id,
+                stdoutPath,
+                stderrPath,
+                out processHandle,
+                out jobHandle);
+        }
+        catch
         {
-            if (e.Data is not null)
-                Output?.Invoke(this, new ManagedServiceOutputEventArgs(config.Id, ManagedServiceLogStream.StandardError, e.Data));
-        };
-
-        if (!process.Start())
-        {
-            process.Dispose();
-            throw new InvalidOperationException("Unable to start service process.");
+            ManagedServiceRuntimeLogStore.Cleanup(config.Id);
+            throw;
         }
 
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        lock (_gate) _processes[process.Id] = process;
-        return Task.FromResult(process.Id);
+        var runtime = new Runtime(config.Id, pid, processHandle, jobHandle);
+        lock (_gate)
+        {
+            _runtimes[config.Id] = runtime;
+        }
+
+        StartTailers(runtime, stdoutPath, stderrPath);
+        return Task.FromResult(pid);
     }
 
-    public async Task StopAsync(int rootPid, CancellationToken cancellationToken = default)
+    public async Task StopAsync(Guid serviceId, CancellationToken cancellationToken = default)
     {
-        Process? process;
-        lock (_gate) _processes.TryGetValue(rootPid, out process);
-
-        if (process is null)
+        Runtime? runtime;
+        lock (_gate)
         {
-            try
-            {
-                process = Process.GetProcessById(rootPid);
-            }
-            catch (ArgumentException)
-            {
-                return;
-            }
+            _runtimes.TryGetValue(serviceId, out runtime);
         }
+
+        if (runtime is null) return;
 
         try
         {
-            if (!process.HasExited)
+            if (ManagedServiceRuntimeLauncher.IsAlive(runtime.ProcessHandle))
             {
-                // Console children of cmd.exe report no main window, so the
-                // graceful phase is skipped and the owned tree is terminated.
-                var graceful = false;
-                try { graceful = process.CloseMainWindow(); }
-                catch (InvalidOperationException) { }
+                ManagedServiceRuntimeLauncher.TerminateTree(runtime.JobHandle, runtime.ProcessHandle);
+                await Task.Run(() => ManagedServiceRuntimeLauncher.WaitForExit(runtime.ProcessHandle, 3000))
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception)
+        {
+            // A runtime that already exited needs no further signalling.
+        }
 
-                if (!graceful || !process.WaitForExit(500))
+        RemoveRuntime(serviceId, runtime);
+    }
+
+    public bool IsRunning(Guid serviceId)
+    {
+        Runtime? runtime;
+        lock (_gate)
+        {
+            _runtimes.TryGetValue(serviceId, out runtime);
+        }
+
+        if (runtime is null) return false;
+        if (ManagedServiceRuntimeLauncher.IsAlive(runtime.ProcessHandle)) return true;
+
+        RemoveRuntime(serviceId, runtime);
+        return false;
+    }
+
+    public int? RootPid(Guid serviceId)
+    {
+        lock (_gate)
+        {
+            return _runtimes.TryGetValue(serviceId, out var runtime) ? runtime.RootPid : null;
+        }
+    }
+
+    private void StartTailers(Runtime runtime, string stdoutPath, string stderrPath)
+    {
+        var stdout = OpenRead(stdoutPath);
+        var stderr = OpenRead(stderrPath);
+        runtime.StdoutStream = stdout;
+        runtime.StderrStream = stderr;
+
+        if (stdout is not null)
+        {
+            runtime.StdoutTask = Task.Run(() =>
+                TailAsync(runtime, stdout, ManagedServiceLogStream.StandardOutput, runtime.TailToken.Token));
+        }
+
+        if (stderr is not null)
+        {
+            runtime.StderrTask = Task.Run(() =>
+                TailAsync(runtime, stderr, ManagedServiceLogStream.StandardError, runtime.TailToken.Token));
+        }
+    }
+
+    private static FileStream? OpenRead(string path)
+    {
+        try
+        {
+            return new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                4096,
+                FileOptions.SequentialScan);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private async Task TailAsync(Runtime runtime, FileStream stream, ManagedServiceLogStream kind, CancellationToken token)
+    {
+        var decoder = Encoding.UTF8.GetDecoder();
+        var buffer = new byte[8192];
+        var carry = string.Empty;
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                int read;
+                try
                 {
-                    process.Kill(entireProcessTree: true);
-                    await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                    read = stream.Read(buffer, 0, buffer.Length);
+                }
+                catch (Exception)
+                {
+                    read = 0;
+                }
+
+                if (read > 0)
+                {
+                    carry += Decode(decoder, buffer, read);
+                    DrainLines(runtime, ref carry, kind);
+                    continue;
+                }
+
+                try
+                {
+                    await Task.Delay(TailPollInterval, token).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
                 }
             }
         }
-        catch (InvalidOperationException) { }
-        catch (System.ComponentModel.Win32Exception) { }
         finally
         {
-            lock (_gate) _processes.Remove(rootPid);
-            process.Dispose();
+            try
+            {
+                int read;
+                while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    carry += Decode(decoder, buffer, read);
+                    DrainLines(runtime, ref carry, kind);
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            var remainder = carry.TrimEnd('\r', '\n');
+            if (remainder.Length > 0) RaiseOutput(runtime.ServiceId, kind, remainder);
+            try
+            {
+                stream.Dispose();
+            }
+            catch (Exception)
+            {
+            }
         }
     }
 
-    public bool IsRunning(int rootPid)
+    private static string Decode(Decoder decoder, byte[] buffer, int count)
     {
-        if (rootPid <= 0) return false;
-        Process? tracked;
-        lock (_gate) _processes.TryGetValue(rootPid, out tracked);
-        try
+        var chars = new char[decoder.GetCharCount(buffer, 0, count)];
+        decoder.GetChars(buffer, 0, count, chars, 0);
+        return new string(chars);
+    }
+
+    private void DrainLines(Runtime runtime, ref string carry, ManagedServiceLogStream kind)
+    {
+        int index;
+        while ((index = carry.IndexOf('\n')) >= 0)
         {
-            if (tracked is not null) return !tracked.HasExited;
-            using var process = Process.GetProcessById(rootPid);
-            return !process.HasExited;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
+            var line = carry[..index].TrimEnd('\r');
+            carry = carry[(index + 1)..];
+            RaiseOutput(runtime.ServiceId, kind, line);
         }
     }
 
-    private static string ResolveShell()
+    private void RaiseOutput(Guid serviceId, ManagedServiceLogStream kind, string line)
     {
-        var comSpec = Environment.GetEnvironmentVariable("ComSpec");
-        return string.IsNullOrWhiteSpace(comSpec) ? "cmd.exe" : comSpec;
+        if (line.Length == 0) return;
+        Output?.Invoke(this, new ManagedServiceOutputEventArgs(serviceId, kind, line));
+    }
+
+    private void RemoveRuntime(Guid serviceId, Runtime runtime)
+    {
+        lock (_gate)
+        {
+            if (!_runtimes.TryGetValue(serviceId, out var current) || !ReferenceEquals(current, runtime)) return;
+            _runtimes.Remove(serviceId);
+        }
+
+        runtime.Dispose();
+    }
+
+    private sealed class Runtime : IDisposable
+    {
+        private int _disposed;
+
+        public Runtime(Guid serviceId, int rootPid, IntPtr processHandle, IntPtr jobHandle)
+        {
+            ServiceId = serviceId;
+            RootPid = rootPid;
+            ProcessHandle = processHandle;
+            JobHandle = jobHandle;
+        }
+
+        public Guid ServiceId { get; }
+
+        public int RootPid { get; }
+
+        public IntPtr ProcessHandle { get; }
+
+        public IntPtr JobHandle { get; }
+
+        public FileStream? StdoutStream { get; set; }
+
+        public FileStream? StderrStream { get; set; }
+
+        public Task? StdoutTask { get; set; }
+
+        public Task? StderrTask { get; set; }
+
+        public CancellationTokenSource TailToken { get; } = new();
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
+
+            try
+            {
+                TailToken.Cancel();
+            }
+            catch (Exception)
+            {
+            }
+
+            ManagedServiceRuntimeLauncher.CloseHandleQuietly(JobHandle);
+            ManagedServiceRuntimeLauncher.CloseHandleQuietly(ProcessHandle);
+        }
     }
 }

@@ -7,6 +7,11 @@ namespace PortKiller.Services;
 /// ManagedServiceManager: it validates profiles, starts/stops owned process
 /// trees, tracks readiness, reconciles with the shared scan and only ever
 /// signals user-confirmed conflict occupants.
+///
+/// Every mutation of a <see cref="ManagedServiceState"/> goes through
+/// <see cref="IManagedServiceStateDispatcher"/> so WPF-bound observable state is
+/// only ever changed on the dispatcher thread. Process ownership is delegated
+/// to <see cref="IManagedServiceProcessController"/> and keyed by service id.
 /// </summary>
 public sealed class ManagedServiceManager
 {
@@ -21,6 +26,7 @@ public sealed class ManagedServiceManager
     private readonly IManagedServicePortInspector _ports;
     private readonly IManagedServiceDirectoryValidator _directoryValidator;
     private readonly IManagedServiceTunnelCoordinator? _tunnelCoordinator;
+    private readonly IManagedServiceStateDispatcher _stateDispatcher;
     private readonly List<ManagedServiceState> _services = new();
     private readonly object _gate = new();
 
@@ -29,13 +35,15 @@ public sealed class ManagedServiceManager
         IManagedServiceProcessController processes,
         IManagedServicePortInspector ports,
         IManagedServiceDirectoryValidator? directoryValidator = null,
-        IManagedServiceTunnelCoordinator? tunnelCoordinator = null)
+        IManagedServiceTunnelCoordinator? tunnelCoordinator = null,
+        IManagedServiceStateDispatcher? stateDispatcher = null)
     {
         _storage = storage;
         _processes = processes;
         _ports = ports;
         _directoryValidator = directoryValidator ?? new FileSystemManagedServiceDirectoryValidator();
         _tunnelCoordinator = tunnelCoordinator;
+        _stateDispatcher = stateDispatcher ?? new ImmediateManagedServiceStateDispatcher();
         _processes.Output += OnOutput;
     }
 
@@ -78,15 +86,28 @@ public sealed class ManagedServiceManager
         return null;
     }
 
+    /// <summary>
+    /// Updates a profile only while it is not live. Running, starting or
+    /// stopping services must be stopped first (design notes, section 12).
+    /// </summary>
     public ManagedServiceValidationError? Update(ManagedServiceConfig config)
     {
         var state = Find(config.Id);
         if (state is null) return null;
+        if (state.Status is ManagedServiceStatus.Starting or ManagedServiceStatus.Stopping)
+        {
+            return new ManagedServiceValidationError(ManagedServiceValidationErrorKind.ServiceTransitioning);
+        }
+        if (state.Status == ManagedServiceStatus.Running)
+        {
+            return new ManagedServiceValidationError(ManagedServiceValidationErrorKind.ServiceRunning);
+        }
+
         var candidate = config.Clone();
         candidate.Id = config.Id;
         var error = Validate(candidate);
         if (error is not null) return error;
-        state.Config = candidate;
+        Mutate(state, s => s.Config = candidate);
         Persist();
         return null;
     }
@@ -97,6 +118,7 @@ public sealed class ManagedServiceManager
         if (state is null) return Task.FromResult(false);
         if (state.IsOwned || state.IsTransitioning) return Task.FromResult(false);
         lock (_gate) _services.Remove(state);
+        ManagedServiceRuntimeLogStore.Cleanup(id);
         Persist();
         return Task.FromResult(true);
     }
@@ -110,26 +132,36 @@ public sealed class ManagedServiceManager
         var error = Validate(state.Config);
         if (error is not null)
         {
-            state.Status = ManagedServiceStatus.Failed;
-            state.LastError = error.Message;
+            var message = error.Message;
+            Mutate(state, s =>
+            {
+                s.Status = ManagedServiceStatus.Failed;
+                s.LastError = message;
+            });
             return false;
         }
 
         var listeners = await _ports.InspectAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
         if (listeners.Count > 0)
         {
-            state.Conflict = MakeConflict(state, listeners);
-            state.ListenerPids.Clear();
-            foreach (var pid in DistinctPids(listeners)) state.ListenerPids.Add(pid);
-            state.Status = ManagedServiceStatus.Conflict;
-            state.LastError = null;
+            Mutate(state, s =>
+            {
+                s.Conflict = MakeConflict(s, listeners);
+                s.ListenerPids.Clear();
+                foreach (var pid in DistinctPids(listeners)) s.ListenerPids.Add(pid);
+                s.Status = ManagedServiceStatus.Conflict;
+                s.LastError = null;
+            });
             return false;
         }
 
-        state.Status = ManagedServiceStatus.Starting;
-        state.LastError = null;
-        state.Conflict = null;
-        state.ClearOutput();
+        Mutate(state, s =>
+        {
+            s.Status = ManagedServiceStatus.Starting;
+            s.LastError = null;
+            s.Conflict = null;
+            s.ClearOutput();
+        });
 
         int rootPid;
         try
@@ -138,12 +170,15 @@ public sealed class ManagedServiceManager
         }
         catch (Exception ex)
         {
-            state.Status = ManagedServiceStatus.Failed;
-            state.LastError = ex.Message;
+            Mutate(state, s =>
+            {
+                s.Status = ManagedServiceStatus.Failed;
+                s.LastError = ex.Message;
+            });
             return false;
         }
 
-        state.RootPid = rootPid;
+        Mutate(state, s => s.RootPid = rootPid);
 
         var deadline = DateTime.UtcNow + ReadinessTimeout;
         while (DateTime.UtcNow < deadline)
@@ -151,11 +186,14 @@ public sealed class ManagedServiceManager
             cancellationToken.ThrowIfCancellationRequested();
             if (state.Status != ManagedServiceStatus.Starting) return false;
 
-            if (!_processes.IsRunning(rootPid))
+            if (!_processes.IsRunning(state.Id))
             {
-                state.ClearRuntime();
-                state.Status = ManagedServiceStatus.Failed;
-                state.LastError = $"Service exited before it listened on port {state.Config.Port}.";
+                Mutate(state, s =>
+                {
+                    s.ClearRuntime();
+                    s.Status = ManagedServiceStatus.Failed;
+                    s.LastError = $"Service exited before it listened on port {s.Config.Port}.";
+                });
                 return false;
             }
 
@@ -163,20 +201,26 @@ public sealed class ManagedServiceManager
             if (state.Status != ManagedServiceStatus.Starting) return false;
             if (current.Count > 0)
             {
-                state.ListenerPids.Clear();
-                foreach (var pid in DistinctPids(current)) state.ListenerPids.Add(pid);
-                state.Status = ManagedServiceStatus.Running;
-                state.StartedAt = DateTime.Now;
+                Mutate(state, s =>
+                {
+                    s.ListenerPids.Clear();
+                    foreach (var pid in DistinctPids(current)) s.ListenerPids.Add(pid);
+                    s.Status = ManagedServiceStatus.Running;
+                    s.StartedAt = DateTime.Now;
+                });
                 return true;
             }
 
             await Task.Delay(ReadinessPollInterval, cancellationToken).ConfigureAwait(false);
         }
 
-        state.LastError = $"Service did not listen on port {state.Config.Port} in time.";
+        Mutate(state, s => s.LastError = $"Service did not listen on port {s.Config.Port} in time.");
         await StopAsync(id, CancellationToken.None).ConfigureAwait(false);
-        state.ClearRuntime();
-        state.Status = ManagedServiceStatus.Failed;
+        Mutate(state, s =>
+        {
+            s.ClearRuntime();
+            s.Status = ManagedServiceStatus.Failed;
+        });
         return false;
     }
 
@@ -189,7 +233,7 @@ public sealed class ManagedServiceManager
             return state.Status == ManagedServiceStatus.Stopped || state.Status == ManagedServiceStatus.Failed;
         }
 
-        state.Status = ManagedServiceStatus.Stopping;
+        Mutate(state, s => s.Status = ManagedServiceStatus.Stopping);
 
         // A stopped service must not leave a stale public endpoint behind.
         if (_tunnelCoordinator is not null)
@@ -197,42 +241,51 @@ public sealed class ManagedServiceManager
             await _tunnelCoordinator.StopTunnelForPortAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.RootPid is int rootPid)
+        if (state.IsOwned)
         {
             try
             {
-                await _processes.StopAsync(rootPid, cancellationToken).ConfigureAwait(false);
+                await _processes.StopAsync(state.Id, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                state.LastError = ex.Message;
+                Mutate(state, s => s.LastError = ex.Message);
             }
         }
 
         var freed = await WaitForPortToFreeAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
         if (freed)
         {
-            state.Status = ManagedServiceStatus.Stopped;
-            state.LastError = null;
-            state.ClearRuntime();
+            Mutate(state, s =>
+            {
+                s.Status = ManagedServiceStatus.Stopped;
+                s.LastError = null;
+                s.ClearRuntime();
+            });
             return true;
         }
 
         var remaining = await _ports.InspectAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
         if (remaining.Count == 0)
         {
-            state.Status = ManagedServiceStatus.Stopped;
-            state.LastError = null;
-            state.ClearRuntime();
+            Mutate(state, s =>
+            {
+                s.Status = ManagedServiceStatus.Stopped;
+                s.LastError = null;
+                s.ClearRuntime();
+            });
             return true;
         }
 
-        state.Status = ManagedServiceStatus.Conflict;
-        state.Conflict = MakeConflict(state, remaining);
-        state.LastError = $"Port {state.Config.Port} is still in use.";
-        state.RootPid = null;
-        state.ListenerPids.Clear();
-        foreach (var pid in DistinctPids(remaining)) state.ListenerPids.Add(pid);
+        Mutate(state, s =>
+        {
+            s.Status = ManagedServiceStatus.Conflict;
+            s.Conflict = MakeConflict(s, remaining);
+            s.LastError = $"Port {s.Config.Port} is still in use.";
+            s.RootPid = null;
+            s.ListenerPids.Clear();
+            foreach (var pid in DistinctPids(remaining)) s.ListenerPids.Add(pid);
+        });
         return false;
     }
 
@@ -265,8 +318,11 @@ public sealed class ManagedServiceManager
         if (state is null || state.Status != ManagedServiceStatus.Conflict || state.Conflict is null) return false;
 
         var confirmed = state.Conflict.Occupants.Select(o => o.Pid).ToHashSet();
-        state.Status = ManagedServiceStatus.Starting;
-        state.LastError = null;
+        Mutate(state, s =>
+        {
+            s.Status = ManagedServiceStatus.Starting;
+            s.LastError = null;
+        });
 
         foreach (var pid in confirmed)
         {
@@ -284,21 +340,32 @@ public sealed class ManagedServiceManager
         var remaining = await _ports.InspectAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
         if (remaining.Count > 0)
         {
-            state.Status = ManagedServiceStatus.Conflict;
-            state.Conflict = MakeConflict(state, remaining);
-            state.LastError = $"Port {state.Config.Port} is still in use.";
-            state.ListenerPids.Clear();
-            foreach (var pid in DistinctPids(remaining)) state.ListenerPids.Add(pid);
+            Mutate(state, s =>
+            {
+                s.Status = ManagedServiceStatus.Conflict;
+                s.Conflict = MakeConflict(s, remaining);
+                s.LastError = $"Port {s.Config.Port} is still in use.";
+                s.ListenerPids.Clear();
+                foreach (var pid in DistinctPids(remaining)) s.ListenerPids.Add(pid);
+            });
             return false;
         }
 
-        state.Conflict = null;
-        state.ListenerPids.Clear();
-        state.Status = ManagedServiceStatus.Stopped;
+        Mutate(state, s =>
+        {
+            s.Conflict = null;
+            s.ListenerPids.Clear();
+            s.Status = ManagedServiceStatus.Stopped;
+        });
         return await StartAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
-    public void ClearOutput(Guid id) => Find(id)?.ClearOutput();
+    public void ClearOutput(Guid id)
+    {
+        var state = Find(id);
+        if (state is null) return;
+        Mutate(state, s => s.ClearOutput());
+    }
 
     public async Task ReconcileWithScanAsync(CancellationToken cancellationToken = default)
     {
@@ -309,6 +376,8 @@ public sealed class ManagedServiceManager
     /// <summary>
     /// Aligns runtime state with the latest scan. A profile is only ever
     /// Running while a process this session owns still serves its port.
+    /// The shared scan is passed in so a normal refresh drives reconciliation
+    /// without a second polling loop.
     /// </summary>
     public async Task ReconcileAsync(IReadOnlyList<PortInfo> ports, CancellationToken cancellationToken = default)
     {
@@ -334,22 +403,28 @@ public sealed class ManagedServiceManager
         var raw = ports.Where(p => p.Port == state.Config.Port).ToList();
         var current = DistinctPids(raw);
 
-        var rootAlive = state.RootPid is int rootPid && _processes.IsRunning(rootPid);
+        var rootAlive = state.RootPid is not null && _processes.IsRunning(state.Id);
         if (!rootAlive)
         {
             await ReleaseOwnedRuntimeAsync(state, cancellationToken).ConfigureAwait(false);
-            state.ClearRuntime();
-            state.Status = ManagedServiceStatus.Failed;
-            state.LastError = "Owned service process is no longer running.";
+            Mutate(state, s =>
+            {
+                s.ClearRuntime();
+                s.Status = ManagedServiceStatus.Failed;
+                s.LastError = "Owned service process is no longer running.";
+            });
             return;
         }
 
         if (current.Count == 0)
         {
             await ReleaseOwnedRuntimeAsync(state, cancellationToken).ConfigureAwait(false);
-            state.ClearRuntime();
-            state.Status = ManagedServiceStatus.Failed;
-            state.LastError = $"Service stopped listening on port {state.Config.Port}.";
+            Mutate(state, s =>
+            {
+                s.ClearRuntime();
+                s.Status = ManagedServiceStatus.Failed;
+                s.LastError = $"Service stopped listening on port {s.Config.Port}.";
+            });
             return;
         }
 
@@ -358,17 +433,23 @@ public sealed class ManagedServiceManager
         if (ownedListeners.Count == 0)
         {
             await ReleaseOwnedRuntimeAsync(state, cancellationToken).ConfigureAwait(false);
-            state.ClearRuntime();
-            state.Status = ManagedServiceStatus.Conflict;
-            state.Conflict = MakeConflict(state, raw);
-            state.ListenerPids.Clear();
-            foreach (var pid in current) state.ListenerPids.Add(pid);
-            state.LastError = null;
+            Mutate(state, s =>
+            {
+                s.ClearRuntime();
+                s.Status = ManagedServiceStatus.Conflict;
+                s.Conflict = MakeConflict(s, raw);
+                s.ListenerPids.Clear();
+                foreach (var pid in current) s.ListenerPids.Add(pid);
+                s.LastError = null;
+            });
             return;
         }
 
-        state.ListenerPids.Clear();
-        foreach (var pid in current) state.ListenerPids.Add(pid);
+        Mutate(state, s =>
+        {
+            s.ListenerPids.Clear();
+            foreach (var pid in current) s.ListenerPids.Add(pid);
+        });
     }
 
     private void ReconcileUnOwned(ManagedServiceState state, IReadOnlyList<PortInfo> ports)
@@ -380,30 +461,36 @@ public sealed class ManagedServiceManager
         {
             if (state.Status == ManagedServiceStatus.Conflict)
             {
-                state.Conflict = null;
-                state.ListenerPids.Clear();
-                state.ClearRuntime();
-                state.Status = ManagedServiceStatus.Stopped;
-                state.LastError = null;
+                Mutate(state, s =>
+                {
+                    s.Conflict = null;
+                    s.ListenerPids.Clear();
+                    s.ClearRuntime();
+                    s.Status = ManagedServiceStatus.Stopped;
+                    s.LastError = null;
+                });
             }
             else if (state.Status == ManagedServiceStatus.Stopped)
             {
-                state.ClearRuntime();
+                Mutate(state, s => s.ClearRuntime());
             }
             return;
         }
 
-        state.Status = ManagedServiceStatus.Conflict;
-        state.Conflict = MakeConflict(state, raw);
-        state.ListenerPids.Clear();
-        foreach (var pid in occupants) state.ListenerPids.Add(pid);
-        state.LastError = null;
+        Mutate(state, s =>
+        {
+            s.Status = ManagedServiceStatus.Conflict;
+            s.Conflict = MakeConflict(s, raw);
+            s.ListenerPids.Clear();
+            foreach (var pid in occupants) s.ListenerPids.Add(pid);
+            s.LastError = null;
+        });
     }
 
     private async Task ReleaseOwnedRuntimeAsync(ManagedServiceState state, CancellationToken cancellationToken)
     {
-        if (state.RootPid is not int rootPid) return;
-        try { await _processes.StopAsync(rootPid, cancellationToken).ConfigureAwait(false); }
+        if (!state.IsOwned) return;
+        try { await _processes.StopAsync(state.Id, cancellationToken).ConfigureAwait(false); }
         catch (Exception) { }
     }
 
@@ -443,9 +530,13 @@ public sealed class ManagedServiceManager
 
     private void Persist() => _storage.Save(Configs);
 
+    /// <summary>Applies a state mutation on the dispatcher thread.</summary>
+    private void Mutate(ManagedServiceState state, Action<ManagedServiceState> mutation) =>
+        _stateDispatcher.Invoke(() => mutation(state));
+
     private void OnOutput(object? sender, ManagedServiceOutputEventArgs e)
     {
         var state = Find(e.ServiceId);
-        if (state is not null) state.AppendOutput(e.Text, e.Stream);
+        if (state is not null) _stateDispatcher.Post(() => state.AppendOutput(e.Text, e.Stream));
     }
 }

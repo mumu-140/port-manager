@@ -347,132 +347,152 @@ public class ManagedServiceManagerTests
         Assert.Equal(ManagedServiceStatus.Running, manager.Find(config.Id)!.Status);
     }
 
-    private static PortInfo Active(int port, int pid) => new()
-    {
-        Port = port,
-        Pid = pid,
-        ProcessName = "foreign",
-        Address = "127.0.0.1",
-        User = "tester",
-        Command = "foreign --port",
-    };
+    // MARK: - Edit guard (design notes, section 12)
 
-    private sealed class AlwaysExistingDirectoryValidator : IManagedServiceDirectoryValidator
+    [Fact]
+    public async Task UpdateIsRejectedWhileRunning()
     {
-        public bool IsExistingDirectory(string path) => true;
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config("web", 8080);
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+        Assert.True(await manager.StartAsync(config.Id));
+
+        var edited = config.Clone();
+        edited.Name = "renamed";
+        var error = manager.Update(edited);
+
+        Assert.NotNull(error);
+        Assert.Equal(ManagedServiceValidationErrorKind.ServiceRunning, error!.Kind);
+        Assert.Equal("web", manager.Find(config.Id)!.Name);
     }
 
-    private sealed class FakeTunnelCoordinator : IManagedServiceTunnelCoordinator
+    [Fact]
+    public void UpdateIsRejectedWhileTransitioning()
     {
-        public List<int> StoppedPorts { get; } = new();
+        var manager = Create(new FakeStorage(), new FakeProcessController(), new FakePortInspector());
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        manager.Find(config.Id)!.Status = ManagedServiceStatus.Starting;
 
-        public Task StopTunnelForPortAsync(int port, CancellationToken cancellationToken = default)
-        {
-            StoppedPorts.Add(port);
-            return Task.CompletedTask;
-        }
+        var error = manager.Update(config.Clone());
+
+        Assert.NotNull(error);
+        Assert.Equal(ManagedServiceValidationErrorKind.ServiceTransitioning, error!.Kind);
     }
 
-    private sealed class FakeStorage : IManagedServiceStorage
+    [Fact]
+    public void UpdateIsAllowedWhenStopped()
     {
-        private List<ManagedServiceConfig> _configs = new();
+        var manager = Create(new FakeStorage(), new FakeProcessController(), new FakePortInspector());
+        var config = Config("web", 8080);
+        Assert.Null(manager.Add(config));
+        var edited = config.Clone();
+        edited.Name = "renamed";
 
-        public IReadOnlyList<ManagedServiceConfig> Load() => _configs.Select(c => c.Clone()).ToList();
-
-        public void Save(IEnumerable<ManagedServiceConfig> services)
-            => _configs = services.Select(c => c.Clone()).ToList();
+        Assert.Null(manager.Update(edited));
+        Assert.Equal("renamed", manager.Find(config.Id)!.Name);
+        Assert.Equal("renamed", manager.Configs.Single().Name);
     }
 
-    private sealed class FakeProcessController : IManagedServiceProcessController
+    // MARK: - Ownership by service id (design notes, section 6.5)
+
+    [Fact]
+    public async Task ReconcileNeverStopsAnUntrackedReusedPid()
     {
-        public event EventHandler<ManagedServiceOutputEventArgs>? Output;
-        public List<int> StartedPids { get; } = new();
-        public List<int> StoppedPids { get; } = new();
-        public Action<int>? OnStop { get; set; }
-        public bool ExitImmediately { get; set; }
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7000);
+        Assert.True(await manager.StartAsync(config.Id));
+        Assert.Equal(7000, manager.Find(config.Id)!.RootPid);
 
-        public void RaiseOutput(Guid id, string text) =>
-            Output?.Invoke(this, new ManagedServiceOutputEventArgs(id, ManagedServiceLogStream.StandardOutput, text));
+        // The runtime is no longer tracked (it exited and was pruned), yet the
+        // old PID still appears in the scan. A reused PID must never be killed.
+        processes.Forget(config.Id);
+        Assert.False(processes.IsRunning(config.Id));
 
-        public Task<int> StartAsync(ManagedServiceConfig config, CancellationToken cancellationToken = default)
-        {
-            var pid = 7000 + StartedPids.Count;
-            StartedPids.Add(pid);
-            return Task.FromResult(pid);
-        }
+        await manager.ReconcileAsync(new List<PortInfo> { Active(8080, 7000) });
 
-        public Task StopAsync(int rootPid, CancellationToken cancellationToken = default)
-        {
-            StoppedPids.Add(rootPid);
-            OnStop?.Invoke(rootPid);
-            return Task.CompletedTask;
-        }
-
-        public bool IsRunning(int rootPid) => !ExitImmediately && !StoppedPids.Contains(rootPid);
+        Assert.Empty(processes.StoppedPids);
+        Assert.Equal(new[] { config.Id }, processes.StopRequests);
+        Assert.Equal(ManagedServiceStatus.Failed, manager.Find(config.Id)!.Status);
     }
 
-    private sealed class FakePortInspector : IManagedServicePortInspector
+    [Fact]
+    public async Task StopOnlySignalsATrackedRuntime()
     {
-        private readonly Dictionary<int, List<PortInfo>> _occupants = new();
-        private readonly Dictionary<int, int> _calls = new();
-        private readonly Dictionary<int, (int Threshold, int Pid)> _later = new();
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+        Assert.True(await manager.StartAsync(config.Id));
 
-        public List<int> KilledPids { get; } = new();
-        public List<bool> KillForce { get; } = new();
-        public bool KillShouldFail { get; set; }
+        ports.Release(8080);
+        processes.Forget(config.Id);
 
-        public void Occupy(int port, int pid)
-        {
-            if (!_occupants.TryGetValue(port, out var list))
-            {
-                list = new List<PortInfo>();
-                _occupants[port] = list;
-            }
-            if (list.All(p => p.Pid != pid)) list.Add(Active(port, pid));
-        }
+        var stopped = await manager.StopAsync(config.Id);
 
-        public void OccupyAfter(int port, int calls, int pid) => _later[port] = (calls, pid);
-
-        public void Release(int port) => _occupants.Remove(port);
-
-        public void ReleasePid(int port, int pid)
-        {
-            if (_occupants.TryGetValue(port, out var list)) list.RemoveAll(p => p.Pid == pid);
-        }
-
-        public Task<IReadOnlyList<PortInfo>> ScanAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<PortInfo>>(_occupants.Values.SelectMany(v => v).ToList());
-
-        public Task<IReadOnlyList<PortInfo>> InspectAsync(int port, CancellationToken cancellationToken = default)
-        {
-            _calls.TryGetValue(port, out var calls);
-            calls++;
-            _calls[port] = calls;
-
-            if (_later.TryGetValue(port, out var later) && calls > later.Threshold)
-            {
-                Occupy(port, later.Pid);
-                _later.Remove(port);
-            }
-
-            var result = _occupants.TryGetValue(port, out var list)
-                ? list.ToList()
-                : new List<PortInfo>();
-            return Task.FromResult<IReadOnlyList<PortInfo>>(result);
-        }
-
-        public async Task<bool> IsReadyAsync(int port, CancellationToken cancellationToken = default) =>
-            (await InspectAsync(port, cancellationToken)).Count > 0;
-
-        public Task<bool> KillAsync(int pid, bool force, CancellationToken cancellationToken = default)
-        {
-            KilledPids.Add(pid);
-            KillForce.Add(force);
-            if (!KillShouldFail)
-            {
-                foreach (var list in _occupants.Values) list.RemoveAll(p => p.Pid == pid);
-            }
-            return Task.FromResult(true);
-        }
+        Assert.True(stopped);
+        Assert.Empty(processes.StoppedPids);
+        Assert.Equal(new[] { config.Id }, processes.StopRequests);
     }
+
+    // MARK: - Dispatcher marshalling (design notes, section 20)
+
+    [Fact]
+    public async Task EveryObservableMutationGoesThroughTheStateDispatcher()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var dispatcher = new RecordingStateDispatcher();
+        var manager = new ManagedServiceManager(
+            storage,
+            processes,
+            ports,
+            new AlwaysExistingDirectoryValidator(),
+            null,
+            dispatcher);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+
+        Assert.True(await manager.StartAsync(config.Id));
+        Assert.True(dispatcher.InvokeCount > 0);
+
+        processes.RaiseOutput(config.Id, "hello from stdout");
+
+        Assert.True(dispatcher.PostCount > 0);
+        Assert.Contains("hello from stdout", manager.Find(config.Id)!.RecentOutput.Select(e => e.Text));
+    }
+
+    [Fact]
+    public void RuntimeLogStorePreparesTruncatesAndCleansPerService()
+    {
+        var id = Guid.NewGuid();
+        ManagedServiceRuntimeLogStore.Prepare(id, out var stdout, out var stderr);
+
+        Assert.True(File.Exists(stdout));
+        Assert.True(File.Exists(stderr));
+        Assert.StartsWith(ManagedServiceRuntimeLogStore.RootDirectory, stdout, StringComparison.OrdinalIgnoreCase);
+
+        File.AppendAllText(stdout, "previous run output");
+        ManagedServiceRuntimeLogStore.Prepare(id, out var stdoutAgain, out _);
+        Assert.Equal(string.Empty, File.ReadAllText(stdoutAgain));
+
+        ManagedServiceRuntimeLogStore.Cleanup(id);
+        Assert.False(Directory.Exists(ManagedServiceRuntimeLogStore.DirectoryFor(id)));
+    }
+
+    private static PortInfo Active(int port, int pid) => TestPortInfo.Active(port, pid);
 }

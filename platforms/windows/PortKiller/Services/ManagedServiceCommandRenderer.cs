@@ -45,6 +45,7 @@ public enum ManagedServiceValidationErrorKind
     EmptyCommand,
     UnsupportedPlaceholder,
     ServiceRunning,
+    ServiceTransitioning,
 }
 
 /// <summary>Structured validation failure. Mirrors macOS ManagedServiceValidationError.</summary>
@@ -70,6 +71,7 @@ public sealed class ManagedServiceValidationError : IEquatable<ManagedServiceVal
         ManagedServiceValidationErrorKind.EmptyCommand => "Enter a start command.",
         ManagedServiceValidationErrorKind.UnsupportedPlaceholder => $"Unsupported placeholder \"{Detail}\". Only {{port}} is allowed.",
         ManagedServiceValidationErrorKind.ServiceRunning => "Stop the service before editing it.",
+        ManagedServiceValidationErrorKind.ServiceTransitioning => "Wait for the current operation to finish before editing.",
         _ => "Invalid service configuration.",
     };
 

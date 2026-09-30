@@ -328,7 +328,7 @@
                                                  CaretBrush="#E0E0E0"
                                                  VerticalContentAlignment="Center"
                                                  TextChanged="SearchBox_TextChanged"/>
-                                        <TextBlock Text="Search ports, processes..." 
+                                        <TextBlock x:Name="SearchPlaceholder" Text="Search ports, processes..." 
                                                    FontSize="13" 
                                                    Foreground="#606060" 
                                                    VerticalAlignment="Center" 

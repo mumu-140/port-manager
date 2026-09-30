@@ -1011,10 +1011,10 @@ Keep Cloudflare tunnel behavior routed through the existing TunnelViewModel.
 | --- | --- | --- |
 | Profile storage | Defaults | settings.json |
 | Default command shell | `/bin/zsh -lc` | `cmd.exe /d /s /c` |
-| Working directory | `Process.currentDirectoryURL` | `ProcessStartInfo.WorkingDirectory` |
-| Output capture | File-backed runtime logs (tailed) | redirected async stdout/stderr |
+| Working directory | `Process.currentDirectoryURL` | `CreateProcess` working directory |
+| Output capture | File-backed runtime logs (tailed) | file-backed runtime logs (tailed) |
 | Graceful stop | SIGTERM owned tree | close when possible |
-| Force stop | SIGKILL owned tree | `Kill(entireProcessTree: true)` |
+| Force stop | SIGKILL owned tree | job object terminate (owned tree) |
 | Port inspection | existing `PortScannerProtocol` | existing scanner through interface |
 | Browser open | NSWorkspace | Process.Start / shell execute |
 | Quick Tunnel | TunnelManager | TunnelViewModel/TunnelService |
