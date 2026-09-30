@@ -71,11 +71,10 @@ public class ManagedServicesViewModelTests
         var manager = Manager(storage, processes, ports);
         var config = Config();
         Assert.Null(manager.Add(config));
-        ports.OccupyAfter(8080, calls: 1, pid: 7777);
-        Assert.True(await manager.StartAsync(config.Id));
-
         var vm = new ManagedServicesViewModel(manager, new FakeTunnelHost());
         vm.Load();
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+        Assert.True(await manager.StartAsync(config.Id));
         ports.Release(8080);
         processes.OnStop = _ => ports.Release(8080);
 
@@ -95,11 +94,10 @@ public class ManagedServicesViewModelTests
         var manager = Manager(storage, processes, ports);
         var config = Config();
         Assert.Null(manager.Add(config));
-        ports.Occupy(8080, 4242);
-        Assert.False(await manager.StartAsync(config.Id));
-
         var vm = new ManagedServicesViewModel(manager, new FakeTunnelHost());
         vm.Load();
+        ports.Occupy(8080, 4242);
+        Assert.False(await manager.StartAsync(config.Id));
         Assert.Equal(ManagedServiceStatus.Conflict, vm.SelectedService!.Status);
 
         await vm.DeleteCommand.ExecuteAsync(null);
@@ -119,11 +117,10 @@ public class ManagedServicesViewModelTests
         var manager = Manager(storage, processes, ports);
         var config = Config();
         Assert.Null(manager.Add(config));
-        ports.OccupyAfter(8080, calls: 1, pid: 7777);
-        Assert.True(await manager.StartAsync(config.Id));
-
         var vm = new ManagedServicesViewModel(manager, new FakeTunnelHost());
         vm.Load();
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+        Assert.True(await manager.StartAsync(config.Id));
         ports.Release(8080);
         processes.OnStop = _ => ports.Release(8080);
 
