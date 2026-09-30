@@ -37,7 +37,10 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore platforms/windows/PortKiller/PortKiller.csproj
+        run: dotnet restore platforms/windows/PortKiller.sln
+
+      - name: Test (Debug)
+        run: dotnet test platforms/windows/PortKiller.sln -c Debug --no-restore
 
       - name: Build (Debug)
         run: dotnet build platforms/windows/PortKiller/PortKiller.csproj -c Debug --no-restore
