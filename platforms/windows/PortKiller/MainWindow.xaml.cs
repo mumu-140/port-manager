@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly TunnelViewModel _tunnelViewModel;
+    private readonly ManagedServicesViewModel _managedServicesViewModel;
     private Hardcodet.Wpf.TaskbarNotification.TaskbarIcon? _trayIcon;
     private bool _isShuttingDown = false;
 
@@ -24,6 +25,10 @@ public partial class MainWindow : Window
         _viewModel = App.Services.GetRequiredService<MainViewModel>();
         _tunnelViewModel = App.Services.GetRequiredService<TunnelViewModel>();
         TunnelProtocolCombo.DataContext = _tunnelViewModel;
+
+        _managedServicesViewModel = App.Services.GetRequiredService<ManagedServicesViewModel>();
+        ManagedServicesViewControl.DataContext = _managedServicesViewModel;
+        _managedServicesViewModel.Load();
         InitializeAsync();
         
         // Setup keyboard shortcuts
@@ -189,17 +194,26 @@ public partial class MainWindow : Window
                 _viewModel.SelectedSidebarItem = sidebarItem;
                 HeaderText.Text = sidebarItem.GetTitle();
                 
-                // Toggle between ports view and tunnels view
+                // Exactly one top-level panel is visible at a time.
                 if (sidebarItem == SidebarItem.CloudflareTunnels)
                 {
                     PortsPanel.Visibility = Visibility.Collapsed;
                     DetailPanel.Visibility = Visibility.Collapsed;
+                    ManagedServicesPanel.Visibility = Visibility.Collapsed;
                     TunnelsPanel.Visibility = Visibility.Visible;
                     UpdateTunnelsUI();
+                }
+                else if (sidebarItem == SidebarItem.ManagedServices)
+                {
+                    PortsPanel.Visibility = Visibility.Collapsed;
+                    DetailPanel.Visibility = Visibility.Collapsed;
+                    TunnelsPanel.Visibility = Visibility.Collapsed;
+                    ManagedServicesPanel.Visibility = Visibility.Visible;
                 }
                 else
                 {
                     TunnelsPanel.Visibility = Visibility.Collapsed;
+                    ManagedServicesPanel.Visibility = Visibility.Collapsed;
                     PortsPanel.Visibility = Visibility.Visible;
                 }
                 

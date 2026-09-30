@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:tb="http://www.hardcodet.net/taskbar"
         xmlns:helpers="clr-namespace:PortKiller.Helpers"
+        xmlns:views="clr-namespace:PortKiller.Views"
         mc:Ignorable="d"
         Title="PortKiller" 
         Height="700" Width="1200"
@@ -278,6 +279,12 @@
 
                                 <!-- Cloudflare Tunnels Section -->
                                 <TextBlock Text="SERVICES" FontSize="11" FontWeight="Bold" Foreground="#707070" Margin="12,24,0,8"/>
+                                <Button Click="SidebarButton_Click" Tag="ManagedServices" Style="{StaticResource SidebarButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE8F1;" FontFamily="Segoe MDL2 Assets" Foreground="#4EA1F3" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Local Services"/>
+                                    </StackPanel>
+                                </Button>
                                 <Button Click="SidebarButton_Click" Tag="CloudflareTunnels" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="☁" Foreground="#F4AB3A" Margin="0,0,6,0"/>
@@ -595,6 +602,11 @@
                                 </StackPanel>
                             </ScrollViewer>
                         </Border>
+                    </Grid>
+
+                    <!-- Local Services Panel (Hidden by Default) -->
+                    <Grid Grid.Row="1" x:Name="ManagedServicesPanel" Background="#1E1E1E" Visibility="Collapsed">
+                        <views:ManagedServicesView x:Name="ManagedServicesViewControl"/>
                     </Grid>
 
                     <!-- Cloudflare Tunnels Panel (Hidden by Default) -->
