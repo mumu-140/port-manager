@@ -46,9 +46,9 @@ struct PortTableView: View {
                 Button {
                     useTreeView.toggle()
                 } label: {
-                    Label(useTreeView ? "List View" : "Tree View", systemImage: useTreeView ? "list.bullet" : "list.bullet.indent")
+                    Label(useTreeView ? L("ports.listView") : L("ports.treeView"), systemImage: useTreeView ? "list.bullet" : "list.bullet.indent")
                 }
-                .help(useTreeView ? "Switch to List View" : "Switch to Tree View")
+                .help(useTreeView ? L("ports.switchToListView") : L("ports.switchToTreeView"))
             }
         }
         .onChange(of: appState.ports) { _, _ in
@@ -86,7 +86,7 @@ struct PortTableView: View {
             // Account for status indicator circle space
             Spacer()
                 .frame(width: 16)
-            headerButton("Port", .port, width: 70)
+            headerButton(L("ports.column.port"), .port, width: 70)
             // Process column (flexible)
             Button {
                 if sortOrder == .process {
@@ -97,7 +97,7 @@ struct PortTableView: View {
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text("Process")
+                    Text(L("ports.column.process"))
                         .font(.caption.weight(.medium))
                     if sortOrder == .process {
                         Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
@@ -109,12 +109,12 @@ struct PortTableView: View {
             .buttonStyle(.plain)
             .frame(minWidth: 150, maxWidth: .infinity, alignment: .leading)
 
-            headerButton("PID", .pid, width: 70)
-            headerButton("Type", .type, width: 100)
-            headerButton("Address", .address, width: 80)
-            headerButton("User", .user, width: 70)
+            headerButton(L("ports.detailPid"), .pid, width: 70)
+            headerButton(L("ports.detailType"), .type, width: 100)
+            headerButton(L("ports.detailAddress"), .address, width: 80)
+            headerButton(L("ports.detailUser"), .user, width: 70)
             Spacer()
-            Text("Actions")
+            Text(L("common.actions"))
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 80)
@@ -153,9 +153,9 @@ struct PortTableView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Ports", systemImage: "network.slash")
+            Label(L("ports.noPorts"), systemImage: "network.slash")
         } description: {
-            Text("No listening ports found")
+            Text(L("ports.noListeningPorts"))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

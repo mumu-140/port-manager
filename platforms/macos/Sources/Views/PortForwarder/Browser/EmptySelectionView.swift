@@ -4,7 +4,7 @@ struct EmptySelectionView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Service Details")
+                Text(L("k8s.serviceDetails"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -19,7 +19,7 @@ struct EmptySelectionView: View {
                 Image(systemName: "arrow.left")
                     .font(.title2)
                     .foregroundStyle(.tertiary)
-                Text("Select a service")
+                Text(L("k8s.selectService"))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                 Spacer()

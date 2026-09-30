@@ -16,14 +16,14 @@ struct ConnectionsTab: View {
             VStack(spacing: 0) {
                 // Header with action buttons
                 HStack {
-                    Text("Connections")
+                    Text(L("k8s.connections"))
                         .font(.headline)
 
                     Spacer()
 
                     Button {
                         let config = PortForwardConnectionConfig(
-                            name: "New Connection",
+                            name: L("k8s.newConnection"),
                             namespace: "default",
                             service: "service-name",
                             localPort: 8080,
@@ -31,21 +31,21 @@ struct ConnectionsTab: View {
                         )
                         appState.portForwardManager.addConnection(config)
                     } label: {
-                        Label("Add", systemImage: "plus.circle.fill")
+                        Label(L("common.add"), systemImage: "plus.circle.fill")
                     }
                     .buttonStyle(.bordered)
-                    .help("Add Connection")
+                    .help(L("k8s.addConnection"))
 
                     Button {
                         let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
                         Task { await dm.loadNamespaces() }
                         discoveryManager = dm
                     } label: {
-                        Label("Import", systemImage: "square.and.arrow.down.fill")
+                        Label(L("k8s.import"), systemImage: "square.and.arrow.down.fill")
                     }
                     .buttonStyle(.bordered)
                     .disabled(!DependencyChecker.shared.allRequiredInstalled)
-                    .help("Import from Kubernetes")
+                    .help(L("k8s.importFromKubernetes"))
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -76,9 +76,9 @@ struct ConnectionsTab: View {
                 HStack {
                     let manager = appState.portForwardManager
                     if manager.connections.isEmpty {
-                        Text("No connections configured")
+                        Text(L("k8s.noConnections"))
                     } else {
-                        Text("\(manager.connectedCount) of \(manager.connections.count) connected")
+                        Text(L("k8s.connectedCount", manager.connectedCount, manager.connections.count))
                     }
 
                     Spacer()
@@ -86,22 +86,22 @@ struct ConnectionsTab: View {
                     if manager.isKillingProcesses {
                         ProgressView()
                             .scaleEffect(0.7)
-                        Text("Killing processes...")
+                        Text(L("k8s.killing"))
                             .foregroundStyle(.secondary)
                     } else if !manager.connections.isEmpty {
-                        Button("Kill All Stuck") {
+                        Button(L("k8s.killAllStuck")) {
                             Task { await manager.killStuckProcesses() }
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
 
-                        Button("Start All") {
+                        Button(L("k8s.startAll")) {
                             manager.startAll()
                         }
                         .buttonStyle(.bordered)
                         .disabled(manager.allConnected)
 
-                        Button("Stop All") {
+                        Button(L("k8s.stopAll")) {
                             manager.stopAll()
                         }
                         .buttonStyle(.bordered)

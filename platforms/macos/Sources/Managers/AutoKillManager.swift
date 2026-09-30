@@ -45,8 +45,8 @@ final class AutoKillManager {
 
                 if rule.notifyBeforeKill {
                     notificationService.notify(
-                        title: "Auto-Kill: \(port.processName)",
-                        body: "Port \(port.port) killed after \(rule.timeoutMinutes) min (rule: \(rule.name))"
+                        title: L("notification.autoKill", port.processName),
+                        body: L("notification.autoKillBody", port.port, rule.timeoutMinutes, rule.name)
                     )
                 }
 

@@ -14,7 +14,7 @@ struct NamespacePanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Namespaces")
+                Text(L("k8s.namespaces"))
                     .font(.headline)
                 Spacer()
                 Button {
@@ -23,7 +23,7 @@ struct NamespacePanel: View {
                     Image(systemName: "plus.circle")
                 }
                 .buttonStyle(.plain)
-                .help("Add custom namespace")
+                .help(L("k8s.addCustomNamespaceHelp"))
                 Button {
                     onRefresh()
                 } label: {
@@ -31,7 +31,7 @@ struct NamespacePanel: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(state == .loading)
-                .help("Refresh namespaces")
+                .help(L("k8s.refreshNamespacesHelp"))
             }
             .padding(12)
 
@@ -41,7 +41,7 @@ struct NamespacePanel: View {
                 VStack {
                     Spacer()
                     ProgressView()
-                    Text("Loading...")
+                    Text(L("common.loading"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -56,9 +56,9 @@ struct NamespacePanel: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     HStack(spacing: 8) {
-                        Button("Retry", action: onRefresh)
+                        Button(L("common.retry"), action: onRefresh)
                             .buttonStyle(.bordered)
-                        Button("Add Custom") {
+                        Button(L("k8s.addCustom")) {
                             showingAddSheet = true
                         }
                         .buttonStyle(.borderedProminent)
@@ -86,7 +86,7 @@ struct NamespacePanel: View {
                             .buttonStyle(.plain)
                             .contextMenu {
                                 if ns.isCustom {
-                                    Button("Remove", role: .destructive) {
+                                    Button(L("common.remove"), role: .destructive) {
                                         onRemoveCustom(ns)
                                     }
                                 }

@@ -89,14 +89,14 @@ final class WatchedPortsState {
             if let wasActive = previousPortStates[w.port] {
                 if wasActive && !isActive && w.notifyOnStop {
                     notificationService.notify(
-                        title: "Port \(w.port) Available",
-                        body: "Port is now free."
+                        title: L("notification.portAvailable", w.port),
+                        body: L("notification.portAvailableBody")
                     )
                 } else if !wasActive && isActive && w.notifyOnStart {
-                    let name = ports.first { $0.port == w.port }?.processName ?? "Unknown"
+                    let name = ports.first { $0.port == w.port }?.processName ?? L("common.unknown")
                     notificationService.notify(
-                        title: "Port \(w.port) In Use",
-                        body: "Used by \(name)."
+                        title: L("notification.portInUse", w.port),
+                        body: L("notification.portInUseBody", name)
                     )
                 }
             }

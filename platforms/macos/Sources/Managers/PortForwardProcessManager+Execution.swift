@@ -51,7 +51,7 @@ extension PortForwardProcessManager {
         internalPort: Int
     ) async throws -> Process {
         guard let socatPath = DependencyChecker.shared.socatPath else {
-            throw KubectlError.executionFailed("socat not found")
+            throw KubectlError.executionFailed(L("k8s.error.socatNotFound"))
         }
 
         let process = Process()
@@ -95,7 +95,7 @@ extension PortForwardProcessManager {
         }
 
         guard let socatPath = DependencyChecker.shared.socatPath else {
-            throw KubectlError.executionFailed("socat not found for multi-connection mode")
+            throw KubectlError.executionFailed(L("k8s.error.socatNotFoundMulti"))
         }
 
         let wrapperScript = createWrapperScript(

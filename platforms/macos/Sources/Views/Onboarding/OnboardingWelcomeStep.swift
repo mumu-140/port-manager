@@ -9,11 +9,11 @@ struct OnboardingWelcomeStep: View {
                 .font(.system(size: 56))
                 .foregroundColor(.accentColor)
 
-            Text("Welcome to PortKiller")
+            Text(L("onboarding.welcome.title"))
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("Find and kill processes on any port.\nManage your development servers with ease.")
+            Text(L("onboarding.welcome.subtitle"))
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

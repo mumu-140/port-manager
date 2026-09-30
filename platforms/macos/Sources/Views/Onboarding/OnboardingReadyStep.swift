@@ -9,19 +9,19 @@ struct OnboardingReadyStep: View {
                 .font(.system(size: 56))
                 .foregroundColor(.green)
 
-            Text("You're All Set!")
+            Text(L("onboarding.ready.title"))
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("PortKiller is ready to use.\nLook for the icon in your menu bar.")
+            Text(L("onboarding.ready.detail"))
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
 
             HStack(spacing: 24) {
-                tipView(icon: "menubar.arrow.up.rectangle", text: "Click the menu bar icon\nfor quick access")
-                tipView(icon: "gearshape.fill", text: "Visit Settings to\ncustomize further")
+                tipView(icon: "menubar.arrow.up.rectangle", text: L("onboarding.ready.tipMenuBar"))
+                tipView(icon: "gearshape.fill", text: L("onboarding.ready.tipSettings"))
             }
             .padding(.top, 8)
 

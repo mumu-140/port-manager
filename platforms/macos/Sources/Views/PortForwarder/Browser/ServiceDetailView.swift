@@ -14,7 +14,7 @@ struct ServiceDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Service Details")
+                Text(L("k8s.serviceDetails"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -48,12 +48,12 @@ struct ServiceDetailView: View {
                     Divider()
 
                     // Port Selection
-                    Text("Select Port")
+                    Text(L("k8s.selectPort"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     if service.ports.isEmpty {
-                        Text("No ports defined")
+                        Text(L("k8s.noPortsDefined"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     } else {
@@ -70,25 +70,25 @@ struct ServiceDetailView: View {
                     if selectedPort != nil {
                         Divider()
 
-                        Text("Port Configuration")
+                        Text(L("k8s.portConfiguration"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
-                                Text("Local port:")
+                                Text(L("k8s.localPort"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Text(String(suggestedLocalPort))
                                     .font(.system(.caption, design: .monospaced, weight: .medium))
                             }
 
-                            Toggle("Enable Proxy (socat)", isOn: $proxyEnabled)
+                            Toggle(L("k8s.enableProxy"), isOn: $proxyEnabled)
                                 .toggleStyle(.checkbox)
 
                             if proxyEnabled {
                                 HStack {
-                                    Text("Proxy port:")
+                                    Text(L("k8s.proxyPort"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                     Text(String(suggestedProxyPort))
@@ -99,10 +99,10 @@ struct ServiceDetailView: View {
                             Divider()
 
                             HStack {
-                                Text("Connect to:")
+                                Text(L("k8s.connectTo"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                Text("localhost:" + String(proxyEnabled ? suggestedProxyPort : suggestedLocalPort))
+                                Text(L("k8s.localhostPort", proxyEnabled ? suggestedProxyPort : suggestedLocalPort))
                                     .font(.system(.caption, design: .monospaced, weight: .semibold))
                                     .foregroundStyle(.green)
                             }

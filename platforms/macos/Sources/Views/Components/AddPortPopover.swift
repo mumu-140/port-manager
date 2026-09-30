@@ -22,7 +22,7 @@ struct AddPortPopover: View {
     }
 
     private var title: String {
-        mode == .favorite ? "Add Favorite Port" : "Add Watched Port"
+        mode == .favorite ? L("ports.addFavoriteTitle") : L("ports.addWatchedTitle")
     }
 
     var body: some View {
@@ -30,7 +30,7 @@ struct AddPortPopover: View {
             Text(title)
                 .font(.headline)
 
-            TextField("Port (1-65535)", text: $portText)
+            TextField(L("ports.addPortField"), text: $portText)
                 .textFieldStyle(.roundedBorder)
                 .focused($isTextFieldFocused)
                 .onSubmit {
@@ -41,24 +41,24 @@ struct AddPortPopover: View {
 
             if mode == .watch {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Notify when port starts", isOn: $notifyOnStart)
+                    Toggle(L("ports.notifyOnStart"), isOn: $notifyOnStart)
                         .toggleStyle(.checkbox)
 
-                    Toggle("Notify when port stops", isOn: $notifyOnStop)
+                    Toggle(L("ports.notifyOnStop"), isOn: $notifyOnStop)
                         .toggleStyle(.checkbox)
                 }
                 .padding(.vertical, 4)
             }
 
             HStack {
-                Button("Cancel") {
+                Button(L("common.cancel")) {
                     dismiss()
                 }
                 .keyboardShortcut(.escape, modifiers: [])
 
                 Spacer()
 
-                Button("Add") {
+                Button(L("common.add")) {
                     handleAdd()
                 }
                 .keyboardShortcut(.return, modifiers: [])

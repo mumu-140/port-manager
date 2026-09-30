@@ -24,7 +24,7 @@ struct DependencyRow: View {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
-                        Text("Installed")
+                        Text(L("k8s.installed"))
                             .foregroundStyle(.secondary)
                     }
                 } else {
@@ -32,7 +32,7 @@ struct DependencyRow: View {
                         ProgressView()
                             .scaleEffect(0.7)
                     } else {
-                        Button("Install") {
+                        Button(L("common.install")) {
                             install()
                         }
                         .buttonStyle(.bordered)
@@ -40,7 +40,7 @@ struct DependencyRow: View {
                     }
 
                     if !dependency.isRequired {
-                        Text("(optional)")
+                        Text(L("k8s.optional"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -57,25 +57,25 @@ struct DependencyRow: View {
                         .truncationMode(.middle)
 
                     if isCustom {
-                        Text("(custom)")
+                        Text(L("k8s.custom"))
                             .font(.caption2)
                             .foregroundStyle(.orange)
                     } else {
-                        Text("(auto)")
+                        Text(L("k8s.auto"))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
 
                     Spacer()
 
-                    Button("Browse...") {
+                    Button(L("k8s.browse")) {
                         browseForPath()
                     }
                     .buttonStyle(.borderless)
                     .controlSize(.small)
 
                     if isCustom {
-                        Button("Reset") {
+                        Button(L("k8s.reset")) {
                             Defaults[customPathKey] = nil
                         }
                         .buttonStyle(.borderless)
@@ -98,7 +98,7 @@ struct DependencyRow: View {
 
     private func browseForPath() {
         let panel = NSOpenPanel()
-        panel.title = "Select \(name) executable"
+        panel.title = L("k8s.selectExecutable", name)
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true

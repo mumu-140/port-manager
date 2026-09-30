@@ -13,7 +13,7 @@ struct ConnectionLogsSection: View {
         VStack(spacing: 0) {
             // Logs header
             HStack {
-                Text("Logs")
+                Text(L("k8s.logs"))
                     .font(.headline)
 
                 if !connection.logs.isEmpty {
@@ -31,7 +31,7 @@ struct ConnectionLogsSection: View {
                         Image(systemName: "doc.on.doc")
                     }
                     .buttonStyle(.borderless)
-                    .help("Copy All Logs (Markdown)")
+                    .help(L("k8s.copyAllLogs"))
 
                     Button {
                         connection.clearLogs()
@@ -39,7 +39,7 @@ struct ConnectionLogsSection: View {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(.borderless)
-                    .help("Clear Logs")
+                    .help(L("k8s.clearLogs"))
                 }
             }
             .padding(.horizontal, 16)
@@ -53,7 +53,7 @@ struct ConnectionLogsSection: View {
                     Image(systemName: "text.alignleft")
                         .font(.system(size: 24))
                         .foregroundStyle(.tertiary)
-                    Text("No logs yet")
+                    Text(L("k8s.noLogs"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()

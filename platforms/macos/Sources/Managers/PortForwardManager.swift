@@ -165,13 +165,13 @@ final class PortForwardManager {
                 guard let self = self, let state = state else { return }
                 Task { @MainActor [weak self, weak state] in
                     guard let self = self, let state = state else { return }
-                    state.appendLog("Port \(port) in use, auto-recovering...", type: .portForward, isError: false)
+                    state.appendLog(L("k8s.log.portInUseRecovering", port), type: .portForward, isError: false)
 
                     await self.processManager.killProcessOnPort(port)
 
                     try? await Task.sleep(for: .milliseconds(500))
 
-                    state.appendLog("Retrying connection...", type: .portForward, isError: false)
+                    state.appendLog(L("k8s.log.retrying"), type: .portForward, isError: false)
                     self.restartConnection(id)
                 }
             }

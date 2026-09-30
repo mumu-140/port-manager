@@ -215,12 +215,12 @@ struct PortRowView: View {
 
     @ViewBuilder
     private func menuBarConfirmContent(confirmingKill: Binding<String?>) -> some View {
-        Text("Kill \(port.processName)?")
+        Text(L("ports.killConfirm", port.processName))
             .font(.callout)
             .lineLimit(1)
         Spacer()
         HStack(spacing: 4) {
-            Button("Kill") {
+            Button(L("ports.kill")) {
                 isKilling = true
                 confirmingKill.wrappedValue = nil
                 Task { await appState.killPort(port) }
@@ -229,7 +229,7 @@ struct PortRowView: View {
             .tint(.red)
             .controlSize(.small)
 
-            Button("Cancel") {
+            Button(L("common.cancel")) {
                 confirmingKill.wrappedValue = nil
             }
             .buttonStyle(.bordered)
@@ -277,7 +277,7 @@ struct PortRowView: View {
             Spacer()
 
             // PID
-            Text("PID \(String(port.pid))")
+            Text(L("ports.pid", port.pid))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .opacity(isKilling ? 0.5 : 1)

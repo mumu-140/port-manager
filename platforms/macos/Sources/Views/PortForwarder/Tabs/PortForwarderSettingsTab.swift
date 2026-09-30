@@ -6,15 +6,15 @@ struct PortForwarderSettingsTab: View {
 
     var body: some View {
         Form {
-            Section("Startup") {
-                Toggle("Auto-start connections on app launch", isOn: $autoStart)
+            Section(L("k8s.startup")) {
+                Toggle(L("k8s.autoStartConnections"), isOn: $autoStart)
             }
 
-            Section("Notifications") {
-                Toggle("Show connection notifications", isOn: $showNotifications)
+            Section(L("common.notifications")) {
+                Toggle(L("k8s.showNotificationsHelp"), isOn: $showNotifications)
             }
 
-            Section("Dependencies") {
+            Section(L("k8s.dependencies")) {
                 DependencyRow(
                     name: "kubectl",
                     dependency: DependencyChecker.shared.kubectl,

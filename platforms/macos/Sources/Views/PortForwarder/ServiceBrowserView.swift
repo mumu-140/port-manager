@@ -9,7 +9,7 @@ struct ServiceBrowserView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Import from Kubernetes")
+                Text(L("k8s.importFromKubernetes"))
                     .font(.headline)
                 Spacer()
                 Button {
@@ -94,12 +94,12 @@ struct ServiceBrowserView: View {
 
                 Spacer()
 
-                Button("Cancel") {
+                Button(L("common.cancel")) {
                     onCancel()
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button("Add") {
+                Button(L("common.add")) {
                     if let config = discoveryManager.createConnectionConfig() {
                         onServiceSelected(config)
                     }

@@ -81,14 +81,14 @@ enum SidebarItem: Hashable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .allPorts: return "All Ports"
-        case .favorites: return "Favorites"
-        case .watched: return "Watched"
-        case .processType(let type): return type.rawValue
-        case .kubernetesPortForward: return "K8s Port Forward"
-        case .cloudflareTunnels: return "Cloudflare Tunnels"
-        case .sponsors: return "Sponsors"
-        case .settings: return "Settings"
+        case .allPorts: return L("ports.allPorts")
+        case .favorites: return L("ports.favorites")
+        case .watched: return L("ports.watched")
+        case .processType(let type): return type.localizedName
+        case .kubernetesPortForward: return L("ports.k8sPortForward")
+        case .cloudflareTunnels: return L("tunnel.cloudflareTunnels")
+        case .sponsors: return L("sponsor.title")
+        case .settings: return L("common.settings")
         }
     }
 

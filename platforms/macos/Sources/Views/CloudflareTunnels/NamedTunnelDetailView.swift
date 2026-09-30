@@ -53,7 +53,7 @@ struct NamedTunnelDetailView: View {
                         .fontWeight(.semibold)
                         .lineLimit(1)
 
-                    Text(tunnel.status.rawValue)
+                    Text(tunnel.status.localizedName)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -78,7 +78,7 @@ struct NamedTunnelDetailView: View {
 
     private var statusBadges: some View {
         HStack(spacing: 8) {
-            badge(text: tunnel.status.rawValue, tint: statusColor)
+            badge(text: tunnel.status.localizedName, tint: statusColor)
 
             if tunnel.status == .running {
                 badge(
@@ -146,7 +146,7 @@ struct NamedTunnelDetailView: View {
                 }
             case .starting, .stopping:
                 Button {} label: {
-                    HStack { ProgressView().controlSize(.small); Text(tunnel.status.rawValue) }
+                    HStack { ProgressView().controlSize(.small); Text(tunnel.status.localizedName) }
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)

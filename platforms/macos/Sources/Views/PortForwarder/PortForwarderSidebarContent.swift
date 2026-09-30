@@ -125,12 +125,12 @@ struct PortForwarderSidebarContent: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Connections", systemImage: "point.3.connected.trianglepath.dotted")
+            Label(L("k8s.noConnectionsTitle"), systemImage: "point.3.connected.trianglepath.dotted")
         } description: {
             if searchText.isEmpty {
-                Text("Add a connection or import from Kubernetes")
+                Text(L("k8s.addOrImport"))
             } else {
-                Text("No connections match '\(searchText)'")
+                Text(L("k8s.noConnectionsMatch", searchText))
             }
         }
         .frame(maxHeight: .infinity)
@@ -148,7 +148,7 @@ struct AddConnectionButtons: View {
             // Manual add button
             Button {
                 let config = PortForwardConnectionConfig(
-                    name: "New Connection",
+                    name: L("k8s.newConnection"),
                     namespace: "default",
                     service: "service-name",
                     localPort: 8080,
@@ -158,7 +158,7 @@ struct AddConnectionButtons: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus.circle.fill")
-                    Text("Add Connection")
+                    Text(L("k8s.addConnection"))
                 }
                 .foregroundStyle(.secondary)
             }
@@ -172,7 +172,7 @@ struct AddConnectionButtons: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.down")
-                    Text("Import from Kubernetes")
+                    Text(L("k8s.importFromKubernetes"))
                 }
                 .foregroundStyle(.blue)
             }

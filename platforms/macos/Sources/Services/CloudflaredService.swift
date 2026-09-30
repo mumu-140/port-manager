@@ -213,11 +213,11 @@ enum CloudflaredError: Error, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .notInstalled:
-            return "cloudflared is not installed"
+            return L("cloudflared.notInstalled")
         case .startFailed(let message):
-            return "Failed to start tunnel: \(message)"
+            return L("cloudflared.startFailed", message)
         case .tunnelFailed(let message):
-            return "Tunnel error: \(message)"
+            return L("cloudflared.tunnelFailed", message)
         }
     }
 }

@@ -53,6 +53,19 @@ enum NamedTunnelStatus: String, Sendable {
     case error = "Error"
 }
 
+/// Localized display name for a named tunnel status.
+extension NamedTunnelStatus {
+    var localizedName: String {
+        switch self {
+        case .stopped: return L("tunnel.status.stopped")
+        case .starting: return L("tunnel.status.starting")
+        case .running: return L("tunnel.status.running")
+        case .stopping: return L("tunnel.status.stopping")
+        case .error: return L("tunnel.status.error")
+        }
+    }
+}
+
 // MARK: - Named Tunnel
 
 /// A persistent (named) Cloudflare tunnel discovered from the local cloudflared config.

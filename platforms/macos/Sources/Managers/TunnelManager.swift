@@ -107,8 +107,8 @@ final class TunnelManager {
                     tunnelState.startTime = Date()
                     ClipboardService.copy(url)
                     NotificationService.shared.notify(
-                        title: "Tunnel Active",
-                        body: "Port \(tunnelState.port) available at \(url.shortenedTunnelURL)"
+                        title: L("notification.tunnelActive"),
+                        body: L("notification.tunnelActiveBody", tunnelState.port, url.shortenedTunnelURL)
                     )
                 }
             }
@@ -146,7 +146,7 @@ final class TunnelManager {
                     await self.cloudflaredService.removeHandlers(for: tunnelState.id)
                     await MainActor.run {
                         tunnelState.status = .error
-                        tunnelState.lastError = "Process terminated unexpectedly"
+                        tunnelState.lastError = L("k8s.error.processTerminatedUnexpectedly")
                     }
                 }
             } catch {

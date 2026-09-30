@@ -8,9 +8,9 @@ struct PortForwarderStatusBar: View {
             // Connection count
             let manager = appState.portForwardManager
             if manager.connections.isEmpty {
-                Text("No connections configured")
+                Text(L("k8s.noConnections"))
             } else {
-                Text("\(manager.connectedCount) of \(manager.connections.count) connected")
+                Text(L("k8s.connectedCount", manager.connectedCount, manager.connections.count))
             }
 
             Spacer()

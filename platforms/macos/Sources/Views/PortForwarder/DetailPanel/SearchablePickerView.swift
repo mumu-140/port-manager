@@ -48,7 +48,7 @@ struct SearchablePickerView: View {
                     Spacer()
                     ProgressView()
                         .controlSize(.small)
-                    Text("Loading...")
+                    Text(L("common.loading"))
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
@@ -56,12 +56,12 @@ struct SearchablePickerView: View {
             } else if filteredItems.isEmpty {
                 VStack(spacing: 8) {
                     if items.isEmpty {
-                        Text("No items")
+                        Text(L("k8s.searchableNoItems"))
                             .foregroundStyle(.secondary)
-                        Button("Refresh") { onRefresh() }
+                        Button(L("common.refresh")) { onRefresh() }
                             .buttonStyle(.bordered)
                     } else {
-                        Text("No matches")
+                        Text(L("k8s.searchableNoMatches"))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -105,7 +105,7 @@ struct SearchablePickerView: View {
             } label: {
                 HStack {
                     Image(systemName: "arrow.clockwise")
-                    Text("Refresh")
+                    Text(L("common.refresh"))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)

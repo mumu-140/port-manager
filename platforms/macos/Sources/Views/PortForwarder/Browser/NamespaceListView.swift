@@ -14,7 +14,7 @@ struct NamespaceListView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Namespaces")
+                Text(L("k8s.namespaces"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -25,7 +25,7 @@ struct NamespaceListView: View {
                         .font(.caption)
                 }
                 .buttonStyle(.plain)
-                .help("Add custom namespace")
+                .help(L("k8s.addCustomNamespaceHelp"))
                 Button {
                     onRefresh()
                 } label: {
@@ -34,7 +34,7 @@ struct NamespaceListView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(state == .loading)
-                .help("Refresh namespaces")
+                .help(L("k8s.refreshNamespacesHelp"))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -48,7 +48,7 @@ struct NamespaceListView: View {
                         Spacer()
                         ProgressView()
                             .scaleEffect(0.8)
-                        Text("Loading...")
+                        Text(L("common.loading"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -66,13 +66,13 @@ struct NamespaceListView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
                         HStack(spacing: 8) {
-                            Button("Retry") {
+                            Button(L("common.retry")) {
                                 onRefresh()
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
 
-                            Button("Add Custom") {
+                            Button(L("k8s.addCustom")) {
                                 showingAddSheet = true
                             }
                             .buttonStyle(.borderedProminent)
@@ -85,7 +85,7 @@ struct NamespaceListView: View {
                     if namespaces.isEmpty && state == .loaded {
                         VStack {
                             Spacer()
-                            Text("No namespaces")
+                            Text(L("k8s.noNamespaces"))
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                             Spacer()
@@ -144,7 +144,7 @@ struct NamespaceRow: View {
         .buttonStyle(.plain)
         .contextMenu {
             if onDelete != nil {
-                Button("Remove", role: .destructive) {
+                Button(L("common.remove"), role: .destructive) {
                     onDelete?()
                 }
             }

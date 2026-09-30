@@ -34,7 +34,7 @@ extension PortForwardManager {
                 }
             } else {
                 state.portForwardStatus = .error
-                state.lastError = "Port forward failed to start"
+                state.lastError = L("k8s.error.portForwardFailed")
             }
         } catch {
             state.portForwardStatus = .error
@@ -66,7 +66,7 @@ extension PortForwardManager {
             } else {
                 state.proxyStatus = .error
                 state.portForwardStatus = .error
-                state.lastError = "Direct exec proxy failed to start"
+                state.lastError = L("k8s.error.directExecFailed")
             }
         } catch {
             state.proxyStatus = .error
@@ -93,7 +93,7 @@ extension PortForwardManager {
                 sendConnectNotificationIfEnabled(for: config)
             } else {
                 state.proxyStatus = .error
-                state.lastError = "Socat proxy failed to start"
+                state.lastError = L("k8s.error.socatFailed")
             }
         } catch {
             state.proxyStatus = .error
@@ -106,8 +106,8 @@ extension PortForwardManager {
         guard Defaults[.portForwardShowNotifications] else { return }
         guard config.notifyOnConnect else { return }
         NotificationService.shared.notify(
-            title: "Connected",
-            body: "\(config.name) is ready on port \(config.proxyPort ?? config.localPort)"
+            title: L("notification.connected"),
+            body: L("notification.connectedBody", config.name, config.proxyPort ?? config.localPort)
         )
     }
 
@@ -117,8 +117,8 @@ extension PortForwardManager {
         guard Defaults[.portForwardShowNotifications] else { return }
         guard config.notifyOnDisconnect else { return }
         NotificationService.shared.notify(
-            title: "Disconnected",
-            body: "\(config.name) connection lost"
+            title: L("notification.disconnected"),
+            body: L("notification.disconnectedBody", config.name)
         )
     }
 }

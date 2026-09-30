@@ -9,15 +9,15 @@ struct AddCustomNamespaceSheet: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Add Custom Namespace")
+            Text(L("k8s.addCustomNamespace"))
                 .font(.headline)
 
-            Text("Enter namespace names (comma-separated for multiple)")
+            Text(L("k8s.enterNamespaces"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            TextField("e.g., production, staging, dev", text: $namespaceInput)
+            TextField(L("k8s.namespacePlaceholder"), text: $namespaceInput)
                 .textFieldStyle(.roundedBorder)
                 .focused($isInputFocused)
                 .onSubmit {
@@ -25,14 +25,14 @@ struct AddCustomNamespaceSheet: View {
                 }
 
             HStack {
-                Button("Cancel") {
+                Button(L("common.cancel")) {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
 
                 Spacer()
 
-                Button("Add") {
+                Button(L("common.add")) {
                     addNamespaces()
                 }
                 .keyboardShortcut(.defaultAction)

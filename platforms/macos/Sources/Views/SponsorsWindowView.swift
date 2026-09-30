@@ -27,11 +27,11 @@ struct SponsorsPageView: View {
                         .foregroundStyle(.pink)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Sponsors")
+                        Text(L("sponsor.title"))
                             .font(.title2)
                             .fontWeight(.bold)
 
-                        Text("Thank you for supporting PortKiller!")
+                        Text(L("sponsor.thankYou"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -42,7 +42,7 @@ struct SponsorsPageView: View {
                         Link(destination: url) {
                             HStack(spacing: 6) {
                                 Image(systemName: "heart.fill")
-                                Text("Become a Sponsor")
+                                Text(L("sponsor.becomeSponsor"))
                             }
                             .font(.callout)
                             .padding(.horizontal, 16)
@@ -63,7 +63,7 @@ struct SponsorsPageView: View {
                         // Active Sponsors
                         if !activeSponsors.isEmpty {
                             sponsorSection(
-                                title: "Active Sponsors",
+                                title: L("sponsor.activeSponsors"),
                                 icon: "star.fill",
                                 color: .yellow,
                                 sponsors: activeSponsors
@@ -73,19 +73,19 @@ struct SponsorsPageView: View {
                         // Contributors
                         if !sponsorManager.contributors.isEmpty {
                             contributorSection(
-                                title: "Contributors",
+                                title: L("sponsor.contributors"),
                                 icon: "hammer.fill",
                                 color: .blue,
 								contributors: sponsorManager.contributors
                             )
                         } else {
-                            Text("No contributors found")
+                            Text(L("sponsor.noContributors"))
                         }
 						
 						// Past Sponsors
 						if !pastSponsors.isEmpty {
 							sponsorSection(
-								title: "Past Sponsors",
+								title: L("sponsor.pastSponsors"),
 								icon: "heart.fill",
 								color: .secondary,
 								sponsors: pastSponsors,
@@ -158,11 +158,11 @@ struct SponsorsPageView: View {
                     .font(.system(size: 50))
                     .foregroundStyle(.secondary)
 
-                Text("Couldn't load sponsors")
+                Text(L("sponsor.loadFailed"))
                     .font(.title2)
                     .fontWeight(.medium)
 
-                Button("Try Again") {
+                Button(L("sponsor.tryAgain")) {
                     Task {
                         await sponsorManager.refreshSponsors()
                     }
@@ -173,12 +173,12 @@ struct SponsorsPageView: View {
                     .font(.system(size: 50))
                     .foregroundStyle(.secondary)
 
-                Text("Be the first sponsor!")
+                Text(L("sponsor.beFirst"))
                     .font(.title2)
                     .fontWeight(.medium)
 
                 if let url = URL(string: AppInfo.githubSponsors) {
-                    Link("Become a Sponsor", destination: url)
+                    Link(L("sponsor.becomeSponsor"), destination: url)
                         .buttonStyle(.borderedProminent)
                         .tint(.pink)
                 }

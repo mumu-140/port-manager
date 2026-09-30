@@ -42,27 +42,27 @@ struct PortDetailView: View {
             .padding()
         }
         .confirmationDialog(
-            "Kill Process",
+            L("ports.killProcess"),
             isPresented: $showKillConfirmation
         ) {
-            Button("Kill Process", role: .destructive) {
+            Button(L("ports.killProcess"), role: .destructive) {
                 Task {
                     await appState.killPort(port)
                 }
             }
-            Button("Force Kill (SIGKILL)", role: .destructive) {
+            Button(L("ports.forceKill"), role: .destructive) {
                 Task {
                     await appState.killPort(port)
                 }
             }
-            Button("Deep Kill (+ Connections)", role: .destructive) {
+            Button(L("ports.deepKill"), role: .destructive) {
                 Task {
                     await appState.killPortDeep(port)
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(L("common.cancel"), role: .cancel) {}
         } message: {
-            Text("Are you sure you want to kill \(port.processName) on port \(String(port.port))?")
+            Text(L("ports.killConfirmDetail", port.processName, port.port))
         }
     }
 
@@ -78,7 +78,7 @@ struct PortDetailView: View {
                         .lineLimit(1)
 
                     HStack(spacing: 4) {
-                        Text("Port \(String(port.port))")
+                        Text(L("ports.portNumber", port.port))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
@@ -96,7 +96,7 @@ struct PortDetailView: View {
             }
 
             HStack(spacing: 8) {
-                Text(port.processType.rawValue)
+                Text(port.processType.localizedName)
                     .font(.caption)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -107,7 +107,7 @@ struct PortDetailView: View {
                 if appState.isFavorite(port.port) {
                     HStack(spacing: 4) {
                         Image(systemName: "star.fill")
-                        Text("Favorite")
+                        Text(L("ports.favorite"))
                     }
                     .font(.caption)
                     .padding(.horizontal, 8)
@@ -120,7 +120,7 @@ struct PortDetailView: View {
                 if appState.isWatching(port.port) {
                     HStack(spacing: 4) {
                         Image(systemName: "eye.fill")
-                        Text("Watching")
+                        Text(L("ports.watching"))
                     }
                     .font(.caption)
                     .padding(.horizontal, 8)
@@ -138,11 +138,11 @@ struct PortDetailView: View {
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Notes")
+                Text(L("ports.notes"))
                     .font(.headline)
                 Spacer()
                 if appState.portNote(for: port.port) != nil {
-                    Button("Clear") {
+                    Button(L("common.clear")) {
                         appState.removePortNote(for: port.port)
                         noteDraft = ""
                     }
@@ -160,7 +160,7 @@ struct PortDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay(alignment: .topLeading) {
                     if noteDraft.isEmpty {
-                        Text("Add a note for port \(String(port.port))…")
+                        Text(L("ports.addNotePrompt", port.port))
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 11)
                             .padding(.vertical, 14)
@@ -187,13 +187,13 @@ struct PortDetailView: View {
             GridItem(.flexible()),
             GridItem(.flexible())
         ], alignment: .leading, spacing: 16) {
-            DetailRow(title: "Port", value: String(port.port))
-            DetailRow(title: "Label", value: appState.portLabel(for: port.port) ?? "—")
-            DetailRow(title: "PID", value: String(port.pid))
-            DetailRow(title: "Address", value: port.address)
-            DetailRow(title: "User", value: port.user)
-            DetailRow(title: "File Descriptor", value: port.fd)
-            DetailRow(title: "Type", value: port.processType.rawValue)
+            DetailRow(title: L("ports.column.port"), value: String(port.port))
+            DetailRow(title: L("ports.detailLabel"), value: appState.portLabel(for: port.port) ?? "—")
+            DetailRow(title: L("ports.detailPid"), value: String(port.pid))
+            DetailRow(title: L("ports.detailAddress"), value: port.address)
+            DetailRow(title: L("ports.detailUser"), value: port.user)
+            DetailRow(title: L("ports.detailFd"), value: port.fd)
+            DetailRow(title: L("ports.detailType"), value: port.processType.localizedName)
         }
     }
 
@@ -206,7 +206,7 @@ struct PortDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "globe").foregroundStyle(.orange)
-                Text("Exposed via Cloudflare Tunnel")
+                Text(L("ports.exposedViaTunnel"))
                     .font(.headline)
                 Spacer()
             }
@@ -243,7 +243,7 @@ struct PortDetailView: View {
                                 .font(.caption)
                         }
                         .buttonStyle(.borderless)
-                        .help("Copy URL")
+                        .help(L("common.copyURL"))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -257,14 +257,14 @@ struct PortDetailView: View {
     private var commandSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Command")
+                Text(L("ports.command"))
                     .font(.headline)
                 Spacer()
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(port.command, forType: .string)
                 } label: {
-                    Label("Copy", systemImage: "doc.on.doc")
+                    Label(L("common.copy"), systemImage: "doc.on.doc")
                         .font(.caption)
                 }
                 .buttonStyle(.bordered)
@@ -286,7 +286,7 @@ struct PortDetailView: View {
 
     private var actionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Actions")
+            Text(L("common.actions"))
                 .font(.headline)
 
             VStack(spacing: 8) {
@@ -300,7 +300,7 @@ struct PortDetailView: View {
                 Button(role: .destructive) {
                     showKillConfirmation = true
                 } label: {
-                    Text("Kill Process")
+                    Text(L("ports.killProcess"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -329,12 +329,12 @@ struct PortDetailView: View {
             } label: {
                 HStack {
                     Image(systemName: "cloud.fill")
-                    Text("Share via Tunnel")
+                    Text(L("tunnel.shareViaTunnel"))
                 }
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
-            .help("Create a public URL for this port via Cloudflare Tunnel")
+            .help(L("tunnel.shareDescription"))
         }
     }
 }

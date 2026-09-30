@@ -10,24 +10,24 @@ struct OptionsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Options", systemImage: "gearshape")
+            Label(L("k8s.options"), systemImage: "gearshape")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 20) {
                 Toggle(isOn: $proxyEnabled) {
-                    Label("Proxy", systemImage: "network")
+                    Label(L("k8s.proxy"), systemImage: "network")
                 }
                 .toggleStyle(.switch)
                 .controlSize(.small)
 
                 if proxyEnabled {
                     Toggle(isOn: $useDirectExec) {
-                        Label("Multi-conn", systemImage: "arrow.triangle.branch")
+                        Label(L("k8s.multiConn"), systemImage: "arrow.triangle.branch")
                     }
                     .toggleStyle(.switch)
                     .controlSize(.small)
-                    .help("Enable multiple simultaneous connections")
+                    .help(L("k8s.enableMultipleHelp"))
                 }
 
                 Spacer()
@@ -35,12 +35,12 @@ struct OptionsSection: View {
 
             HStack(spacing: 20) {
                 Toggle(isOn: $autoReconnect) {
-                    Label("Auto Reconnect", systemImage: "arrow.clockwise")
+                    Label(L("k8s.autoReconnect"), systemImage: "arrow.clockwise")
                 }
                 .toggleStyle(.checkbox)
 
                 Toggle(isOn: $isEnabled) {
-                    Label("Enabled", systemImage: "power")
+                    Label(L("common.enabled"), systemImage: "power")
                 }
                 .toggleStyle(.checkbox)
 
@@ -50,12 +50,12 @@ struct OptionsSection: View {
 
             HStack(spacing: 20) {
                 Toggle(isOn: $notifyOnConnect) {
-                    Label("Notify on Connect", systemImage: "bell")
+                    Label(L("k8s.notifyOnConnect"), systemImage: "bell")
                 }
                 .toggleStyle(.checkbox)
 
                 Toggle(isOn: $notifyOnDisconnect) {
-                    Label("Notify on Disconnect", systemImage: "bell.slash")
+                    Label(L("k8s.notifyOnDisconnect"), systemImage: "bell.slash")
                 }
                 .toggleStyle(.checkbox)
 

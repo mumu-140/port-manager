@@ -10,7 +10,7 @@ struct SidebarView: View {
         @Bindable var state = appState
 
         List(selection: $state.selectedSidebarItem) {
-            Section("Categories") {
+            Section(L("ports.section.categories")) {
                 sidebarRow(.allPorts, count: appState.ports.count)
 
                 // Favorites row with add button
@@ -20,31 +20,31 @@ struct SidebarView: View {
                 watchedRow
             }
 
-            Section("Networking") {
+            Section(L("ports.section.networking")) {
                 kubernetesPortForwardRow
                 cloudflareTunnelsRow
             }
 
-            Section("Process Types") {
+            Section(L("ports.section.processTypes")) {
                 ForEach(ProcessType.allCases) { type in
                     sidebarRow(.processType(type), count: countForType(type))
                 }
             }
 
-            Section("Filters") {
+            Section(L("ports.section.filters")) {
                 filterControls
             }
 
             Section {
                 Label {
-                    Text("Sponsors")
+                    Text(L("sponsor.title"))
                 } icon: {
                     Image(systemName: "heart.fill")
                         .foregroundStyle(.pink)
                 }
                 .tag(SidebarItem.sponsors)
 
-                Label("Settings", systemImage: "gear")
+                Label(L("common.settings"), systemImage: "gear")
                     .tag(SidebarItem.settings)
             }
         }
@@ -56,7 +56,7 @@ struct SidebarView: View {
     private var favoritesRow: some View {
         Label {
             HStack {
-                Text("Favorites")
+                Text(L("ports.favorites"))
                 Spacer()
 
                 Button {
@@ -66,7 +66,7 @@ struct SidebarView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Add Favorite Port")
+                .help(L("ports.addFavoriteHelp"))
                 .popover(isPresented: $showAddFavoritePopover) {
                     AddPortPopover(mode: .favorite) { port, _, _ in
                         appState.favorites.insert(port)
@@ -87,7 +87,7 @@ struct SidebarView: View {
             Button {
                 showAddFavoritePopover = true
             } label: {
-                Label("Add Port...", systemImage: "plus")
+                Label(L("ports.addPort"), systemImage: "plus")
             }
         }
     }
@@ -97,7 +97,7 @@ struct SidebarView: View {
     private var watchedRow: some View {
         Label {
             HStack {
-                Text("Watched")
+                Text(L("ports.watched"))
                 Spacer()
 
                 Button {
@@ -107,7 +107,7 @@ struct SidebarView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Add Watched Port")
+                .help(L("ports.addWatchedHelp"))
                 .popover(isPresented: $showAddWatchPopover) {
                     AddPortPopover(mode: .watch) { port, onStart, onStop in
                         appState.watchedPorts.append(
@@ -130,7 +130,7 @@ struct SidebarView: View {
             Button {
                 showAddWatchPopover = true
             } label: {
-                Label("Add Port...", systemImage: "plus")
+                Label(L("ports.addPort"), systemImage: "plus")
             }
         }
     }
@@ -140,7 +140,7 @@ struct SidebarView: View {
     private var kubernetesPortForwardRow: some View {
         Label {
             HStack {
-                Text("K8s Port Forward")
+                Text(L("ports.k8sPortForward"))
                 Spacer()
 
                 // Status indicator
@@ -163,7 +163,7 @@ struct SidebarView: View {
     private var cloudflareTunnelsRow: some View {
         Label {
             HStack {
-                Text("Cloudflare Tunnels")
+                Text(L("tunnel.title"))
                 Spacer()
 
                 let activeCount = appState.tunnelManager.activeTunnelCount + appState.namedTunnelManager.runningCount
@@ -209,23 +209,23 @@ struct SidebarView: View {
 
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Port Range")
+                Text(L("ports.portRange"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
-                    TextField("Min", value: $state.filter.minPort, format: .number.grouping(.never))
+                    TextField(L("ports.min"), value: $state.filter.minPort, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 60)
                     Text("-")
                         .foregroundStyle(.secondary)
-                    TextField("Max", value: $state.filter.maxPort, format: .number.grouping(.never))
+                    TextField(L("ports.max"), value: $state.filter.maxPort, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 60)
                 }
             }
 
             if appState.filter.isActive {
-                Button("Reset Filters") {
+                Button(L("ports.resetFilters")) {
                     appState.filter.reset()
                 }
                 .font(.caption)

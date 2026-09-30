@@ -16,8 +16,8 @@ extension AppState {
             guard enabledTypes.contains(port.processType.rawValue) else { continue }
 
             NotificationService.shared.notify(
-                title: "New \(port.processType.rawValue) on Port \(port.port)",
-                body: "\(port.processName) started listening."
+                title: L("notification.newProcessType", port.processType.localizedName, port.port),
+                body: L("notification.newProcessTypeBody", port.processName)
             )
         }
     }

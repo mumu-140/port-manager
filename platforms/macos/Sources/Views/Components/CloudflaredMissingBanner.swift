@@ -25,14 +25,14 @@ struct CloudflaredMissingBanner: View {
                     .foregroundStyle(.blue)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("cloudflared Required")
+                    Text(L("tunnel.cloudflaredRequired"))
                         .font(.headline)
                     if !isBrewInstalled {
-                        Text("Homebrew is required. Visit brew.sh to install.")
+                        Text(L("tunnel.homebrewRequired"))
                             .font(.caption)
                             .foregroundStyle(.orange)
                     } else {
-                        Text("Install cloudflared to share ports via Cloudflare Tunnel")
+                        Text(L("tunnel.installCloudflaredPrompt"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -47,7 +47,7 @@ struct CloudflaredMissingBanner: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.plain)
-                .help("Check if installed")
+                .help(L("tunnel.checkInstalledHelp"))
 
                 if isBrewInstalled {
                     // Copy command button
@@ -62,7 +62,7 @@ struct CloudflaredMissingBanner: View {
                         Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
                     }
                     .buttonStyle(.bordered)
-                    .help(isCopied ? "Copied!" : "Copy command")
+                    .help(L(isCopied ? "common.copied" : "common.copyCommand"))
 
                     // Install button
                     Button {
@@ -72,9 +72,9 @@ struct CloudflaredMissingBanner: View {
                             ProgressView()
                                 .scaleEffect(0.7)
                                 .frame(width: 16, height: 16)
-                            Text("Installing...")
+                            Text(L("tunnel.installing"))
                         } else {
-                            Label("Install", systemImage: "arrow.down.circle")
+                            Label(L("common.install"), systemImage: "arrow.down.circle")
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -86,7 +86,7 @@ struct CloudflaredMissingBanner: View {
                             NSWorkspace.shared.open(url)
                         }
                     } label: {
-                        Label("Get Homebrew", systemImage: "safari")
+                        Label(L("tunnel.getHomebrew"), systemImage: "safari")
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -102,7 +102,7 @@ struct CloudflaredMissingBanner: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                     Spacer()
-                    Button("Dismiss") {
+                    Button(L("tunnel.dismiss")) {
                         installError = nil
                     }
                     .font(.caption)
@@ -131,15 +131,15 @@ struct CloudflaredMissingBanner: View {
             let result = await ProcessExecutor.run(brewPath, arguments: ["install", "cloudflared"])
             isInstalling = false
             guard let result else {
-                installError = "Failed to run brew"
+                installError = L("k8s.failedToRunBrew")
                 return
             }
             if result.succeeded {
                 appState.tunnelManager.recheckInstallation()
             } else {
                 let combined = result.standardOutput + result.standardError
-                let errorOutput = combined.isEmpty ? "Unknown error" : combined
-                installError = "Installation failed: \(errorOutput.prefix(100))"
+                let errorOutput = combined.isEmpty ? L("common.unknownError") : combined
+                installError = L("k8s.installationFailed", String(errorOutput.prefix(100)))
             }
         }
     }

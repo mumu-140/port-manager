@@ -14,7 +14,7 @@ struct MainWindowView: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
         } content: {
             contentView
-                .searchable(text: $state.filter.searchText, prompt: "Search ports, processes...")
+                .searchable(text: $state.filter.searchText, prompt: L("ports.searchPlaceholder"))
                 .navigationSplitViewColumnWidth(min: 300, ideal: 400, max: .infinity)
         } detail: {
             detailView
@@ -30,17 +30,17 @@ struct MainWindowView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         .confirmationDialog(
-            "Kill All Processes",
+            L("ports.killAllTitle"),
             isPresented: $showKillAllConfirmation
         ) {
-            Button("Kill All (\(appState.filteredPorts.count) processes)", role: .destructive) {
+            Button(L("ports.killAllCount", appState.filteredPorts.count), role: .destructive) {
                 Task {
                     await appState.killAll()
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(L("common.cancel"), role: .cancel) {}
         } message: {
-            Text("Are you sure you want to kill all \(appState.filteredPorts.count) processes? This action cannot be undone.")
+            Text(L("ports.killAllConfirm", appState.filteredPorts.count))
         }
         .onKeyPress(.delete) {
             if let port = appState.selectedPort {
@@ -106,18 +106,18 @@ struct MainWindowView: View {
                 NamedTunnelDetailView(tunnel: tunnel)
             } else {
                 ContentUnavailableView {
-                    Label("No Tunnel Selected", systemImage: "cloud")
+                    Label(L("tunnel.noSelectionTitle"), systemImage: "cloud")
                 } description: {
-                    Text("Select a tunnel from the list to view details")
+                    Text(L("tunnel.noSelectionDetail"))
                 }
             }
         } else if let selectedPort = appState.selectedPort {
             PortDetailView(port: selectedPort)
         } else {
             ContentUnavailableView {
-                Label("No Port Selected", systemImage: "network.slash")
+                Label(L("ports.noSelectionTitle"), systemImage: "network.slash")
             } description: {
-                Text("Select a port from the list to view details")
+                Text(L("ports.noSelectionDetail"))
             }
         }
     }
@@ -127,9 +127,9 @@ struct MainWindowView: View {
             // Port count
             Group {
                 if appState.filter.isActive || appState.selectedSidebarItem != .allPorts {
-                    Text("\(appState.filteredPorts.count) of \(appState.ports.count) ports")
+                    Text(L("ports.filteredCount", appState.filteredPorts.count, appState.ports.count))
                 } else {
-                    Text("\(appState.ports.count) ports listening")
+                    Text(L("ports.listeningCount", appState.ports.count))
                 }
             }
             .font(.caption)
@@ -141,7 +141,7 @@ struct MainWindowView: View {
             if appState.isScanning {
                 ProgressView()
                     .controlSize(.small)
-                Text("Scanning...")
+                Text(L("ports.scanning"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -159,19 +159,19 @@ struct MainWindowView: View {
                     await appState.refresh()
                 }
             } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
+                Label(L("common.refresh"), systemImage: "arrow.clockwise")
             }
             .keyboardShortcut("r", modifiers: .command)
             .disabled(appState.isScanning)
-            .help("Refresh port list (Cmd+R)")
+            .help(L("ports.refreshHelp"))
 
             Button {
                 appState.selectedSidebarItem = .settings
             } label: {
-                Label("Settings", systemImage: "gear")
+                Label(L("common.settings"), systemImage: "gear")
             }
             .keyboardShortcut(",", modifiers: .command)
-            .help("Open Settings (Cmd+,)")
+            .help(L("common.settingsHelp"))
         }
     }
 }

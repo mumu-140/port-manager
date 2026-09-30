@@ -112,7 +112,7 @@ struct ConnectionEditSection: View {
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    Text("Configuration")
+                    Text(L("k8s.configuration"))
                         .font(.headline)
                 }
             }
@@ -208,13 +208,13 @@ struct ConnectionEditSection: View {
 
     private var statusText: String {
         if connection.portForwardStatus == .error || connection.proxyStatus == .error {
-            return "Error"
+            return L("common.error")
         } else if connection.isFullyConnected {
-            return "Connected"
+            return L("notification.connected")
         } else if connection.portForwardStatus == .connecting || connection.proxyStatus == .connecting {
-            return "Connecting"
+            return L("common.connecting")
         }
-        return "Stopped"
+        return L("common.stopped")
     }
 
     // MARK: - Persistence

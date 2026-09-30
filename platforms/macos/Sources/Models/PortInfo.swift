@@ -57,7 +57,7 @@ struct PortInfo: Identifiable, Hashable, Sendable {
         PortInfo(
             port: port,
             pid: 0,
-            processName: "Not running",
+            processName: L("ports.notRunning"),
             address: "-",
             user: "-",
             command: "",

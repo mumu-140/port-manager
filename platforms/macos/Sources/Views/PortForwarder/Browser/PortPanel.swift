@@ -11,7 +11,7 @@ struct PortPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Port Configuration")
+                Text(L("k8s.portConfiguration"))
                     .font(.headline)
                 Spacer()
             }
@@ -41,24 +41,24 @@ struct PortPanel: View {
                         if selectedPort != nil {
                             Divider()
 
-                            Toggle("Enable Proxy (socat)", isOn: $proxyEnabled)
+                            Toggle(L("k8s.enableProxy"), isOn: $proxyEnabled)
 
                             let localPort = discoveryManager.suggestLocalPort(for: selectedPort?.port ?? 0)
                             let proxyPort = discoveryManager.suggestProxyPort(for: localPort)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Local: \(localPort)")
+                                Text(L("k8s.localPortValue", localPort))
                                     .font(.caption)
                                 if proxyEnabled {
-                                    Text("Proxy: \(proxyPort)")
+                                    Text(L("k8s.proxyValue", proxyPort))
                                         .font(.caption)
                                 }
-                                Text("Connect to: localhost:\(proxyEnabled ? proxyPort : localPort)")
+                                Text(L("k8s.connectToValue", proxyEnabled ? proxyPort : localPort))
                                     .font(.caption)
                                     .foregroundStyle(.green)
                             }
 
-                            Button("Add Connection", action: onAdd)
+                            Button(L("k8s.addConnection"), action: onAdd)
                                 .buttonStyle(.borderedProminent)
                         }
                     }
@@ -67,7 +67,7 @@ struct PortPanel: View {
             } else {
                 VStack {
                     Spacer()
-                    Text("Select a service")
+                    Text(L("k8s.selectService"))
                         .foregroundStyle(.tertiary)
                     Spacer()
                 }

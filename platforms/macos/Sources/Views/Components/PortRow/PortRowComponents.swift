@@ -109,7 +109,7 @@ struct PortTypeBadge: View {
 
     var body: some View {
         if isActive {
-            Text(processType.rawValue)
+            Text(processType.localizedName)
                 .font(font)
                 .padding(.horizontal, horizontalPadding)
                 .padding(.vertical, verticalPadding)
@@ -117,7 +117,7 @@ struct PortTypeBadge: View {
                 .foregroundStyle(processType.color)
                 .clipShape(Capsule())
         } else {
-            Text("Inactive")
+            Text(L("ports.inactive"))
                 .font(font)
                 .padding(.horizontal, horizontalPadding)
                 .padding(.vertical, verticalPadding)
@@ -148,7 +148,7 @@ struct PortKillButton: View {
                     .foregroundStyle(.red)
             }
             .buttonStyle(.plain)
-            .help("Kill process")
+            .help(L("ports.killProcessHelp"))
         } else if let onRemove {
             Button {
                 onRemove()
@@ -157,7 +157,7 @@ struct PortKillButton: View {
                     .foregroundStyle(.red)
             }
             .buttonStyle(.plain)
-            .help("Remove from list")
+            .help(L("ports.removeFromList"))
         }
     }
 }

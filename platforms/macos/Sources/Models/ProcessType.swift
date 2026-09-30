@@ -32,6 +32,17 @@ enum ProcessType: String, CaseIterable, Identifiable, Sendable {
     /// Unique identifier for this process type
     var id: String { rawValue }
 
+    /// Localized display name for the process type
+    var localizedName: String {
+        switch self {
+        case .webServer: return L("ports.processType.webServer")
+        case .database: return L("ports.processType.database")
+        case .development: return L("ports.processType.development")
+        case .system: return L("ports.processType.system")
+        case .other: return L("ports.processType.other")
+        }
+    }
+
     /// SF Symbol icon name for this process type
     var icon: String {
         switch self {

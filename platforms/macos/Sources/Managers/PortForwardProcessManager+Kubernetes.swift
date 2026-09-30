@@ -52,7 +52,7 @@ extension PortForwardProcessManager {
                 throw KubectlError.clusterNotConnected
             }
             throw KubectlError.executionFailed(
-                errorOutput.isEmpty ? "Unknown error" : errorOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+                errorOutput.isEmpty ? L("common.unknownError") : errorOutput.trimmingCharacters(in: .whitespacesAndNewlines)
             )
         }
 

@@ -201,7 +201,7 @@ final class NamedTunnelManager {
         // Warn by default before adding this Mac as another connector for a
         // tunnel that already appears to be managed by a different origin.
         guard allowManagedElsewhere || tunnel.runSafety != .managedElsewhere else {
-            tunnel.lastError = "Tunnel is managed elsewhere (active edge connections from other origins)."
+            tunnel.lastError = L("k8s.error.tunnelManagedElsewhere")
             return
         }
 
@@ -287,7 +287,7 @@ final class NamedTunnelManager {
                 await cloudflaredService.removeHandlers(for: runID)
                 tunnel.status = .error
                 if tunnel.lastError == nil {
-                    tunnel.lastError = "cloudflared exited unexpectedly"
+                    tunnel.lastError = L("k8s.error.cloudflaredExitedUnexpectedly")
                 }
                 tunnel.runID = nil
                 return
@@ -319,7 +319,7 @@ final class NamedTunnelManager {
         } else {
             tunnel.status = .error
             if tunnel.lastError == nil {
-                tunnel.lastError = "cloudflared exited with status \(process.terminationStatus)"
+                tunnel.lastError = L("k8s.error.cloudflaredExitedWithStatus", Int(process.terminationStatus))
             }
         }
     }

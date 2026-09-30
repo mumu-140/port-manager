@@ -12,7 +12,7 @@ struct PortForwarderToolbar: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Search...", text: $searchText)
+                TextField(L("k8s.searchPlaceholder"), text: $searchText)
                     .textFieldStyle(.plain)
                 if !searchText.isEmpty {
                     Button {
@@ -36,7 +36,7 @@ struct PortForwarderToolbar: View {
                 Image(systemName: groupByNamespace ? "folder.fill" : "list.bullet")
             }
             .buttonStyle(.bordered)
-            .help(groupByNamespace ? "Show flat list" : "Group by namespace")
+            .help(groupByNamespace ? L("k8s.showFlatList") : L("k8s.groupByNamespace"))
 
             Spacer()
 
@@ -46,7 +46,7 @@ struct PortForwarderToolbar: View {
                 Button {
                     manager.startAll()
                 } label: {
-                    Label("Start All", systemImage: "play.fill")
+                    Label(L("k8s.startAll"), systemImage: "play.fill")
                 }
                 .buttonStyle(.bordered)
                 .disabled(manager.allConnected)
@@ -54,7 +54,7 @@ struct PortForwarderToolbar: View {
                 Button {
                     manager.stopAll()
                 } label: {
-                    Label("Stop All", systemImage: "stop.fill")
+                    Label(L("k8s.stopAll"), systemImage: "stop.fill")
                 }
                 .buttonStyle(.bordered)
                 .disabled(manager.connectedCount == 0)
@@ -62,15 +62,15 @@ struct PortForwarderToolbar: View {
                 Button {
                     Task { await manager.killStuckProcesses() }
                 } label: {
-                    Label("Force Stop", systemImage: "xmark.octagon.fill")
+                    Label(L("k8s.forceStop"), systemImage: "xmark.octagon.fill")
                 }
                 .buttonStyle(.bordered)
-                .help("Kill all stuck kubectl/socat processes")
+                .help(L("k8s.forceStopHelp"))
             }
 
             Button {
                 let config = PortForwardConnectionConfig(
-                    name: "New Connection",
+                    name: L("k8s.newConnection"),
                     namespace: "default",
                     service: "service-name",
                     localPort: 8080,
@@ -78,7 +78,7 @@ struct PortForwarderToolbar: View {
                 )
                 appState.portForwardManager.addConnection(config)
             } label: {
-                Label("Add", systemImage: "plus.circle.fill")
+                Label(L("common.add"), systemImage: "plus.circle.fill")
             }
             .buttonStyle(.bordered)
 
@@ -87,7 +87,7 @@ struct PortForwarderToolbar: View {
                 Task { await dm.loadNamespaces() }
                 discoveryManager = dm
             } label: {
-                Label("Import", systemImage: "square.and.arrow.down.fill")
+                Label(L("k8s.import"), systemImage: "square.and.arrow.down.fill")
             }
             .buttonStyle(.bordered)
             .disabled(!DependencyChecker.shared.allRequiredInstalled)

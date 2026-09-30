@@ -52,7 +52,7 @@ extension PortForwardManager {
             // Reconnect on error
             if state.portForwardStatus == .connected && hasError {
                 let wasConnected = state.isFullyConnected
-                state.lastError = "kubectl port-forward error on port \(localPort)"
+                state.lastError = L("k8s.error.kubectlPortForward", localPort)
                 state.portForwardStatus = .disconnected
                 state.proxyStatus = .disconnected
                 if wasConnected {
@@ -67,7 +67,7 @@ extension PortForwardManager {
             // Reconnect if process died
             if state.portForwardStatus == .connected && !processRunning {
                 let wasConnected = state.isFullyConnected
-                state.lastError = "Process terminated"
+                state.lastError = L("k8s.error.processTerminated")
                 state.portForwardStatus = .disconnected
                 state.proxyStatus = .disconnected
                 if wasConnected {
@@ -80,7 +80,7 @@ extension PortForwardManager {
             // Reconnect if port not responding
             if state.portForwardStatus == .connected && !pfWorking {
                 let wasConnected = state.isFullyConnected
-                state.lastError = "Connection lost"
+                state.lastError = L("k8s.error.connectionLost")
                 state.portForwardStatus = .disconnected
                 state.proxyStatus = .disconnected
                 if wasConnected {
@@ -104,7 +104,7 @@ extension PortForwardManager {
                 let proxyWorking = await processManager.isPortOpen(port: proxyPort)
                 if state.proxyStatus == .connected && !proxyWorking {
                     state.proxyStatus = .error
-                    state.lastError = "Proxy connection lost"
+                    state.lastError = L("k8s.error.proxyConnectionLost")
                     if state.portForwardStatus == .connected {
                         state.proxyStatus = .connecting
                         state.proxyTask = Task {
@@ -135,7 +135,7 @@ extension PortForwardManager {
 
         if state.proxyStatus == .connected && hasError {
             let wasConnected = state.isFullyConnected
-            state.lastError = "Proxy error on port \(state.config.proxyPort ?? 0)"
+            state.lastError = L("k8s.error.proxyError", state.config.proxyPort ?? 0)
             state.portForwardStatus = .disconnected
             state.proxyStatus = .disconnected
             if wasConnected {
@@ -149,7 +149,7 @@ extension PortForwardManager {
 
         if state.proxyStatus == .connected && !proxyRunning {
             let wasConnected = state.isFullyConnected
-            state.lastError = "Proxy terminated"
+            state.lastError = L("k8s.error.proxyTerminated")
             state.portForwardStatus = .disconnected
             state.proxyStatus = .disconnected
             if wasConnected {

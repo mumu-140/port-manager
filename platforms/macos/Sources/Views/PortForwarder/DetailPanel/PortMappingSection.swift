@@ -9,7 +9,7 @@ struct PortMappingSection: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Label("Port Mapping", systemImage: "arrow.left.arrow.right")
+                Label(L("k8s.portMapping"), systemImage: "arrow.left.arrow.right")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -20,10 +20,10 @@ struct PortMappingSection: View {
                 // Proxy port (if enabled)
                 if proxyEnabled {
                     VStack(spacing: 4) {
-                        Text("Proxy")
+                        Text(L("k8s.proxy"))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
-                        TextField("port", text: $proxyPort)
+                        TextField(L("k8s.portPlaceholder"), text: $proxyPort)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 70)
                             .multilineTextAlignment(.center)
@@ -36,10 +36,10 @@ struct PortMappingSection: View {
 
                 // Local port
                 VStack(spacing: 4) {
-                    Text("Local")
+                    Text(L("k8s.local"))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
-                    TextField("port", text: $localPort)
+                    TextField(L("k8s.portPlaceholder"), text: $localPort)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 70)
                         .multilineTextAlignment(.center)
@@ -61,10 +61,10 @@ struct PortMappingSection: View {
 
                 // Remote port
                 VStack(spacing: 4) {
-                    Text("Remote")
+                    Text(L("k8s.remote"))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
-                    TextField("port", text: $remotePort)
+                    TextField(L("k8s.portPlaceholder"), text: $remotePort)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 70)
                         .multilineTextAlignment(.center)

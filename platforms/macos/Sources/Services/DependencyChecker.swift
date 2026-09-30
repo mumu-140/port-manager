@@ -116,14 +116,14 @@ actor DependencyChecker {
         } else if FileManager.default.fileExists(atPath: "/usr/local/bin/brew") {
             brewPath = "/usr/local/bin/brew"
         } else {
-            return (false, "Homebrew is not installed. Please install it from https://brew.sh")
+            return (false, L("k8s.homebrewMissing"))
         }
 
         var results: [String] = []
 
         for dep in missing {
             let result = await installWithBrew(brewPath: brewPath, package: dep.brewPackage)
-            results.append("\(dep.name): \(result.success ? "Installed" : "Failed - \(result.message)")")
+            results.append(result.success ? L("k8s.depInstalled", dep.name) : L("k8s.depFailed", dep.name, result.message))
         }
 
         let allSuccess = missing.allSatisfy(\.isInstalled)
@@ -132,10 +132,10 @@ actor DependencyChecker {
 
     private func installWithBrew(brewPath: String, package: String) async -> (success: Bool, message: String) {
         guard let result = await ProcessExecutor.run(brewPath, arguments: ["install", package]) else {
-            return (false, "Failed to launch brew")
+            return (false, L("k8s.failedToLaunchBrew"))
         }
         return result.succeeded
-            ? (true, "Installed")
+            ? (true, L("k8s.installed"))
             : (false, result.standardOutput + result.standardError)
     }
 }

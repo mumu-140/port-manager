@@ -172,12 +172,12 @@ final class PermissionService {
     /// Text description for notification status
     var notificationStatusText: String {
         switch notificationStatus {
-        case .authorized: return "Alerts enabled for port watch"
-        case .denied: return "Notifications disabled in System Settings"
-        case .notDetermined: return "Required for port watch alerts"
-        case .provisional: return "Provisional notifications enabled"
-        case .ephemeral: return "Temporary notifications enabled"
-        @unknown default: return "Unknown status"
+        case .authorized: return L("settings.permissions.notif.authorized")
+        case .denied: return L("settings.permissions.notif.denied")
+        case .notDetermined: return L("settings.permissions.notif.notDetermined")
+        case .provisional: return L("settings.permissions.notif.provisional")
+        case .ephemeral: return L("settings.permissions.notif.ephemeral")
+        @unknown default: return L("settings.permissions.notif.unknown")
         }
     }
 }

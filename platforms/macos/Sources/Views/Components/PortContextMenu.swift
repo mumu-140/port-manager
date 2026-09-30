@@ -93,7 +93,7 @@ struct PortContextMenu: View {
             appState.toggleFavorite(port.port)
         } label: {
             Label(
-                appState.isFavorite(port.port) ? "Remove from Favorites" : "Add to Favorites",
+                appState.isFavorite(port.port) ? L("ports.removeFromFavorites") : L("ports.addToFavorites"),
                 systemImage: appState.isFavorite(port.port) ? "star.slash" : "star"
             )
         }
@@ -102,7 +102,7 @@ struct PortContextMenu: View {
             appState.toggleWatch(port.port)
         } label: {
             Label(
-                appState.isWatching(port.port) ? "Stop Watching" : "Watch Port",
+                appState.isWatching(port.port) ? L("ports.stopWatching") : L("ports.watchPort"),
                 systemImage: appState.isWatching(port.port) ? "eye.slash" : "eye"
             )
         }
@@ -113,7 +113,7 @@ struct PortContextMenu: View {
             promptForPortLabel(port: port.port)
         } label: {
             Label(
-                appState.portLabel(for: port.port) != nil ? "Edit Label" : "Set Label",
+                appState.portLabel(for: port.port) != nil ? L("ports.editLabel") : L("ports.setLabel"),
                 systemImage: "pencil"
             )
         }
@@ -122,7 +122,7 @@ struct PortContextMenu: View {
             Button {
                 appState.removePortLabel(for: port.port)
             } label: {
-                Label("Remove Label", systemImage: "pencil.slash")
+                Label(L("ports.removeLabel"), systemImage: "pencil.slash")
             }
         }
 
@@ -130,7 +130,7 @@ struct PortContextMenu: View {
             promptForPortNote(port: port.port)
         } label: {
             Label(
-                appState.portNote(for: port.port) != nil ? "Edit Note" : "Add Note",
+                appState.portNote(for: port.port) != nil ? L("ports.editNote") : L("ports.addNote"),
                 systemImage: "note.text"
             )
         }
@@ -139,7 +139,7 @@ struct PortContextMenu: View {
             Button {
                 appState.removePortNote(for: port.port)
             } label: {
-                Label("Remove Note", systemImage: "trash")
+                Label(L("ports.removeNote"), systemImage: "trash")
             }
         }
     }
@@ -152,7 +152,7 @@ struct PortContextMenu: View {
                     appState.setProcessTypeOverride(processName: port.processName, type: type)
                 } label: {
                     HStack {
-                        Label(type.rawValue, systemImage: type.icon)
+                        Label(type.localizedName, systemImage: type.icon)
                         if port.processType == type {
                             Image(systemName: "checkmark")
                         }
@@ -165,11 +165,11 @@ struct PortContextMenu: View {
                 Button {
                     appState.clearProcessTypeOverride(processName: port.processName)
                 } label: {
-                    Label("Reset to Auto", systemImage: "arrow.counterclockwise")
+                    Label(L("ports.resetToAuto"), systemImage: "arrow.counterclockwise")
                 }
             }
         } label: {
-            Label("Set Process Type", systemImage: "tag")
+            Label(L("ports.setProcessType"), systemImage: "tag")
         }
     }
 
@@ -180,7 +180,7 @@ struct PortContextMenu: View {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(String(port.port), forType: .string)
             } label: {
-                Label("Copy Port Number", systemImage: "doc.on.doc")
+                Label(L("ports.copyPortNumber"), systemImage: "doc.on.doc")
             }
         }
 
@@ -189,7 +189,7 @@ struct PortContextMenu: View {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(port.command, forType: .string)
             } label: {
-                Label("Copy Command", systemImage: "doc.on.doc")
+                Label(L("ports.copyCommand"), systemImage: "doc.on.doc")
             }
         }
     }
@@ -201,7 +201,7 @@ struct PortContextMenu: View {
                 await appState.killPort(port)
             }
         } label: {
-            Label("Kill Process", systemImage: "xmark.circle")
+            Label(L("ports.killProcess"), systemImage: "xmark.circle")
         }
         .keyboardShortcut(.delete, modifiers: [])
 
@@ -210,7 +210,7 @@ struct PortContextMenu: View {
                 await appState.killPortDeep(port)
             }
         } label: {
-            Label("Deep Kill (+ Connections)", systemImage: "xmark.circle.fill")
+            Label(L("ports.deepKill"), systemImage: "xmark.circle.fill")
         }
     }
 
@@ -221,7 +221,7 @@ struct PortContextMenu: View {
                 NSWorkspace.shared.open(url)
             }
         } label: {
-            Label("Open in Browser", systemImage: "globe.fill")
+            Label(L("common.openInBrowser"), systemImage: "globe.fill")
         }
         .keyboardShortcut("o", modifiers: .command)
 
@@ -229,7 +229,7 @@ struct PortContextMenu: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString("http://localhost:\(port.port)", forType: .string)
         } label: {
-            Label("Copy URL", systemImage: "document.on.clipboard")
+            Label(L("common.copyURL"), systemImage: "document.on.clipboard")
         }
     }
 
@@ -241,7 +241,7 @@ struct PortContextMenu: View {
                     Button {
                         ClipboardService.copy(url)
                     } label: {
-                        Label("Copy Tunnel URL", systemImage: "doc.on.doc")
+                        Label(L("tunnel.copyURL"), systemImage: "doc.on.doc")
                     }
 
                     Button {
@@ -249,27 +249,27 @@ struct PortContextMenu: View {
                             NSWorkspace.shared.open(tunnelURL)
                         }
                     } label: {
-                        Label("Open Tunnel URL", systemImage: "globe")
+                        Label(L("tunnel.openURL"), systemImage: "globe")
                     }
                 }
 
                 Button {
                     appState.tunnelManager.stopTunnel(for: port.port)
                 } label: {
-                    Label("Stop Tunnel", systemImage: "icloud.slash")
+                    Label(L("tunnel.stopTunnel"), systemImage: "icloud.slash")
                 }
             } else {
                 Button {
                     appState.tunnelManager.startTunnel(for: port.port, portInfoId: port.id)
                 } label: {
-                    Label("Share via Tunnel", systemImage: "cloud.fill")
+                    Label(L("tunnel.shareViaTunnel"), systemImage: "cloud.fill")
                 }
             }
         } else {
             Button {
                 ClipboardService.copy("brew install cloudflared")
             } label: {
-                Label("Copy: brew install cloudflared", systemImage: "doc.on.doc")
+                Label(L("tunnel.copyCloudflaredInstall"), systemImage: "doc.on.doc")
             }
         }
     }
@@ -277,13 +277,13 @@ struct PortContextMenu: View {
     /// Prompts the user to set a custom label for a port via an NSAlert, then persists it.
     private func promptForPortLabel(port: Int) {
         let alert = NSAlert()
-        alert.messageText = "Set Label for Port \(port)"
-        alert.informativeText = "Enter a custom name to identify this port."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = L("ports.labelTitle", port)
+        alert.informativeText = L("ports.labelPrompt")
+        alert.addButton(withTitle: L("common.save"))
+        alert.addButton(withTitle: L("common.cancel"))
 
         let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        textField.placeholderString = "e.g., Frontend Dev Server"
+        textField.placeholderString = L("ports.labelPlaceholder")
         textField.stringValue = appState.portLabel(for: port) ?? ""
         alert.accessoryView = textField
         alert.window.initialFirstResponder = textField
@@ -297,10 +297,10 @@ struct PortContextMenu: View {
     /// multi-line text view, then persists it.
     private func promptForPortNote(port: Int) {
         let alert = NSAlert()
-        alert.messageText = "Note for Port \(port)"
-        alert.informativeText = "Add freeform notes about this port."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = L("ports.noteTitle", port)
+        alert.informativeText = L("ports.notePrompt")
+        alert.addButton(withTitle: L("common.save"))
+        alert.addButton(withTitle: L("common.cancel"))
 
         let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
         scrollView.hasVerticalScroller = true

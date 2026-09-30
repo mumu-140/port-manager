@@ -8,7 +8,7 @@ struct OnboardingSetupStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Quick Setup")
+            Text(L("onboarding.setup.title"))
                 .font(.title2)
                 .fontWeight(.bold)
                 .padding(.bottom, 4)
@@ -17,9 +17,9 @@ struct OnboardingSetupStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 LaunchAtLogin.Toggle {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Launch at Login")
+                        Text(L("onboarding.setup.launchAtLogin"))
                             .fontWeight(.medium)
-                        Text("Start PortKiller when you log in")
+                        Text(L("onboarding.setup.launchAtLoginDetail"))
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -34,9 +34,9 @@ struct OnboardingSetupStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Notifications")
+                        Text(L("common.notifications"))
                             .fontWeight(.medium)
-                        Text("Get notified when watched ports change state")
+                        Text(L("onboarding.setup.notificationsDetail"))
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -47,12 +47,12 @@ struct OnboardingSetupStep: View {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            Text("Enabled")
+                            Text(L("common.enabled"))
                                 .font(.callout)
                                 .foregroundStyle(.green)
                         }
                     } else if notificationStatus == .denied {
-                        Button("Open Settings") {
+                        Button(L("onboarding.openSettings")) {
                             if let bundleId = Bundle.main.bundleIdentifier {
                                 let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(bundleId)")!
                                 NSWorkspace.shared.open(url)
@@ -60,7 +60,7 @@ struct OnboardingSetupStep: View {
                         }
                         .controlSize(.small)
                     } else {
-                        Button("Enable") {
+                        Button(L("common.enable")) {
                             requestPermission()
                         }
                         .controlSize(.small)
@@ -75,9 +75,9 @@ struct OnboardingSetupStep: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Global Shortcut")
+                        Text(L("onboarding.setup.globalShortcut"))
                             .fontWeight(.medium)
-                        Text("Open PortKiller from anywhere")
+                        Text(L("onboarding.setup.globalShortcutDetail"))
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }

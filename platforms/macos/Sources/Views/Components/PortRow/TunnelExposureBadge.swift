@@ -45,17 +45,17 @@ struct TunnelExposureBadge: View {
             ForEach(exposures, id: \.publicURL) { exposure in
                 Button {
                     ClipboardService.copy(exposure.publicURL)
-                } label: { Label("Copy \(exposure.publicURL)", systemImage: "doc.on.doc") }
+                } label: { Label(L("ports.copyURLOf", exposure.publicURL), systemImage: "doc.on.doc") }
             }
         }
     }
 
     private var tooltip: String {
         if exposures.count == 1, let one = exposures.first {
-            return "Exposed via \(one.tunnelName): \(one.publicURL)"
+            return L("tunnel.exposureVia", one.tunnelName, one.publicURL)
         }
         let list = exposures.map { $0.publicURL }.joined(separator: ", ")
-        return "\(exposures.count) routes: \(list)"
+        return L("tunnel.exposureRoutes", exposures.count, list)
     }
 
     private func open(_ urlString: String) {

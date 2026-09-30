@@ -21,13 +21,13 @@ struct PortForwardConnectionCard: View {
 
     private var statusText: String {
         if connection.portForwardStatus == .error || connection.proxyStatus == .error {
-            return "Error"
+            return L("common.error")
         } else if connection.isFullyConnected {
-            return "Connected"
+            return L("notification.connected")
         } else if connection.portForwardStatus == .connecting || connection.proxyStatus == .connecting {
-            return "Connecting..."
+            return L("common.connectingDots")
         } else {
-            return "Disconnected"
+            return L("notification.disconnected")
         }
     }
 
@@ -46,7 +46,7 @@ struct PortForwardConnectionCard: View {
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
-            .help("Cancel")
+            .help(L("common.cancel"))
         } else if connection.isFullyConnected {
             Button {
                 appState.portForwardManager.stopConnection(connection.id)
@@ -56,7 +56,7 @@ struct PortForwardConnectionCard: View {
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
-            .help("Stop")
+            .help(L("common.stop"))
         } else {
             Button {
                 appState.portForwardManager.startConnection(connection.id)
@@ -66,7 +66,7 @@ struct PortForwardConnectionCard: View {
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
-            .help("Start")
+            .help(L("common.start"))
         }
     }
 

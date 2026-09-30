@@ -13,11 +13,11 @@ actor SponsorsService {
         var errorDescription: String? {
             switch self {
             case .networkError(let description):
-                return "Network error: \(description)"
+                return L("sponsor.error.network", description)
             case .invalidResponse:
-                return "Invalid response from server"
+                return L("sponsor.error.invalidResponse")
             case .decodingError(let description):
-                return "Failed to parse sponsors: \(description)"
+                return L("sponsor.error.decoding", description)
             }
         }
     }

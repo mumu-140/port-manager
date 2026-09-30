@@ -19,15 +19,15 @@ struct ServiceBrowserTab: View {
                         .font(.system(size: 48))
                         .foregroundStyle(.tertiary)
 
-                    Text("Kubernetes Service Browser")
+                    Text(L("k8s.serviceBrowser"))
                         .font(.title2)
 
-                    Text("Browse your Kubernetes cluster to find services and create port-forward connections.")
+                    Text(L("k8s.browseDescription"))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 400)
 
-                    Button("Start Browsing") {
+                    Button(L("k8s.startBrowsing")) {
                         let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
                         Task { await dm.loadNamespaces() }
                         discoveryManager = dm
@@ -36,7 +36,7 @@ struct ServiceBrowserTab: View {
                     .disabled(!DependencyChecker.shared.allRequiredInstalled)
 
                     if !DependencyChecker.shared.allRequiredInstalled {
-                        Text("kubectl is required")
+                        Text(L("k8s.kubectlRequired"))
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }

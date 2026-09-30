@@ -6,14 +6,14 @@ struct DependencyWarningBanner: View {
     var body: some View {
         AlertBanner(
             icon: "exclamationmark.triangle.fill",
-            title: "Missing Dependencies",
-            message: "kubectl is required for port forwarding"
+            title: L("k8s.missingDependencies"),
+            message: L("k8s.kubectlRequiredForForwarding")
         ) {
             if isInstalling {
                 ProgressView()
                     .scaleEffect(0.8)
             } else {
-                Button("Install") {
+                Button(L("common.install")) {
                     installDependencies()
                 }
                 .buttonStyle(.bordered)
