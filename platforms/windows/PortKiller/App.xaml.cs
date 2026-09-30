@@ -39,6 +39,7 @@ public partial class App : Application
         services.AddSingleton<IManagedServicePortInspector, ManagedServicePortInspector>();
         services.AddSingleton<IManagedServiceStorage, SettingsManagedServiceStorage>();
         services.AddSingleton<IManagedServiceDirectoryValidator, FileSystemManagedServiceDirectoryValidator>();
+        services.AddSingleton<IManagedServiceTunnelCoordinator, TunnelViewModelCoordinator>();
         services.AddSingleton<ManagedServiceManager>();
 
         // ViewModels
@@ -56,6 +57,7 @@ public partial class App : Application
         ));
         services.AddSingleton<ManagedServicesViewModel>(sp => new ManagedServicesViewModel(
             sp.GetRequiredService<ManagedServiceManager>(),
+            sp.GetRequiredService<TunnelViewModel>(),
             System.Windows.Threading.Dispatcher.CurrentDispatcher
         ));
     }

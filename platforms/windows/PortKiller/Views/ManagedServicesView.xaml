@@ -68,6 +68,25 @@
                         <Button Content="Delete" Click="Delete_Click" Padding="16,8"/>
                     </StackPanel>
 
+                    <Border Margin="0,20,0,0" Padding="12" Background="#22302F" CornerRadius="8">
+                        <StackPanel>
+                            <TextBlock Text="Cloudflare Quick Tunnel" FontWeight="SemiBold" Foreground="#E0E0E0"/>
+                            <TextBlock Text="{Binding ServiceTunnelStatusText}" Foreground="#A0A0A0" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding ServiceTunnelUrl}" Foreground="#4EA1F3" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       Visibility="{Binding HasServiceTunnelUrl, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button Content="Share" Click="Share_Click" Padding="12,6" Margin="0,0,8,0"
+                                        IsEnabled="{Binding CanShareService}"/>
+                                <Button Content="Stop Tunnel" Click="StopTunnel_Click" Padding="12,6" Margin="0,0,8,0"
+                                        IsEnabled="{Binding CanStopTunnel}"/>
+                                <Button Content="Copy URL" Click="CopyTunnelUrl_Click" Padding="12,6" Margin="0,0,8,0"
+                                        IsEnabled="{Binding HasServiceTunnelUrl}"/>
+                                <Button Content="Open Tunnel" Click="OpenTunnelUrl_Click" Padding="12,6"
+                                        IsEnabled="{Binding HasServiceTunnelUrl}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <Border Margin="0,20,0,0" Padding="12" Background="#2A2323" CornerRadius="8"
                             Visibility="{Binding HasConflict, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <StackPanel>

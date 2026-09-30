@@ -23,8 +23,9 @@ public class ManagedServiceManagerTests
     private static ManagedServiceManager Create(
         FakeStorage storage,
         FakeProcessController processes,
-        FakePortInspector ports) =>
-        new(storage, processes, ports, new AlwaysExistingDirectoryValidator());
+        FakePortInspector ports,
+        IManagedServiceTunnelCoordinator? tunnel = null) =>
+        new(storage, processes, ports, new AlwaysExistingDirectoryValidator(), tunnel);
 
     [Fact]
     public void AddRejectsDuplicatePort()
@@ -291,6 +292,61 @@ public class ManagedServiceManagerTests
         Assert.Equal($"line {ManagedServiceState.MaxOutputLines + 49}", state.RecentOutput.Last().Text);
     }
 
+    [Fact]
+    public async Task StartLeavesTunnelsAlone()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var tunnel = new FakeTunnelCoordinator();
+        var manager = Create(storage, processes, ports, tunnel);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+
+        Assert.True(await manager.StartAsync(config.Id));
+        Assert.Empty(tunnel.StoppedPorts);
+    }
+
+    [Fact]
+    public async Task StopReleasesTheAssociatedTunnel()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var tunnel = new FakeTunnelCoordinator();
+        var manager = Create(storage, processes, ports, tunnel);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+        Assert.True(await manager.StartAsync(config.Id));
+
+        processes.OnStop = _ => ports.Release(8080);
+        Assert.True(await manager.StopAsync(config.Id));
+        Assert.Equal(new[] { 8080 }, tunnel.StoppedPorts);
+    }
+
+    [Fact]
+    public async Task RestartReleasesTheTunnelWithoutSharingAgain()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var tunnel = new FakeTunnelCoordinator();
+        var manager = Create(storage, processes, ports, tunnel);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+        Assert.True(await manager.StartAsync(config.Id));
+
+        ports.OccupyAfter(8080, calls: 4, pid: 8888);
+        processes.OnStop = _ => ports.Release(8080);
+
+        Assert.True(await manager.RestartAsync(config.Id));
+        Assert.Equal(new[] { 8080 }, tunnel.StoppedPorts);
+        Assert.Equal(ManagedServiceStatus.Running, manager.Find(config.Id)!.Status);
+    }
+
     private static PortInfo Active(int port, int pid) => new()
     {
         Port = port,
@@ -304,6 +360,17 @@ public class ManagedServiceManagerTests
     private sealed class AlwaysExistingDirectoryValidator : IManagedServiceDirectoryValidator
     {
         public bool IsExistingDirectory(string path) => true;
+    }
+
+    private sealed class FakeTunnelCoordinator : IManagedServiceTunnelCoordinator
+    {
+        public List<int> StoppedPorts { get; } = new();
+
+        public Task StopTunnelForPortAsync(int port, CancellationToken cancellationToken = default)
+        {
+            StoppedPorts.Add(port);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeStorage : IManagedServiceStorage

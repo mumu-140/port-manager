@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -16,6 +18,7 @@ namespace PortKiller.ViewModels;
 public partial class ManagedServicesViewModel : ObservableObject
 {
     private readonly ManagedServiceManager _manager;
+    private readonly TunnelViewModel _tunnels;
     private readonly Dispatcher _dispatcher;
 
     [ObservableProperty] private ObservableCollection<ManagedServiceState> _services = new();
@@ -24,15 +27,47 @@ public partial class ManagedServicesViewModel : ObservableObject
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private string? _statusMessage;
 
-    public ManagedServicesViewModel(ManagedServiceManager manager, Dispatcher dispatcher)
+    public ManagedServicesViewModel(ManagedServiceManager manager, TunnelViewModel tunnels, Dispatcher dispatcher)
     {
         _manager = manager;
+        _tunnels = tunnels;
         _dispatcher = dispatcher;
+
+        _tunnels.Tunnels.CollectionChanged += OnTunnelCollectionChanged;
+        foreach (var tunnel in _tunnels.Tunnels) tunnel.PropertyChanged += OnTunnelPropertyChanged;
     }
 
     public bool HasSelection => SelectedService is not null;
     public bool CanEdit => SelectedService is { IsTransitioning: false };
     public bool HasConflict => SelectedService?.Conflict is not null;
+
+    // MARK: - Quick Tunnel projection
+
+    public CloudflareTunnel? ServiceTunnel => SelectedService is { } state
+        ? _tunnels.Tunnels.FirstOrDefault(t => t.Port == state.Config.Port)
+        : null;
+
+    public bool HasServiceTunnel => ServiceTunnel is not null;
+
+    public bool CanShareService =>
+        SelectedService?.Status == ManagedServiceStatus.Running && !HasServiceTunnel;
+
+    public bool CanStopTunnel => ServiceTunnel is { Status: not TunnelStatus.Starting };
+
+    public string? ServiceTunnelUrl => ServiceTunnel?.TunnelUrl;
+
+    public bool HasServiceTunnelUrl => !string.IsNullOrEmpty(ServiceTunnelUrl);
+
+    public string ServiceTunnelStatusText => ServiceTunnel switch
+    {
+        null => "Not shared",
+        { Status: TunnelStatus.Starting } => "Tunnel starting",
+        { Status: TunnelStatus.Active } => "Public endpoint active",
+        { Status: TunnelStatus.Stopping } => "Tunnel stopping",
+        { Status: TunnelStatus.Error, LastError: not null } tunnel => tunnel.LastError!,
+        { Status: TunnelStatus.Error } => "Tunnel error",
+        _ => "Tunnel idle",
+    };
 
     public void Load()
     {
@@ -57,6 +92,33 @@ public partial class ManagedServicesViewModel : ObservableObject
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(CanEdit));
         OnPropertyChanged(nameof(HasConflict));
+        NotifyTunnelChanged();
+    }
+
+    private void OnTunnelCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (CloudflareTunnel tunnel in e.OldItems) tunnel.PropertyChanged -= OnTunnelPropertyChanged;
+        }
+        if (e.NewItems is not null)
+        {
+            foreach (CloudflareTunnel tunnel in e.NewItems) tunnel.PropertyChanged += OnTunnelPropertyChanged;
+        }
+        NotifyTunnelChanged();
+    }
+
+    private void OnTunnelPropertyChanged(object? sender, PropertyChangedEventArgs e) => NotifyTunnelChanged();
+
+    private void NotifyTunnelChanged()
+    {
+        OnPropertyChanged(nameof(ServiceTunnel));
+        OnPropertyChanged(nameof(HasServiceTunnel));
+        OnPropertyChanged(nameof(CanShareService));
+        OnPropertyChanged(nameof(CanStopTunnel));
+        OnPropertyChanged(nameof(ServiceTunnelUrl));
+        OnPropertyChanged(nameof(HasServiceTunnelUrl));
+        OnPropertyChanged(nameof(ServiceTunnelStatusText));
     }
 
     private void ApplyFilter()
@@ -74,6 +136,7 @@ public partial class ManagedServicesViewModel : ObservableObject
         {
             SelectedService = FilteredServices.FirstOrDefault();
         }
+        NotifyTunnelChanged();
     }
 
     private ManagedServiceState? RequireSelection()
@@ -146,6 +209,44 @@ public partial class ManagedServicesViewModel : ObservableObject
         {
             StatusMessage = $"Could not open {url}: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private async Task ShareServiceAsync()
+    {
+        if (RequireSelection() is not { } state) return;
+        if (state.Status != ManagedServiceStatus.Running)
+        {
+            StatusMessage = "Start the service before sharing it.";
+            return;
+        }
+
+        await _tunnels.StartTunnelAsync(state.Config.Port).ConfigureAwait(true);
+        NotifyTunnelChanged();
+        StatusMessage = $"Sharing {state.Name} on port {state.Config.Port}.";
+    }
+
+    [RelayCommand]
+    private async Task StopTunnelAsync()
+    {
+        if (RequireSelection() is not { } state) return;
+        var tunnel = _tunnels.Tunnels.FirstOrDefault(t => t.Port == state.Config.Port);
+        if (tunnel is null) return;
+        await _tunnels.StopTunnelAsync(tunnel).ConfigureAwait(true);
+        NotifyTunnelChanged();
+        StatusMessage = $"Stopped sharing {state.Name}.";
+    }
+
+    [RelayCommand]
+    private void CopyTunnelUrl()
+    {
+        if (ServiceTunnelUrl is { Length: > 0 } url) _tunnels.CopyUrlToClipboard(url);
+    }
+
+    [RelayCommand]
+    private void OpenTunnelUrl()
+    {
+        if (ServiceTunnelUrl is { Length: > 0 } url) _tunnels.OpenUrlInBrowser(url);
     }
 
     [RelayCommand]

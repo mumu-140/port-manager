@@ -20,6 +20,7 @@ public sealed class ManagedServiceManager
     private readonly IManagedServiceProcessController _processes;
     private readonly IManagedServicePortInspector _ports;
     private readonly IManagedServiceDirectoryValidator _directoryValidator;
+    private readonly IManagedServiceTunnelCoordinator? _tunnelCoordinator;
     private readonly List<ManagedServiceState> _services = new();
     private readonly object _gate = new();
 
@@ -27,12 +28,14 @@ public sealed class ManagedServiceManager
         IManagedServiceStorage storage,
         IManagedServiceProcessController processes,
         IManagedServicePortInspector ports,
-        IManagedServiceDirectoryValidator? directoryValidator = null)
+        IManagedServiceDirectoryValidator? directoryValidator = null,
+        IManagedServiceTunnelCoordinator? tunnelCoordinator = null)
     {
         _storage = storage;
         _processes = processes;
         _ports = ports;
         _directoryValidator = directoryValidator ?? new FileSystemManagedServiceDirectoryValidator();
+        _tunnelCoordinator = tunnelCoordinator;
         _processes.Output += OnOutput;
     }
 
@@ -187,6 +190,13 @@ public sealed class ManagedServiceManager
         }
 
         state.Status = ManagedServiceStatus.Stopping;
+
+        // A stopped service must not leave a stale public endpoint behind.
+        if (_tunnelCoordinator is not null)
+        {
+            await _tunnelCoordinator.StopTunnelForPortAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
+        }
+
         if (state.RootPid is int rootPid)
         {
             try

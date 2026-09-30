@@ -71,4 +71,26 @@ public partial class ManagedServicesView : UserControl
         if (ViewModel is not { } vm) return;
         await vm.ResolveConflictCommand.ExecuteAsync(null);
     }
+
+    private async void Share_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not { } vm) return;
+        await vm.ShareServiceCommand.ExecuteAsync(null);
+    }
+
+    private async void StopTunnel_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not { } vm) return;
+        await vm.StopTunnelCommand.ExecuteAsync(null);
+    }
+
+    private void CopyTunnelUrl_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.CopyTunnelUrlCommand.Execute(null);
+    }
+
+    private void OpenTunnelUrl_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.OpenTunnelUrlCommand.Execute(null);
+    }
 }
