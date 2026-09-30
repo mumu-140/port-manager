@@ -84,6 +84,19 @@ jobs:
           echo "$INFO" | grep "arm64" || { echo "Missing arm64"; exit 1; }
           echo "$INFO" | grep "x86_64" || { echo "Missing x86_64"; exit 1; }
 
+      - name: Package CI app artifact
+        run: |
+          APP=".build/apple/Products/Release/PortKiller.app"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "PortKiller-CI-macos-universal.zip"
+          ls -lh "PortKiller-CI-macos-universal.zip"
+
+      - name: Upload macOS app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PortKiller-macOS-universal-${{ github.run_number }}
+          path: platforms/macos/PortKiller-CI-macos-universal.zip
+          retention-days: 7
+          if-no-files-found: error
 
 
   lint:
