@@ -318,7 +318,11 @@ try {
     Invoke-Element (Wait-Element $mainWindow (New-NameCondition "Delete") 15 "Delete button") "Delete"
     Start-Sleep -Seconds 2
     Dump-Desktop "07a-after-delete-click"
-    $okButton = Wait-Element $Desktop (New-NameCondition "OK") 15 "delete confirmation OK button"
+    Dump-Tree $mainWindow "07b-after-delete-click"
+    $okCondition = New-Object System.Windows.Automation.AndCondition(
+        (New-NameCondition "OK"),
+        (New-Object System.Windows.Automation.PropertyCondition($UIA::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+    $okButton = Wait-Element $Desktop $okCondition 15 "delete confirmation OK button"
     Invoke-Element $okButton "delete confirmation OK"
     Start-Sleep -Seconds 2
     if ($occupantProcess.HasExited) { throw "deleting a conflict profile killed the occupant" }
