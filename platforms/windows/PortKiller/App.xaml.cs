@@ -35,6 +35,10 @@ public partial class App : Application
         services.AddSingleton<SettingsService>();
         services.AddSingleton<NotificationService>();
         services.AddSingleton<TunnelService>();
+        services.AddSingleton<IManagedServiceProcessController, ManagedServiceProcessController>();
+        services.AddSingleton<IManagedServicePortInspector, ManagedServicePortInspector>();
+        services.AddSingleton<IManagedServiceStorage, SettingsManagedServiceStorage>();
+        services.AddSingleton<ManagedServiceManager>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>(sp => new MainViewModel(
