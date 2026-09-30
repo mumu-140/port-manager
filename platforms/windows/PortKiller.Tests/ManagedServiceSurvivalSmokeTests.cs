@@ -57,11 +57,18 @@ public class ManagedServiceSurvivalSmokeTests
 
         var state = manager.Find(config.Id)!;
         Assert.True(started, $"service did not reach running (status={state.Status}, error={state.LastError})");
-        var pid = state.RootPid!.Value;
+        var rootPid = state.RootPid!.Value;
+
+        // The launcher root is cmd.exe; the process that owns the listening
+        // socket is the shell it starts. Record both so the relaunch phase can
+        // assert the fresh scan reports the survivor.
+        var scan = await scanner.ScanPortsAsync();
+        var listeningPid = scan.Where(p => p.Port == port).Select(p => p.Pid).FirstOrDefault();
+        Assert.True(listeningPid != 0, "the launched service never appeared as a listening port owner");
 
         File.WriteAllText(
             info,
-            $"pid={pid}\nstdout={ManagedServiceRuntimeLogStore.StdoutPath(ServiceId)}\nstderr={ManagedServiceRuntimeLogStore.StderrPath(ServiceId)}\n");
+            $"pid={rootPid}\nlisten={listeningPid}\nstdout={ManagedServiceRuntimeLogStore.StdoutPath(ServiceId)}\nstderr={ManagedServiceRuntimeLogStore.StderrPath(ServiceId)}\n");
 
         // Intentionally no stop: this process exiting is the simulated quit.
     }
@@ -74,7 +81,7 @@ public class ManagedServiceSurvivalSmokeTests
         var infoPath = Environment.GetEnvironmentVariable("PORTKILLER_SURVIVAL_INFO")!;
         var settings = Environment.GetEnvironmentVariable("PORTKILLER_SURVIVAL_SETTINGS")!;
         var info = File.ReadAllText(infoPath);
-        var expectedPid = int.Parse(info.Split('\n').First(l => l.StartsWith("pid=")).Substring(4));
+        var expectedPid = int.Parse(info.Split('\n').First(l => l.StartsWith("listen=")).Substring(7));
 
         var scanner = new PortScannerService();
         var manager = new ManagedServiceManager(
@@ -90,7 +97,10 @@ public class ManagedServiceSurvivalSmokeTests
         Assert.Equal(ManagedServiceStatus.Conflict, state.Status);
         Assert.False(state.IsOwned);
         Assert.Null(state.RootPid);
-        Assert.Contains(expectedPid, state.Conflict!.Occupants.Select(o => o.Pid));
+        var occupants = state.Conflict!.Occupants.Select(o => o.Pid).ToList();
+        Assert.True(
+            occupants.Contains(expectedPid),
+            $"relaunched scan reported occupants [{string.Join(", ", occupants)}] but the discovering scan reported listening pid {expectedPid}");
 
         // A fresh manager does not own the survivor and must not stop it.
         Assert.False(await manager.StopAsync(ServiceId));
