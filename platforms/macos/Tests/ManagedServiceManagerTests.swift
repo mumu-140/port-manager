@@ -11,9 +11,23 @@ actor FakeManagedServiceWorld {
     private var preflight: [PortInfo] = []
     private var consumedPreflight = false
 
+    private var replacementAfterRemoval: [Int: PortInfo] = [:]
+
     func setPreflight(_ listeners: [PortInfo]) { preflight = listeners }
     func addListener(_ listener: PortInfo) { liveListeners.append(listener) }
-    func removeListeners(pid: Int) { liveListeners.removeAll { $0.pid == pid } }
+
+    /// Installs a process that grabs the port the moment `pid` releases it,
+    /// modelling the TOCTOU window between confirmation and force-kill.
+    func setReplacement(afterRemoving pid: Int, with listener: PortInfo) {
+        replacementAfterRemoval[pid] = listener
+    }
+
+    func removeListeners(pid: Int) {
+        liveListeners.removeAll { $0.pid == pid }
+        if let replacement = replacementAfterRemoval.removeValue(forKey: pid) {
+            liveListeners.append(replacement)
+        }
+    }
 
     func scan() -> [PortInfo] {
         if !consumedPreflight {
@@ -28,8 +42,12 @@ actor FakeManagedServicePortScanner: PortScannerProtocol {
     let world: FakeManagedServiceWorld
     private(set) var forcedKills: [Int] = []
     private(set) var gracefulKills: [Int] = []
+    /// PIDs that ignore SIGTERM, so the force fallback path is exercised.
+    private var stubbornPIDs: Set<Int> = []
 
     init(world: FakeManagedServiceWorld) { self.world = world }
+
+    func setStubborn(_ pids: Set<Int>) { stubbornPIDs = pids }
 
     func scanPorts() async -> [PortInfo] { await world.scan() }
 
@@ -41,7 +59,9 @@ actor FakeManagedServicePortScanner: PortScannerProtocol {
 
     func killProcessGracefully(pid: Int) async -> Bool {
         gracefulKills.append(pid)
-        await world.removeListeners(pid: pid)
+        if !stubbornPIDs.contains(pid) {
+            await world.removeListeners(pid: pid)
+        }
         return true
     }
 
@@ -147,10 +167,15 @@ actor FakeManagedServiceProcessController: ManagedServiceProcessControlling {
         return code
     }
 
-    func terminateAll() async {
-        for serviceID in Array(running) {
-            _ = await terminate(serviceID)
-        }
+    func ownedPIDs(_ serviceID: UUID) async -> Set<Int> {
+        guard running.contains(serviceID), let pid = pidByService[serviceID] else { return [] }
+        return [pid]
+    }
+
+    /// Drops the tracked runtime without resuming waiters, modelling a root
+    /// process that vanished before the exit watcher observed it.
+    func forget(serviceID: UUID) {
+        running.remove(serviceID)
     }
 
     private func resumeWaiters(_ serviceID: UUID, code: Int32) {
@@ -490,11 +515,11 @@ struct ManagedServiceManagerTests {
         let sut = await makeSUT()
         #expect(sut.manager.add(makeConfig()) == nil)
 
-        sut.manager.reconcile(with: [occupant()])
+        await sut.manager.reconcile(with: [occupant()])
         #expect(sut.manager.service(id: serviceID)?.status == .conflict)
         #expect(sut.manager.service(id: serviceID)?.rootPID == nil)
 
-        sut.manager.reconcile(with: [])
+        await sut.manager.reconcile(with: [])
         #expect(sut.manager.service(id: serviceID)?.status == .stopped)
         #expect(sut.manager.service(id: serviceID)?.conflict == nil)
     }
@@ -516,4 +541,186 @@ struct ManagedServiceManagerTests {
         #expect(state?.lastExitCode == 9)
         #expect(state?.rootPID == nil)
     }
+
+    // MARK: Ownership reconciliation
+
+    @Test func reconcileKeepsRunningWhileOwnedListenerPresent() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+        await sut.manager.start(id: serviceID)
+
+        await sut.manager.reconcile(with: [occupant(pid: 4242)])
+
+        let state = sut.manager.service(id: serviceID)
+        #expect(state?.status == .running)
+        #expect(state?.listenerPIDs == [4242])
+    }
+
+    @Test func reconcileRunningBecomesConflictWhenListenerIsUnowned() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+        await sut.manager.start(id: serviceID)
+
+        await sut.manager.reconcile(with: [occupant(pid: 7777)])
+
+        let state = sut.manager.service(id: serviceID)
+        #expect(state?.status == .conflict)
+        #expect(state?.rootPID == nil)
+        #expect(state?.conflict?.occupants.first?.pid == 7777)
+    }
+
+    @Test func reconcileRunningFailsWhenPortStopsListening() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+        await sut.manager.start(id: serviceID)
+
+        await sut.manager.reconcile(with: [])
+
+        let state = sut.manager.service(id: serviceID)
+        #expect(state?.status == .failed)
+        #expect(state?.rootPID == nil)
+        #expect(state?.lastError == L("service.error.readinessLost", 38902))
+    }
+
+    @Test func reconcileRunningFailsWhenOwnedRuntimeExited() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+        await sut.manager.start(id: serviceID)
+        await sut.processes.forget(serviceID: serviceID)
+
+        await sut.manager.reconcile(with: [occupant(pid: 4242)])
+
+        let state = sut.manager.service(id: serviceID)
+        #expect(state?.status == .failed)
+        #expect(state?.lastError == L("service.error.ownedRuntimeLost"))
+    }
+
+    @Test func reconcileConflictStaysUntilPortIsFree() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.world.setPreflight([occupant()])
+        await sut.manager.start(id: serviceID)
+        #expect(sut.manager.service(id: serviceID)?.status == .conflict)
+
+        await sut.manager.reconcile(with: [occupant()])
+        #expect(sut.manager.service(id: serviceID)?.status == .conflict)
+
+        await sut.manager.reconcile(with: [])
+        #expect(sut.manager.service(id: serviceID)?.status == .stopped)
+    }
+
+    @Test func relaunchLoadedProfileIsNeverOwned() async {
+        let storage = InMemoryManagedServiceStorage()
+        let sut = await makeSUT(storage: storage)
+        #expect(sut.manager.add(makeConfig()) == nil)
+
+        let reloaded = ManagedServiceManager(
+            storage: storage,
+            scanner: sut.scanner,
+            processes: sut.processes,
+            directoryValidator: FakeDirectoryValidator(existing: [directory])
+        )
+        reloaded.load()
+
+        await reloaded.reconcile(with: [occupant(pid: 31337)])
+
+        let state = reloaded.services.first
+        #expect(state?.status == .conflict)
+        #expect(state?.isOwned == false)
+        #expect(state?.rootPID == nil)
+    }
+
+    // MARK: Conflict TOCTOU safety
+
+    @Test func resolveConflictNeverKillsUnconfirmedReplacement() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        let confirmed = occupant(pid: 9999)
+        await sut.world.setPreflight([confirmed])
+        await sut.world.addListener(confirmed)
+        await sut.world.setReplacement(afterRemoving: 9999, with: occupant(pid: 1234))
+
+        await sut.manager.start(id: serviceID)
+        #expect(sut.manager.service(id: serviceID)?.status == .conflict)
+
+        await sut.manager.resolveConflictAndStart(id: serviceID)
+
+        let state = sut.manager.service(id: serviceID)
+        #expect(state?.status == .conflict)
+        #expect(state?.conflict?.occupants.first?.pid == 1234)
+        let forced = await sut.scanner.forcedKills
+        let graceful = await sut.scanner.gracefulKills
+        #expect(forced.isEmpty)
+        #expect(graceful == [9999])
+    }
+
+    @Test func resolveConflictForceKillsOnlyConfirmedSurvivors() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        let confirmed = occupant(pid: 9999)
+        await sut.world.setPreflight([confirmed])
+        await sut.world.addListener(confirmed)
+        await sut.scanner.setStubborn([9999])
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+
+        await sut.manager.start(id: serviceID)
+        await sut.manager.resolveConflictAndStart(id: serviceID)
+
+        let state = sut.manager.service(id: serviceID)
+        #expect(state?.status == .running)
+        let forced = await sut.scanner.forcedKills
+        #expect(forced == [9999])
+    }
+
+    // MARK: Edit preparation
+
+    @Test func stopForEditingStopsOwnedRuntime() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+        await sut.manager.start(id: serviceID)
+
+        let ready = await sut.manager.stopForEditing(id: serviceID)
+
+        #expect(ready)
+        let state = sut.manager.service(id: serviceID)
+        #expect(state?.status == .stopped)
+        #expect(state?.rootPID == nil)
+    }
+
+    @Test func stopForEditingReportsFalseWhenPortLandsInConflict() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+        await sut.manager.start(id: serviceID)
+        await sut.world.addListener(occupant(pid: 5555))
+
+        let ready = await sut.manager.stopForEditing(id: serviceID)
+
+        #expect(ready == false)
+        #expect(sut.manager.service(id: serviceID)?.status == .conflict)
+    }
+
+    @Test func stopForEditingIsTrueForAlreadyStoppedService() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+
+        let ready = await sut.manager.stopForEditing(id: serviceID)
+
+        #expect(ready)
+    }
+
+    // MARK: Localization
+
+    @Test func deleteConfirmationsIncludeServiceName() {
+        let name = "Python Test Server"
+
+        #expect(L("service.delete.message", name).contains(name))
+        #expect(L("service.delete.runningMessage", name).contains(name))
+    }
 }
+

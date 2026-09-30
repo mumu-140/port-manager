@@ -10,6 +10,7 @@ struct ManagedServiceDetailView: View {
 
     @State private var editorTarget: ManagedServiceEditorTarget?
     @State private var showDeleteConfirmation = false
+    @State private var stopAndEditRequest: ManagedServiceStopAndEditRequest?
 
     var body: some View {
         if let service = selectedService {
@@ -43,7 +44,10 @@ struct ManagedServiceDetailView: View {
                 }
                 Button(L("service.cancel"), role: .cancel) {}
             } message: {
-                Text(L(deleteMessageKey))
+                Text(L(deleteMessageKey, service.name))
+            }
+            .managedServiceStopAndEditConfirmation($stopAndEditRequest) { id in
+                Task { await stopAndEdit(id: id) }
             }
         } else {
             ContentUnavailableView {
@@ -63,6 +67,21 @@ struct ManagedServiceDetailView: View {
         (selectedService?.isOwned ?? false)
             ? "service.delete.runningMessage"
             : "service.delete.message"
+    }
+
+    /// Running services stop first; everything else opens the editor directly.
+    private func beginEdit(_ service: ManagedServiceState) {
+        if service.isOwned {
+            stopAndEditRequest = ManagedServiceStopAndEditRequest(id: service.id, name: service.name)
+        } else {
+            editorTarget = .edit(service.config)
+        }
+    }
+
+    private func stopAndEdit(id: UUID) async {
+        guard await appState.prepareManagedServiceForEditing(id: id),
+              let service = appState.managedServiceManager.service(id: id) else { return }
+        editorTarget = .edit(service.config)
     }
 
     // MARK: - Sections
@@ -104,17 +123,16 @@ struct ManagedServiceDetailView: View {
             Button(L("service.open")) { open(service) }
                 .disabled(service.status != .running)
 
-            Button(L("service.edit")) {
-                editorTarget = .edit(service.config)
-            }
-            .disabled(service.isOwned || service.isTransitioning)
-            .help(L("service.editor.stopBeforeEdit"))
+            Button(L("service.edit")) { beginEdit(service) }
+                .disabled(service.isTransitioning)
+                .help(L("service.editor.stopBeforeEdit"))
 
             Spacer()
 
             Button(L("service.delete"), role: .destructive) {
                 showDeleteConfirmation = true
             }
+            .disabled(service.isTransitioning)
         }
     }
 
@@ -157,9 +175,9 @@ struct ManagedServiceDetailView: View {
                 Button(L("service.conflict.killAndStart"), role: .destructive) {
                     Task { await appState.resolveManagedServiceConflict(id: service.id) }
                 }
-                Button(L("service.conflict.cancel")) {
-                    appState.managedServiceManager.dismissConflict(id: service.id)
-                }
+                // Cancel is deliberately non-destructive: the conflict stays
+                // until reconciliation verifies the port is free (6.4, 9.1).
+                Button(L("service.conflict.cancel"), role: .cancel) {}
                 Spacer()
             }
 
@@ -201,38 +219,85 @@ struct ManagedServiceDetailView: View {
         }
     }
 
+    /// Quick Tunnel state for the service's port: absent, starting, active or
+    /// error, with Retry/Stop where they apply. Without cloudflared installed
+    /// the user gets guidance instead of an apparently valid Start button
+    /// (design notes, section 15).
     @ViewBuilder
     private func tunnelSection(_ service: ManagedServiceState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(L("service.detail.tunnel"))
                 .font(.headline)
 
-            if let tunnel = appState.tunnelManager.tunnelState(for: service.port) {
-                HStack {
-                    Text(tunnel.tunnelURL ?? L("service.tunnel.starting"))
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                    Spacer()
-                    if tunnel.tunnelURL != nil {
-                        Button(L("service.tunnel.copy")) {
-                            appState.tunnelManager.copyURL(for: service.port)
-                        }
-                        Button(L("service.tunnel.open")) {
-                            appState.tunnelManager.openURL(for: service.port)
-                        }
-                    }
-                    Button(L("service.tunnel.stop")) {
-                        appState.tunnelManager.stopTunnel(for: service.port)
-                    }
-                }
+            if !appState.tunnelManager.isCloudflaredInstalled {
+                Text(L("service.tunnel.unavailable"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let tunnel = appState.tunnelManager.tunnelState(for: service.port) {
+                tunnelStateView(tunnel, service: service)
             } else if service.status == .running {
                 Button(L("service.tunnel.start")) {
                     appState.tunnelManager.startTunnel(for: service.port)
                 }
             } else {
-                Text(L("service.tunnel.unavailable"))
+                Text(L("service.tunnel.stopped"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func tunnelStateView(
+        _ tunnel: CloudflareTunnelState,
+        service: ManagedServiceState
+    ) -> some View {
+        switch tunnel.status {
+        case .starting, .stopping:
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(L("service.tunnel.starting"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button(L("service.tunnel.stop")) {
+                    appState.tunnelManager.stopTunnel(for: service.port)
+                }
+            }
+        case .active:
+            HStack {
+                Text(tunnel.tunnelURL ?? L("service.tunnel.starting"))
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                Spacer()
+                Button(L("service.tunnel.copy")) {
+                    appState.tunnelManager.copyURL(for: service.port)
+                }
+                Button(L("service.tunnel.open")) {
+                    appState.tunnelManager.openURL(for: service.port)
+                }
+                Button(L("service.tunnel.stop")) {
+                    appState.tunnelManager.stopTunnel(for: service.port)
+                }
+            }
+        case .error:
+            VStack(alignment: .leading, spacing: 6) {
+                Text(tunnel.lastError ?? L("service.error.tunnel"))
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                HStack {
+                    Button(L("service.tunnel.retry")) {
+                        appState.tunnelManager.startTunnel(for: service.port)
+                    }
+                    Button(L("service.tunnel.stop")) {
+                        appState.tunnelManager.stopTunnel(for: service.port)
+                    }
+                }
+            }
+        case .idle:
+            Button(L("service.tunnel.start")) {
+                appState.tunnelManager.startTunnel(for: service.port)
             }
         }
     }

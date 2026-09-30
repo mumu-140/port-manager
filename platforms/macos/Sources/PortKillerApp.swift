@@ -57,7 +57,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await appState.portForwardManager.killStuckProcesses()
             await appState.tunnelManager.stopAllTunnels()
-            await appState.stopAllManagedServices()
+            // Managed service runtimes are deliberately NOT stopped here:
+            // runtime ownership is not persisted, and a managed child may
+            // legitimately outlive Port Manager (design notes, section 6.5).
             await MainActor.run {
                 NSApp.reply(toApplicationShouldTerminate: true)
             }

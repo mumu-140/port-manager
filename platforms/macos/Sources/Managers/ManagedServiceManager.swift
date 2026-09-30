@@ -33,6 +33,12 @@ final class ManagedServiceManager {
     /// Currently selected service profile, if any.
     var selectedServiceID: UUID?
 
+    /// Service list search query.
+    ///
+    /// Deliberately separate from the port filter so switching sidebar
+    /// sections never leaks one query into the other (design notes, 16.9).
+    var searchText: String = ""
+
     private let storage: ManagedServiceStorageProtocol
     private let scanner: PortScannerProtocol
     private let processes: ManagedServiceProcessControlling
@@ -288,32 +294,65 @@ final class ManagedServiceManager {
         await start(id: id)
     }
 
-    /// Explicitly terminates the occupants of a conflicting port, then starts.
+    /// Stops an owned runtime so its profile can be edited.
+    ///
+    /// Returns true only when the runtime actually reached the stopped state;
+    /// the caller must not open the editor otherwise (design notes, 12.2).
+    func stopForEditing(id: UUID) async -> Bool {
+        guard let state = service(id: id) else { return false }
+        if !state.isOwned { return !state.isTransitioning }
+        await stop(id: id)
+        return state.status == .stopped
+    }
+
+    /// Explicitly terminates the user-confirmed occupants of a conflicting
+    /// port, then starts.
+    ///
+    /// Only the PIDs the user saw and confirmed are ever signalled. A process
+    /// that acquires the port after confirmation is a new occupant: it is
+    /// never killed, the service stays in conflict and the user must confirm
+    /// again (design notes, section 9.2).
     func resolveConflictAndStart(id: UUID) async {
         guard let state = service(id: id),
               state.status == .conflict,
               let conflict = state.conflict else { return }
 
+        // Snapshot the confirmed occupant set before any signal is sent so a
+        // replacement process can never widen the kill target.
+        let confirmedPIDs = Set(conflict.occupants.map(\.pid))
         state.status = .starting
         state.lastError = nil
 
-        for occupant in conflict.occupants {
-            _ = await scanner.killProcessGracefully(pid: occupant.pid)
+        for pid in confirmedPIDs {
+            _ = await scanner.killProcessGracefully(pid: pid)
         }
 
         var remaining = await listeners(for: state.port)
-        if !remaining.isEmpty {
-            for listener in remaining {
-                _ = await scanner.killProcess(pid: listener.pid, force: true)
+        guard state.status == .starting else { return }
+
+        // Force fallback applies only to confirmed occupants that survived the
+        // graceful phase and still hold the port.
+        let stubborn = uniqueOccupants(from: remaining).filter { confirmedPIDs.contains($0.pid) }
+        if !stubborn.isEmpty {
+            for occupant in stubborn {
+                _ = await scanner.killProcess(pid: occupant.pid, force: true)
             }
             try? await Task.sleep(for: .milliseconds(300))
             remaining = await listeners(for: state.port)
+            guard state.status == .starting else { return }
         }
 
-        guard remaining.isEmpty else {
+        let occupants = uniqueOccupants(from: remaining)
+        guard occupants.isEmpty else {
+            // Never signal an unconfirmed PID: report the new occupant set and
+            // require a fresh confirmation instead.
             state.status = .conflict
+            state.rootPID = nil
+            state.listenerPIDs = occupants.map(\.pid)
             state.conflict = makeConflict(for: state, listeners: remaining)
-            state.lastError = L("service.error.conflictStillOccupied", state.port)
+            state.lastError = occupants.contains { !confirmedPIDs.contains($0.pid) }
+                ? L("service.error.conflictReplaced", state.port)
+                : L("service.error.conflictStillOccupied", state.port)
             return
         }
 
@@ -322,31 +361,9 @@ final class ManagedServiceManager {
         await start(id: id)
     }
 
-    /// Clears a detected conflict without killing anything (user cancelled).
-    func dismissConflict(id: UUID) {
-        guard let state = service(id: id), state.status == .conflict else { return }
-        state.status = .stopped
-        state.conflict = nil
-    }
-
     /// Clears captured output for a service.
     func clearOutput(id: UUID) {
         service(id: id)?.recentOutput.removeAll()
-    }
-
-    /// Terminates every runtime this session owns (app termination).
-    func stopAll() async {
-        for state in services {
-            exitTasks[state.id]?.cancel()
-            exitTasks[state.id] = nil
-        }
-        await processes.terminateAll()
-        for state in services {
-            state.status = .stopped
-            state.lastError = nil
-            state.clearRuntime()
-        }
-        persist()
     }
 
     // MARK: - Reconciliation
@@ -354,44 +371,95 @@ final class ManagedServiceManager {
     /// Reconciles transient state with the latest scan.
     ///
     /// This is what makes a relaunch safe: a persisted profile that finds its
-    /// port occupied becomes a conflict, never a silently owned runtime.
-    func reconcile(with ports: [PortInfo]) {
+    /// port occupied becomes a conflict, never a silently owned runtime. A
+    /// running profile is only kept Running while the configured port is still
+    /// served by a process this session owns (design notes, sections 6.4 and
+    /// 16.4).
+    func reconcile(with ports: [PortInfo]) async {
         for state in services {
             switch state.status {
             case .starting, .stopping:
                 continue
 
             case .running:
-                let current = ports.filter { $0.port == state.port }
-                let pids = uniqueOccupants(from: current).map(\.pid)
-                if state.listenerPIDs != pids {
-                    state.listenerPIDs = pids
-                }
+                await reconcileRunning(state, with: ports)
 
             case .stopped, .failed, .conflict:
-                let occupants = uniqueOccupants(from: ports.filter { $0.port == state.port })
-                if occupants.isEmpty {
-                    if state.status == .conflict {
-                        state.status = .stopped
-                        state.conflict = nil
-                        state.lastError = nil
-                    }
-                } else {
-                    if state.conflict?.occupants != occupants {
-                        state.conflict = ManagedServiceConflict(
-                            serviceID: state.id,
-                            port: state.port,
-                            occupants: occupants
-                        )
-                    }
-                    if state.status != .conflict {
-                        state.status = .conflict
-                        state.rootPID = nil
-                        state.listenerPIDs = occupants.map(\.pid)
-                        state.lastError = nil
-                    }
-                }
+                reconcileUnOwned(state, with: ports)
             }
+        }
+    }
+
+    /// Proves ownership before a running profile may stay Running.
+    @MainActor
+    private func reconcileRunning(_ state: ManagedServiceState, with ports: [PortInfo]) async {
+        let rawListeners = ports.filter { $0.port == state.port }
+        let current = uniqueOccupants(from: rawListeners)
+        let listeners = Set(current.map(\.pid))
+        let owned = await processes.ownedPIDs(state.id)
+        guard state.status == .running else { return }
+
+        guard !owned.isEmpty, let rootPID = state.rootPID, owned.contains(rootPID) else {
+            // The owned runtime exited. The exit watcher normally wins the
+            // race, but reconciliation must never leave a dead runtime Running.
+            state.clearRuntime()
+            state.status = .failed
+            state.lastError = L("service.error.ownedRuntimeLost")
+            return
+        }
+
+        if listeners.isEmpty {
+            // Readiness lost while the root is still alive: the service is not
+            // usable, so it must stop reporting Running.
+            state.clearRuntime()
+            state.status = .failed
+            state.lastError = L("service.error.readinessLost", state.port)
+            return
+        }
+
+        if listeners.isDisjoint(with: owned) {
+            // The listener was replaced by an unrelated process. Ownership is
+            // lost and nothing may be killed from here.
+            state.status = .conflict
+            state.rootPID = nil
+            state.listenerPIDs = current.map(\.pid)
+            state.startedAt = nil
+            state.conflict = makeConflict(for: state, listeners: rawListeners)
+            state.lastError = nil
+            return
+        }
+
+        let pids = current.map(\.pid)
+        if state.listenerPIDs != pids {
+            state.listenerPIDs = pids
+        }
+    }
+
+    /// Non-running profiles adopt a conflict as soon as the port is held.
+    @MainActor
+    private func reconcileUnOwned(_ state: ManagedServiceState, with ports: [PortInfo]) {
+        let occupants = uniqueOccupants(from: ports.filter { $0.port == state.port })
+        if occupants.isEmpty {
+            if state.status == .conflict {
+                state.status = .stopped
+                state.conflict = nil
+                state.lastError = nil
+            }
+            return
+        }
+
+        if state.conflict?.occupants != occupants {
+            state.conflict = ManagedServiceConflict(
+                serviceID: state.id,
+                port: state.port,
+                occupants: occupants
+            )
+        }
+        if state.status != .conflict {
+            state.status = .conflict
+            state.rootPID = nil
+            state.listenerPIDs = occupants.map(\.pid)
+            state.lastError = nil
         }
     }
 

@@ -12,6 +12,7 @@ struct ManagedServicesListView: View {
 
     @State private var editorTarget: ManagedServiceEditorTarget?
     @State private var pendingDeleteID: UUID?
+    @State private var stopAndEditRequest: ManagedServiceStopAndEditRequest?
 
     var body: some View {
         Group {
@@ -62,12 +63,15 @@ struct ManagedServicesListView: View {
                 pendingDeleteID = nil
             }
         } message: {
-            Text(L("service.delete.message"))
+            Text(L(deleteMessageKey, pendingDeleteService?.name ?? ""))
+        }
+        .managedServiceStopAndEditConfirmation($stopAndEditRequest) { id in
+            Task { await stopAndEdit(id: id) }
         }
     }
 
     private var filteredServices: [ManagedServiceState] {
-        let query = appState.filter.searchText
+        let query = appState.managedServiceManager.searchText
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         let services = appState.managedServiceManager.services
@@ -98,19 +102,49 @@ struct ManagedServicesListView: View {
         )
     }
 
+    private var pendingDeleteService: ManagedServiceState? {
+        guard let id = pendingDeleteID else { return nil }
+        return appState.managedServiceManager.service(id: id)
+    }
+
+    /// A running service must warn that deletion stops it first.
+    private var deleteMessageKey: String {
+        (pendingDeleteService?.isOwned ?? false)
+            ? "service.delete.runningMessage"
+            : "service.delete.message"
+    }
+
+    /// Running services stop first; everything else opens the editor directly.
+    private func beginEdit(_ service: ManagedServiceState) {
+        if service.isOwned {
+            stopAndEditRequest = ManagedServiceStopAndEditRequest(id: service.id, name: service.name)
+        } else {
+            editorTarget = .edit(service.config)
+        }
+    }
+
+    private func stopAndEdit(id: UUID) async {
+        guard await appState.prepareManagedServiceForEditing(id: id),
+              let service = appState.managedServiceManager.service(id: id) else { return }
+        editorTarget = .edit(service.config)
+    }
+
     @ViewBuilder
     private func contextMenu(for service: ManagedServiceState) -> some View {
         if service.status == .running || service.status == .starting {
             Button(L("service.stop")) {
                 Task { await appState.stopManagedService(id: service.id) }
             }
+            .disabled(service.status != .running)
             Button(L("service.restart")) {
                 Task { await appState.restartManagedService(id: service.id) }
             }
+            .disabled(service.status != .running)
         } else {
             Button(L("service.start")) {
                 Task { await appState.startManagedService(id: service.id) }
             }
+            .disabled(service.status == .stopping || service.status == .conflict)
         }
 
         if service.status == .conflict {
@@ -124,8 +158,8 @@ struct ManagedServicesListView: View {
         Button(L("service.open")) { open(service) }
             .disabled(service.status != .running)
 
-        Button(L("service.edit")) { editorTarget = .edit(service.config) }
-            .disabled(service.isOwned || service.isTransitioning)
+        Button(L("service.edit")) { beginEdit(service) }
+            .disabled(service.isTransitioning)
             .help(L("service.editor.stopBeforeEdit"))
 
         Divider()
@@ -133,6 +167,7 @@ struct ManagedServicesListView: View {
         Button(L("service.delete"), role: .destructive) {
             pendingDeleteID = service.id
         }
+        .disabled(service.isTransitioning)
     }
 
     private func open(_ service: ManagedServiceState) {

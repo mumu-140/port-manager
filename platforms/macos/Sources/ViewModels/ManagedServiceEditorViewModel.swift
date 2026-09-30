@@ -20,6 +20,9 @@ final class ManagedServiceEditorViewModel {
     private(set) var validationError: ManagedServiceValidationError?
     private(set) var editingID: UUID?
 
+    /// Memoized working-directory stat, keyed by the current path text.
+    @ObservationIgnored private var directoryCheckCache: (path: String, isValid: Bool)?
+
     var isEditing: Bool { editingID != nil }
 
     var titleKey: String {
@@ -76,4 +79,37 @@ final class ManagedServiceEditorViewModel {
         validationError = error
         return error
     }
+
+    /// Inline validation for the editor, recomputed on every field change so
+    /// Save can be disabled before it is ever clicked.
+    ///
+    /// Pure field checks run on every call; the working-directory check is a
+    /// file-system stat memoized per path, so typing the name, port, host or
+    /// command never repeats it (design notes, section 16.10).
+    func liveValidationError(
+        existing: [ManagedServiceConfig],
+        directoryValidator: WorkingDirectoryValidating
+    ) -> ManagedServiceValidationError? {
+        let config = draftConfig()
+        let directory = config.workingDirectory
+        let directoryIsValid: Bool
+        if let cached = directoryCheckCache, cached.path == directory {
+            directoryIsValid = cached.isValid
+        } else {
+            directoryIsValid = directoryValidator.isExistingDirectory(at: directory)
+            directoryCheckCache = (path: directory, isValid: directoryIsValid)
+        }
+        return ManagedServiceValidator.validate(
+            config,
+            existing: existing,
+            directoryValidator: FixedWorkingDirectoryValidator(isValid: directoryIsValid)
+        )
+    }
+}
+
+/// Directory validator that reports a result computed once by the caller.
+private struct FixedWorkingDirectoryValidator: WorkingDirectoryValidating {
+    let isValid: Bool
+
+    func isExistingDirectory(at path: String) -> Bool { isValid }
 }

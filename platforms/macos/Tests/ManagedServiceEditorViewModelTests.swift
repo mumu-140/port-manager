@@ -15,6 +15,30 @@ private struct StubDirectoryValidator: WorkingDirectoryValidating {
     }
 }
 
+/// Counting validator proving the working-directory stat is memoized.
+private final class CountingDirectoryValidator: WorkingDirectoryValidating, @unchecked Sendable {
+    private let lock = NSLock()
+    private var callCount = 0
+    private let existing: Set<String>
+
+    init(existing: Set<String> = []) {
+        self.existing = existing
+    }
+
+    var calls: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return callCount
+    }
+
+    func isExistingDirectory(at path: String) -> Bool {
+        lock.lock()
+        callCount += 1
+        lock.unlock()
+        return existing.contains(path)
+    }
+}
+
 private func makeConfig(
     id: UUID = UUID(),
     name: String = "Web",
@@ -166,4 +190,59 @@ struct ManagedServiceEditorViewModelTests {
         #expect(model.validationError == nil)
         #expect(model.draftConfig().port == 3000)
     }
+
+    @Test("live validation reports an invalid port before Save is clicked")
+    func liveValidationRejectsInvalidPort() {
+        let model = ManagedServiceEditorViewModel()
+        model.beginAdd()
+        model.name = "Web"
+        model.portText = "70000"
+        model.workingDirectory = "/tmp/web"
+        model.startCommand = "npm run dev"
+
+        let error = model.liveValidationError(
+            existing: [],
+            directoryValidator: StubDirectoryValidator(existing: ["/tmp/web"])
+        )
+
+        #expect(error == .portOutOfRange(70000))
+    }
+
+    @Test("live validation memoizes the working-directory check")
+    func liveValidationMemoizesDirectoryCheck() {
+        let validator = CountingDirectoryValidator(existing: ["/tmp/web"])
+        let model = ManagedServiceEditorViewModel()
+        model.beginAdd()
+        model.name = "Web"
+        model.portText = "3000"
+        model.workingDirectory = "/tmp/web"
+        model.startCommand = "npm run dev"
+
+        _ = model.liveValidationError(existing: [], directoryValidator: validator)
+        model.name = "Web 2"
+        model.startCommand = "npm run start"
+        let second = model.liveValidationError(existing: [], directoryValidator: validator)
+
+        #expect(second == nil)
+        #expect(validator.calls == 1)
+    }
+
+    @Test("live validation re-checks the directory when the path changes")
+    func liveValidationRechecksChangedPath() {
+        let validator = CountingDirectoryValidator(existing: ["/tmp/web"])
+        let model = ManagedServiceEditorViewModel()
+        model.beginAdd()
+        model.name = "Web"
+        model.portText = "3000"
+        model.workingDirectory = "/tmp/web"
+        model.startCommand = "npm run dev"
+
+        _ = model.liveValidationError(existing: [], directoryValidator: validator)
+        model.workingDirectory = "/tmp/missing"
+        let error = model.liveValidationError(existing: [], directoryValidator: validator)
+
+        #expect(error == .missingWorkingDirectory("/tmp/missing"))
+        #expect(validator.calls == 2)
+    }
 }
+

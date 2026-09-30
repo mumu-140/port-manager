@@ -24,6 +24,9 @@ enum ManagedServiceStrings {
         "service.error.invalidConfiguration": (en: "The service configuration is invalid.", zh: "服务配置无效。"),
         "service.error.notRunning": (en: "The service is not running.", zh: "服务未运行。"),
         "service.error.running": (en: "Stop the service first.", zh: "请先停止服务。"),
+        "service.error.ownedRuntimeLost": (en: "The service process is no longer running.", zh: "服务进程已不再运行。"),
+        "service.error.readinessLost": (en: "Port %ld stopped listening while the service was running.", zh: "服务运行期间端口 %ld 已停止监听。"),
+        "service.error.conflictReplaced": (en: "Port %ld is now held by a different process; confirm again to terminate it.", zh: "端口 %ld 现由另一进程占用，请再次确认后再结束该进程。"),
 
         // MARK: Status
         "service.status.stopped": (en: "Stopped", zh: "已停止"),
@@ -74,6 +77,9 @@ enum ManagedServiceStrings {
         "service.editor.editTitle": (en: "Edit Local Service", zh: "编辑本地服务"),
         "service.editor.invalid": (en: "Fix the highlighted fields before saving.", zh: "请先修正错误后再保存。"),
         "service.editor.stopBeforeEdit": (en: "Stop the service before editing its configuration.", zh: "编辑配置前请先停止服务。"),
+        "service.edit.confirmTitle": (en: "Stop Service to Edit?", zh: "要停止服务后再编辑吗？"),
+        "service.edit.confirmMessage": (en: "“%@” is running. Editing requires stopping it first; it will not restart automatically after saving.", zh: "“%@”正在运行。编辑前需要先停止服务，保存后不会自动重启。"),
+        "service.edit.stopAndEdit": (en: "Stop & Edit", zh: "停止并编辑"),
         "service.editor.validationFailed": (en: "The service configuration is invalid.", zh: "服务配置无效。"),
 
         // MARK: Detail
@@ -117,7 +123,7 @@ enum ManagedServiceStrings {
         "service.tunnel.open": (en: "Open", zh: "打开"),
         "service.tunnel.stop": (en: "Stop Tunnel", zh: "停止隧道"),
         "service.tunnel.retry": (en: "Retry", zh: "重试"),
-        "service.tunnel.unavailable": (en: "cloudflared is not installed.", zh: "未安装 cloudflared。"),
+        "service.tunnel.unavailable": (en: "cloudflared is not installed. Install it to share this service.", zh: "未安装 cloudflared。安装后即可分享此服务。"),
         "service.tunnel.stopped": (en: "No tunnel running.", zh: "隧道未运行。"),
     ]
 }

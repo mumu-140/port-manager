@@ -52,8 +52,12 @@ protocol ManagedServiceProcessControlling: Sendable {
     /// Terminates the owned process tree, returning the exit code if known.
     func terminate(_ serviceID: UUID) async -> Int32?
 
-    /// Terminates every runtime owned by this session.
-    func terminateAll() async
+    /// PIDs currently owned by this service's runtime (root and descendants).
+    ///
+    /// Returns an empty set when no live runtime is tracked. Reconciliation
+    /// uses this to distinguish an owned listener from an unrelated process
+    /// that merely occupies the configured port (design notes, section 6.4).
+    func ownedPIDs(_ serviceID: UUID) async -> Set<Int>
 }
 
 // MARK: - Process tree
@@ -205,10 +209,11 @@ actor ManagedServiceProcessController: ManagedServiceProcessControlling {
         return exitCode
     }
 
-    func terminateAll() async {
-        for serviceID in Array(runtimes.keys) {
-            _ = await terminate(serviceID)
-        }
+    func ownedPIDs(_ serviceID: UUID) async -> Set<Int> {
+        guard let runtime = runtimes[serviceID], runtime.process.isRunning else { return [] }
+        var pids: Set<Int> = [runtime.rootPID]
+        pids.formUnion(await descendants(of: runtime.rootPID))
+        return pids
     }
 
     // MARK: Internals

@@ -39,9 +39,30 @@ extension AppState {
         await refresh()
     }
 
-    /// Stops every owned managed service runtime (app termination).
-    func stopAllManagedServices() async {
-        await managedServiceManager.stopAll()
+    /// Adds a managed service profile and refreshes the port list.
+    @discardableResult
+    func addManagedService(_ config: ManagedServiceConfig) async -> ManagedServiceValidationError? {
+        let error = managedServiceManager.add(config)
+        await refresh()
+        return error
+    }
+
+    /// Updates a managed service profile and reconciles against its new port.
+    @discardableResult
+    func updateManagedService(_ config: ManagedServiceConfig) async -> ManagedServiceValidationError? {
+        let error = managedServiceManager.update(config)
+        await refresh()
+        return error
+    }
+
+    /// Stops an owned runtime so its profile can be edited.
+    ///
+    /// Returns true only once the runtime reached the stopped state, so the
+    /// caller opens the editor only after a verified stop (design notes, 12.2).
+    func prepareManagedServiceForEditing(id: UUID) async -> Bool {
+        let ready = await managedServiceManager.stopForEditing(id: id)
+        await refresh()
+        return ready
     }
 }
 

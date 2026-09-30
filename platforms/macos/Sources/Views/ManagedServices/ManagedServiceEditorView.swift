@@ -61,9 +61,12 @@ struct ManagedServiceEditorView: View {
                     Text(L("service.help.foreground"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text(L("service.help.secrets"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
-                if let error = model.validationError {
+                if let error = liveError {
                     Text(error.localizedDescription)
                         .foregroundStyle(.red)
                         .font(.callout)
@@ -79,6 +82,7 @@ struct ManagedServiceEditorView: View {
                     .keyboardShortcut(.cancelAction)
                 Button(L("service.save")) { save() }
                     .keyboardShortcut(.defaultAction)
+                    .disabled(liveError != nil)
             }
             .padding(20)
         }
@@ -92,20 +96,24 @@ struct ManagedServiceEditorView: View {
         }
     }
 
-    private func save() {
-        let config = model.draftConfig()
-        let error = model.validate(
+    /// Live validation result for the current draft; nil means Save is allowed.
+    private var liveError: ManagedServiceValidationError? {
+        model.liveValidationError(
             existing: appState.managedServiceManager.configs,
             directoryValidator: FileSystemWorkingDirectoryValidator()
         )
-        guard error == nil else { return }
+    }
 
-        if editingConfig == nil {
-            guard appState.managedServiceManager.add(config) == nil else { return }
-        } else {
-            guard appState.managedServiceManager.update(config) == nil else { return }
+    private func save() {
+        guard liveError == nil else { return }
+        let config = model.draftConfig()
+        Task {
+            let error = editingConfig == nil
+                ? await appState.addManagedService(config)
+                : await appState.updateManagedService(config)
+            guard error == nil else { return }
+            dismiss()
         }
-        dismiss()
     }
 
     private func chooseDirectory() {

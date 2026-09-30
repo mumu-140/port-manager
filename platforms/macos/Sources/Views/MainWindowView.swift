@@ -7,19 +7,11 @@ struct MainWindowView: View {
     @State private var showKillAllConfirmation = false
 
     var body: some View {
-        @Bindable var state = appState
-
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
         } content: {
-            contentView
-                .searchable(
-                    text: $state.filter.searchText,
-                    prompt: appState.selectedSidebarItem == .managedServices
-                        ? L("service.searchPlaceholder")
-                        : L("ports.searchPlaceholder")
-                )
+            searchableContent
                 .navigationSplitViewColumnWidth(min: 300, ideal: 400, max: .infinity)
         } detail: {
             detailView
@@ -65,6 +57,51 @@ struct MainWindowView: View {
             }
             return .ignored
         }
+    }
+
+    /// Search is scoped to the active section. Port pages share the port
+    /// filter, the Service Manager keeps its own query, and sections without a
+    /// search field get no binding at all, so they can never write into the
+    /// port search state (design notes, section 16.9).
+    @ViewBuilder
+    private var searchableContent: some View {
+        if appState.selectedSidebarItem == .managedServices {
+            contentView.searchable(
+                text: serviceSearchBinding,
+                prompt: L("service.searchPlaceholder")
+            )
+        } else if usesPortSearch {
+            contentView.searchable(
+                text: portSearchBinding,
+                prompt: L("ports.searchPlaceholder")
+            )
+        } else {
+            contentView
+        }
+    }
+
+    /// Sidebar sections that filter the port list with the port search query.
+    private var usesPortSearch: Bool {
+        switch appState.selectedSidebarItem {
+        case .allPorts, .favorites, .watched, .processType:
+            return true
+        case .kubernetesPortForward, .cloudflareTunnels, .managedServices, .sponsors, .settings:
+            return false
+        }
+    }
+
+    private var portSearchBinding: Binding<String> {
+        Binding(
+            get: { appState.filter.searchText },
+            set: { appState.filter.searchText = $0 }
+        )
+    }
+
+    private var serviceSearchBinding: Binding<String> {
+        Binding(
+            get: { appState.managedServiceManager.searchText },
+            set: { appState.managedServiceManager.searchText = $0 }
+        )
     }
 
     @ViewBuilder

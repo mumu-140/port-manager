@@ -21,7 +21,7 @@ extension AppState {
             didChangeAny = didChangeAny || didChange
 
             // Reconcile managed service runtime state with the latest scan.
-            managedServiceManager.reconcile(with: ports)
+            await managedServiceManager.reconcile(with: ports)
 
             // Check process type notifications for newly appeared ports
             if didChange {
