@@ -40,3 +40,14 @@ protocol PortForwardStorageProtocol: Sendable {
     /// - Parameter connections: Array of configurations to save
     func save(_ connections: [PortForwardConnectionConfig])
 }
+
+/// Protocol for managed local service profile storage
+protocol ManagedServiceStorageProtocol: Sendable {
+    /// Loads saved managed service profiles from storage
+    /// - Returns: Array of managed service configurations
+    func load() -> [ManagedServiceConfig]
+
+    /// Saves managed service profiles to storage
+    /// - Parameter services: Array of configurations to save
+    func save(_ services: [ManagedServiceConfig])
+}
