@@ -23,6 +23,8 @@ struct LocalizationTablesTests {
             NotificationStrings.entries,
             ErrorStrings.entries,
             MenuBarStrings.entries,
+            OnboardingStrings.entries,
+            SponsorStrings.entries,
         ]
 
         let definedCount = groups.reduce(0) { $0 + $1.count }
@@ -44,6 +46,8 @@ struct LocalizationTablesTests {
             "Notification": NotificationStrings.entries,
             "Error": ErrorStrings.entries,
             "MenuBar": MenuBarStrings.entries,
+            "Onboarding": OnboardingStrings.entries,
+            "Sponsor": SponsorStrings.entries,
         ]
         for (name, entries) in groups {
             #expect(!entries.isEmpty || name == "Kubernetes" || name == "Notification" || name == "Port",

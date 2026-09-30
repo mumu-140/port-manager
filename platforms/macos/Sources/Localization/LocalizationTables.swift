@@ -19,6 +19,8 @@ enum LocalizationTables {
             NotificationStrings.entries,
             ErrorStrings.entries,
             MenuBarStrings.entries,
+            OnboardingStrings.entries,
+            SponsorStrings.entries,
         ]
         for group in groups {
             merged.merge(group) { current, _ in current }

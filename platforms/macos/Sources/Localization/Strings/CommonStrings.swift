@@ -36,5 +36,17 @@ enum CommonStrings {
         "common.copyURL": (en: "Copy URL", zh: "复制链接"),
         "common.checkForUpdates": (en: "Check for Updates…", zh: "检查更新…"),
         "common.openPortForwarder": (en: "Open Port Forwarder", zh: "打开端口转发"),
+
+        "common.settings": (en: "Settings", zh: "设置"),
+        "common.settingsHelp": (en: "Open Settings (Cmd+,)", zh: "打开设置（Cmd+,）"),
+        "common.notifications": (en: "Notifications", zh: "通知"),
+        "common.install": (en: "Install", zh: "安装"),
+        "common.actions": (en: "Actions", zh: "操作"),
+        "common.dismiss": (en: "Dismiss", zh: "忽略"),
+        "common.unknownError": (en: "Unknown error", zh: "未知错误"),
+        "common.copyCommand": (en: "Copy command", zh: "复制命令"),
+        "common.connecting": (en: "Connecting", zh: "连接中"),
+        "common.connectingDots": (en: "Connecting...", zh: "连接中…"),
+        "common.stopped": (en: "Stopped", zh: "已停止"),
     ]
 }
