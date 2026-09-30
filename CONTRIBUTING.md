@@ -1,166 +1,140 @@
-# Contributing
+# Contributing to mumu-140/port-manager
 
-## Requirements
+This repository is an independently maintained fork of [productdevbook/port-killer](https://github.com/productdevbook/port-killer). Contributions should target this repository's roadmap and infrastructure, not the upstream release or sponsor systems.
 
-- **macOS 15.0+** / **Windows 10+** / **Linux**
-- **Xcode 16+** with Swift 6.0 (for macOS)
-- **.NET 9 SDK** (for Windows)
-- **Python 3.9+**, PyGObject (GTK 3) and libayatana-appindicator (for Linux)
-- **Rust stable** (for `portkiller-core`, used by the Linux app only)
-
-## Setup
+## Clone this repository
 
 ```bash
-git clone https://github.com/productdevbook/port-killer.git
-cd port-killer
+git clone https://github.com/mumu-140/port-manager.git
+cd port-manager
 ```
 
-## Running the App
+Do not use the upstream repository as the default origin for normal development.
+
+## Development requirements
 
 ### macOS
 
+- macOS 15+
+- Full Xcode installation
+- Swift toolchain compatible with `platforms/macos/Package.swift`
+
 ```bash
 cd platforms/macos
-
-# Option 1: Xcode (recommended)
-open Package.swift
-# Press ▶️ to run
-
-# Option 2: Build script
-./scripts/build-app.sh && open .build/apple/Products/Release/PortKiller.app
+swift build
+swift test --parallel
+./scripts/build-app.sh
 ```
 
-> ⚠️ `swift run` doesn't work for menu bar apps - use Xcode or the build script.
+The app bundle build is the authoritative local packaging check. The package uses Swift macros and dependencies that may not work with Command Line Tools alone.
 
 ### Windows
 
-```bash
+- Windows 10+
+- .NET 9 SDK
+
+```powershell
 cd platforms/windows/PortKiller
-dotnet run
+dotnet restore
+dotnet build
 ```
 
 ### Linux
 
-A native system tray app built with Python, GTK 3 and AppIndicator.
+Runtime dependencies vary by distribution. Typical Debian/Ubuntu dependencies:
 
 ```bash
-# Run directly
-./platforms/linux/port-killer.py &
-
-# Or install it (registers a launcher and autostart on login)
-./platforms/linux/install.sh
+sudo apt install python3 python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1
 ```
 
-Install the dependencies first — `install.sh` checks for them and stops with
-hints if any are missing:
+Tests:
 
 ```bash
-# Debian/Ubuntu
-sudo apt install python3 python3-gi gir1.2-ayatanaappindicator3-0.1
+python3 -m unittest discover -s platforms/linux/tests -v
 
-# Fedora
-sudo dnf install python3 python3-gobject libayatana-appindicator-gtk3
-
-# Arch
-sudo pacman -S python python-gobject libayatana-appindicator
-```
-
-## Building
-
-### macOS
-
-```bash
-cd platforms/macos
-swift build              # Debug
-swift build -c release   # Release
-./scripts/build-app.sh   # App bundle
-```
-
-### Windows
-
-```bash
-cd platforms/windows/PortKiller
-dotnet build             # Debug
-dotnet publish -c Release -r win-x64  # Release
-```
-
-### Linux
-
-The tray app is plain Python, so there is no build step. The Rust core is
-built separately:
-
-```bash
 cd portkiller-core
-cargo build              # Debug
-cargo build --release    # Release
+cargo build
+cargo test
+cargo clippy -- -D warnings
+cargo fmt --check
 ```
 
-Releases ship an AppImage, produced by the `build-linux` job in
-`.github/workflows/release.yml`.
+## macOS localization rules
 
-## Tests
+All user-visible English/Simplified-Chinese strings must use the existing localization registry:
 
-```bash
-# macOS
-cd platforms/macos && swift test
-
-# Linux tray app (parser tests, no GTK needed)
-python3 -m unittest discover -s platforms/linux/tests
-
-# Rust core (Linux only)
-cd portkiller-core && cargo test
+```swift
+Text(L("domain.key"))
+Text(L("domain.formatted", value))
 ```
 
-## Pull Requests
+Do not introduce a second localization framework without an explicit migration plan.
 
-1. Fork the repo
-2. Create a branch (`git checkout -b feature/my-feature`)
-3. Make changes and test locally
-4. Commit (`git commit -m "feat: add feature"`)
-5. Push and create PR
+Before submitting macOS UI changes, ensure:
 
-## Code Style
+- every literal `L("...")` key exists,
+- English/Chinese printf placeholders remain compatible,
+- user-visible English is not hardcoded into common SwiftUI initializers,
+- language switching does not restart long-lived port-forward/tunnel state.
 
-### macOS
-- Swift 6.0 with strict concurrency
-- SwiftUI for UI
-- `@Observable` for state management
-- Keep files under 300 lines
+These checks are enforced in `LocalizationRegressionTests.swift`.
 
-### Windows
-- C# with WPF
-- MVVM pattern
+## Pull request workflow
 
-### Linux
-- Python 3 with GTK 3 (PyGObject)
-- Scans run on a worker thread; UI updates go back through `GLib.idle_add`
-- Parsers are pure functions, kept testable without a GTK stack
+1. Create a focused branch.
+2. Make one logically scoped change.
+3. Run the relevant platform tests.
+4. Review the diff for unrelated formatting or generated files.
+5. Push the branch and open a PR against `mumu-140/port-manager:main`.
+6. Wait for the applicable GitHub Actions workflows.
 
-## Project Structure
+For macOS PRs, the optional PR build workflow can produce an unsigned test artifact. It is not a notarized production build.
 
+## Commit style
+
+Use specific messages such as:
+
+```text
+feat(macos): add service start and stop controls
+fix(linux): preserve tray state after scanner failure
+test(macos): guard service editing persistence
+docs: clarify independent release workflow
 ```
-platforms/
-├── macos/
-│   ├── Sources/
-│   │   ├── PortKillerApp.swift    # Entry point
-│   │   ├── Managers/              # State & scanning
-│   │   ├── Models/                # Data models
-│   │   └── Views/                 # SwiftUI views
-│   ├── Resources/                 # Assets, Info.plist
-│   └── scripts/                   # Build scripts
-├── windows/
-│   └── PortKiller/                # .NET WPF project
-└── linux/
-    ├── port-killer.py             # Entry point
-    ├── install.sh                 # Launcher + autostart installer
-    ├── src/
-    │   ├── scanner.py             # ss/lsof parsing, process killing
-    │   ├── config.py              # Persisted preferences
-    │   ├── services/              # Clipboard, Cloudflare, k8s
-    │   └── ui/                    # Tray, window, dialogs
-    └── tests/                     # Parser tests
 
-portkiller-core/                   # Rust core (Linux only)
-├── src/scanner/                   # Port scanning
-└── src/process/                   # Process termination
-```
+Avoid vague messages such as `cleanup`, `misc fixes`, or `update files`.
+
+## Independence rules
+
+The following must not be reintroduced without an explicit decision:
+
+- upstream Sparkle feed URLs or signing keys,
+- upstream GitHub Releases as the app's update source,
+- upstream sponsor/static-data endpoints,
+- upstream Homebrew tap publishing,
+- workflows that write into upstream repositories,
+- upstream credentials or secrets.
+
+The upstream URL may appear where provenance, attribution, comparison, or historical context requires it.
+
+## Compatibility identifiers
+
+The application currently retains the `PortKiller` product/executable name and existing platform identifiers. This is deliberate: renaming them is a separate migration because it affects preferences, launch items, notifications, packaging, and user data.
+
+Do not rename bundle IDs, namespaces, executables, install paths, or persisted keys as part of unrelated work.
+
+## Code review expectations
+
+Prefer:
+
+- minimal changes,
+- explicit failure handling,
+- deterministic CI,
+- platform-native patterns,
+- no secret exposure,
+- no destructive migrations without a compatibility plan.
+
+For macOS Swift code, preserve strict concurrency assumptions and existing state-lifecycle boundaries.
+
+## Fork provenance
+
+Do not remove [FORK_NOTICE.md](FORK_NOTICE.md), the upstream attribution in README, or the preserved original copyright notice in [LICENSE](LICENSE).
