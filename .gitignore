@@ -47,7 +47,6 @@ sparkle_private_key
 *.cer
 *.certSigningRequest
 
-docs
 
 # Node.js / Bun
 node_modules/
