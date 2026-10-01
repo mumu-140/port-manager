@@ -23,7 +23,7 @@ public sealed class ManagedServiceProcessController : IManagedServiceProcessCont
 
     public event EventHandler<ManagedServiceOutputEventArgs>? Output;
 
-    public Task<int> StartAsync(ManagedServiceConfig config, CancellationToken cancellationToken = default)
+    public async Task<int> StartAsync(ManagedServiceConfig config, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -51,40 +51,37 @@ public sealed class ManagedServiceProcessController : IManagedServiceProcessCont
         }
 
         var runtime = new Runtime(config.Id, pid, processHandle, jobHandle);
+
+        // A service is owned by exactly one runtime per controller instance. If
+        // a previous runtime is still tracked (a racing start, or a restart
+        // whose stop did not reap it), detach it first so its handles and
+        // tailers are released and its tree is terminated rather than orphaned.
+        var superseded = DetachRuntime(config.Id);
+
         lock (_gate)
         {
             _runtimes[config.Id] = runtime;
         }
 
         StartTailers(runtime, stdoutPath, stderrPath);
-        return Task.FromResult(pid);
+
+        if (superseded is not null)
+        {
+            await TerminateAsync(superseded).ConfigureAwait(false);
+        }
+
+        return pid;
     }
 
     public async Task StopAsync(Guid serviceId, CancellationToken cancellationToken = default)
     {
-        Runtime? runtime;
-        lock (_gate)
-        {
-            _runtimes.TryGetValue(serviceId, out runtime);
-        }
-
+        // Detaching is atomic: exactly one caller can ever take a given runtime,
+        // so a concurrent stop or the dead-runtime reaper can never signal the
+        // same tree twice nor touch a handle after it has been disposed.
+        var runtime = DetachRuntime(serviceId);
         if (runtime is null) return;
 
-        try
-        {
-            if (ManagedServiceRuntimeLauncher.IsAlive(runtime.ProcessHandle))
-            {
-                ManagedServiceRuntimeLauncher.TerminateTree(runtime.JobHandle, runtime.ProcessHandle);
-                await Task.Run(() => ManagedServiceRuntimeLauncher.WaitForExit(runtime.ProcessHandle, 3000))
-                    .ConfigureAwait(false);
-            }
-        }
-        catch (Exception)
-        {
-            // A runtime that already exited needs no further signalling.
-        }
-
-        RemoveRuntime(serviceId, runtime);
+        await TerminateAsync(runtime).ConfigureAwait(false);
     }
 
     public bool IsRunning(Guid serviceId)
@@ -92,12 +89,16 @@ public sealed class ManagedServiceProcessController : IManagedServiceProcessCont
         Runtime? runtime;
         lock (_gate)
         {
-            _runtimes.TryGetValue(serviceId, out runtime);
+            if (!_runtimes.TryGetValue(serviceId, out runtime)) return false;
+
+            // Probe while the runtime is still tracked: a detached runtime is
+            // owned by its detacher and disposed there, so this must never
+            // touch a handle that another thread has already closed.
+            if (ManagedServiceRuntimeLauncher.IsAlive(runtime.ProcessHandle)) return true;
         }
 
-        if (runtime is null) return false;
-        if (ManagedServiceRuntimeLauncher.IsAlive(runtime.ProcessHandle)) return true;
-
+        // The root process exited. Reap the tracking entry; the identity check
+        // stops a runtime installed by a concurrent start from being removed.
         RemoveRuntime(serviceId, runtime);
         return false;
     }
@@ -234,6 +235,45 @@ public sealed class ManagedServiceProcessController : IManagedServiceProcessCont
     {
         if (line.Length == 0) return;
         Output?.Invoke(this, new ManagedServiceOutputEventArgs(serviceId, kind, line));
+    }
+
+    /// <summary>
+    /// Atomically removes and returns the runtime tracked for
+    /// <paramref name="serviceId"/>, or null when this instance tracks none.
+    /// Exactly one caller can detach a given runtime; that is what keeps
+    /// "only ever signal a runtime this instance launched" true when stop,
+    /// reaping and start overlap.
+    /// </summary>
+    private Runtime? DetachRuntime(Guid serviceId)
+    {
+        lock (_gate)
+        {
+            if (!_runtimes.TryGetValue(serviceId, out var runtime)) return null;
+            _runtimes.Remove(serviceId);
+            return runtime;
+        }
+    }
+
+    /// <summary>Terminates an owned tree and releases the runtime's handles.</summary>
+    private static async Task TerminateAsync(Runtime runtime)
+    {
+        try
+        {
+            if (ManagedServiceRuntimeLauncher.IsAlive(runtime.ProcessHandle))
+            {
+                ManagedServiceRuntimeLauncher.TerminateTree(runtime.JobHandle, runtime.ProcessHandle);
+                await Task.Run(() => ManagedServiceRuntimeLauncher.WaitForExit(runtime.ProcessHandle, 3000))
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception)
+        {
+            // A runtime that already exited needs no further signalling.
+        }
+        finally
+        {
+            runtime.Dispose();
+        }
     }
 
     private void RemoveRuntime(Guid serviceId, Runtime runtime)

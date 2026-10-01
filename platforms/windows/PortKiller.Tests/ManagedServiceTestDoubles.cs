@@ -103,6 +103,9 @@ internal sealed class FakePortInspector : IManagedServicePortInspector
     public List<bool> KillForce { get; } = new();
     public bool KillShouldFail { get; set; }
 
+    /// <summary>When set, <see cref="InspectAsync"/> throws once the call count exceeds the threshold.</summary>
+    public (int AfterCalls, Exception Error)? InspectFailure { get; set; }
+
     public void Occupy(int port, int pid)
     {
         if (!_occupants.TryGetValue(port, out var list))
@@ -130,6 +133,11 @@ internal sealed class FakePortInspector : IManagedServicePortInspector
         _calls.TryGetValue(port, out var calls);
         calls++;
         _calls[port] = calls;
+
+        if (InspectFailure is { } failure && calls > failure.AfterCalls)
+        {
+            throw failure.Error;
+        }
 
         if (_later.TryGetValue(port, out var later) && calls > later.Threshold)
         {

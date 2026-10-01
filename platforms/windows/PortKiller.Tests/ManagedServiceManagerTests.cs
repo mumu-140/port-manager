@@ -113,6 +113,28 @@ public class ManagedServiceManagerTests
     }
 
     [Fact]
+    public async Task StartReleasesOwnershipWhenInspectingFailsMidReadiness()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector
+        {
+            InspectFailure = (AfterCalls: 1, Error: new InvalidOperationException("scan failed")),
+        };
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.StartAsync(config.Id));
+
+        var state = manager.Find(config.Id)!;
+        Assert.Equal(ManagedServiceStatus.Failed, state.Status);
+        Assert.Null(state.RootPid);
+        Assert.Contains(config.Id, processes.StopRequests);
+        Assert.False(processes.IsTracked(config.Id));
+    }
+
+    [Fact]
     public async Task StopOnlySignalsTheOwnedRootAndWaitsForThePort()
     {
         var storage = new FakeStorage();

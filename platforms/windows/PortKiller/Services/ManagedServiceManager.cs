@@ -181,37 +181,54 @@ public sealed class ManagedServiceManager
         Mutate(state, s => s.RootPid = rootPid);
 
         var deadline = DateTime.UtcNow + ReadinessTimeout;
-        while (DateTime.UtcNow < deadline)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (state.Status != ManagedServiceStatus.Starting) return false;
-
-            if (!_processes.IsRunning(state.Id))
+            while (DateTime.UtcNow < deadline)
             {
-                Mutate(state, s =>
-                {
-                    s.ClearRuntime();
-                    s.Status = ManagedServiceStatus.Failed;
-                    s.LastError = $"Service exited before it listened on port {s.Config.Port}.";
-                });
-                return false;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                if (state.Status != ManagedServiceStatus.Starting) return false;
 
-            var current = await _ports.InspectAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
-            if (state.Status != ManagedServiceStatus.Starting) return false;
-            if (current.Count > 0)
+                if (!_processes.IsRunning(state.Id))
+                {
+                    Mutate(state, s =>
+                    {
+                        s.ClearRuntime();
+                        s.Status = ManagedServiceStatus.Failed;
+                        s.LastError = $"Service exited before it listened on port {s.Config.Port}.";
+                    });
+                    return false;
+                }
+
+                var current = await _ports.InspectAsync(state.Config.Port, cancellationToken).ConfigureAwait(false);
+                if (state.Status != ManagedServiceStatus.Starting) return false;
+                if (current.Count > 0)
+                {
+                    Mutate(state, s =>
+                    {
+                        s.ListenerPids.Clear();
+                        foreach (var pid in DistinctPids(current)) s.ListenerPids.Add(pid);
+                        s.Status = ManagedServiceStatus.Running;
+                        s.StartedAt = DateTime.Now;
+                    });
+                    return true;
+                }
+
+                await Task.Delay(ReadinessPollInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            // The launch succeeded but readiness did not complete. Never leave
+            // the launched tree owned by nothing, and never leave the profile
+            // stuck in Starting (reconciliation skips transitional states).
+            await ReleaseOwnedRuntimeAsync(state, CancellationToken.None).ConfigureAwait(false);
+            Mutate(state, s =>
             {
-                Mutate(state, s =>
-                {
-                    s.ListenerPids.Clear();
-                    foreach (var pid in DistinctPids(current)) s.ListenerPids.Add(pid);
-                    s.Status = ManagedServiceStatus.Running;
-                    s.StartedAt = DateTime.Now;
-                });
-                return true;
-            }
-
-            await Task.Delay(ReadinessPollInterval, cancellationToken).ConfigureAwait(false);
+                s.ClearRuntime();
+                s.Status = ManagedServiceStatus.Failed;
+                s.LastError = ex.Message;
+            });
+            throw;
         }
 
         Mutate(state, s => s.LastError = $"Service did not listen on port {s.Config.Port} in time.");

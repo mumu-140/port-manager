@@ -908,6 +908,18 @@ Stop behavior:
 
 Never kill by port in the normal Stop path.
 
+Ownership invariants enforced by the controller:
+
+- One runtime per service id per controller instance. Starting a service that
+  is already tracked detaches the previous runtime first, then terminates its
+  tree and releases its handles, so a racing or repeated start can never
+  orphan or leak a runtime.
+- Ownership is only ever taken from the tracked table, atomically. Exactly one
+  caller can detach a runtime, so stop and the dead-runtime reaper can never
+  signal the same tree twice or touch a handle after it has been closed.
+- A runtime this instance never tracked is never reported as running and is
+  never signalled, regardless of any PID that matches a stale value.
+
 ### 17.4 Port inspection seam
 
 Do not tightly couple the manager to a concrete scanner in tests.

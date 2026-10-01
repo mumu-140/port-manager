@@ -206,12 +206,14 @@ internal static class ManagedServiceRuntimeLauncher
 
     public static void TerminateTree(IntPtr jobHandle, IntPtr processHandle)
     {
-        if (jobHandle != IntPtr.Zero)
+        // Prefer the job object so the whole owned tree dies at once. If the
+        // job is unavailable or the call fails, still signal the owned root
+        // rather than reporting a stop that terminated nothing.
+        var terminated = jobHandle != IntPtr.Zero && TerminateJobObject(jobHandle, 1);
+        if (!terminated && processHandle != IntPtr.Zero)
         {
-            TerminateJobObject(jobHandle, 1);
-            return;
+            TerminateProcess(processHandle, 1);
         }
-        if (processHandle != IntPtr.Zero) TerminateProcess(processHandle, 1);
     }
 
     public static void CloseHandleQuietly(IntPtr handle)
