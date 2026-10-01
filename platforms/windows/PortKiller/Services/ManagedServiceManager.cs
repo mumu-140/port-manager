@@ -30,6 +30,7 @@ public sealed class ManagedServiceManager
     private readonly List<ManagedServiceState> _services = new();
     private readonly object _gate = new();
     private readonly Dictionary<Guid, SemaphoreSlim> _lifecycleGates = new();
+    private readonly Dictionary<Guid, long> _lifecycleGenerations = new();
 
     public ManagedServiceManager(
         IManagedServiceStorage storage,
@@ -92,6 +93,29 @@ public sealed class ManagedServiceManager
     /// stopping services must be stopped first (design notes, section 12).
     /// </summary>
     public ManagedServiceValidationError? Update(ManagedServiceConfig config)
+    {
+        // A config edit never races a lifecycle mutation. If Start/Stop/Restart
+        // owns this service's gate (for example while Start awaits its port
+        // preflight with the profile still Stopped), the edit is rejected.
+        var gate = LifecycleGate(config.Id);
+        if (!gate.Wait(0))
+        {
+            return new ManagedServiceValidationError(ManagedServiceValidationErrorKind.ServiceTransitioning);
+        }
+
+        try
+        {
+            BumpGeneration(config.Id);
+            return UpdateCore(config);
+        }
+        finally
+        {
+            BumpGeneration(config.Id);
+            gate.Release();
+        }
+    }
+
+    private ManagedServiceValidationError? UpdateCore(ManagedServiceConfig config)
     {
         var state = Find(config.Id);
         if (state is null) return null;
@@ -397,26 +421,69 @@ public sealed class ManagedServiceManager
     /// acquire the gate exactly once; *Core methods assume it is held and never
     /// re-enter a public entry point, so there is no nested acquisition.
     /// </summary>
-    private async Task<bool> WithLifecycleGateAsync(Guid id, Func<Task<bool>> action, CancellationToken cancellationToken)
+    private SemaphoreSlim LifecycleGate(Guid id)
     {
-        SemaphoreSlim gate;
         lock (_gate)
         {
-            if (_lifecycleGates.TryGetValue(id, out var existing))
-            {
-                gate = existing;
-            }
-            else
+            if (!_lifecycleGates.TryGetValue(id, out var gate))
             {
                 gate = new SemaphoreSlim(1, 1);
                 _lifecycleGates[id] = gate;
             }
+            return gate;
         }
+    }
 
+    /// <summary>
+    /// Advances the service's lifecycle generation. Every gated lifecycle
+    /// operation bumps it on entry and on exit, so a scan whose snapshot was
+    /// taken before or during that operation is recognisably stale.
+    /// </summary>
+    private void BumpGeneration(Guid id)
+    {
+        lock (_gate)
+        {
+            _lifecycleGenerations.TryGetValue(id, out var generation);
+            _lifecycleGenerations[id] = generation + 1;
+        }
+    }
+
+    private long Generation(Guid id)
+    {
+        lock (_gate) return _lifecycleGenerations.TryGetValue(id, out var generation) ? generation : 0;
+    }
+
+    private async Task<bool> WithLifecycleGateAsync(Guid id, Func<Task<bool>> action, CancellationToken cancellationToken)
+    {
+        var gate = LifecycleGate(id);
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        BumpGeneration(id);
         try
         {
             return await action().ConfigureAwait(false);
+        }
+        finally
+        {
+            BumpGeneration(id);
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Non-blocking variant for reconciliation. Runs <paramref name="action"/>
+    /// only if the service's gate is free right now and its lifecycle has not
+    /// changed since <paramref name="expectedGeneration"/> was captured. It
+    /// never waits for a lifecycle operation and then applies an old scan.
+    /// </summary>
+    private async Task TryWithLifecycleGateAsync(Guid id, long expectedGeneration, Func<Task> action)
+    {
+        var gate = LifecycleGate(id);
+        if (!gate.Wait(0)) return;
+        try
+        {
+            if (Generation(id) != expectedGeneration) return;
+            await action().ConfigureAwait(false);
+            BumpGeneration(id);
         }
         finally
         {
@@ -431,34 +498,67 @@ public sealed class ManagedServiceManager
         Mutate(state, s => s.ClearOutput());
     }
 
+    /// <summary>
+    /// Captures each service's lifecycle generation. Take it before scanning
+    /// and pass it to <see cref="ReconcileAsync(IReadOnlyList{PortInfo}, IReadOnlyDictionary{Guid, long}, CancellationToken)"/>
+    /// so a scan can never be applied across a lifecycle change.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, long> CaptureLifecycleSnapshot()
+    {
+        lock (_gate)
+        {
+            return _services.ToDictionary(
+                s => s.Id,
+                s => _lifecycleGenerations.TryGetValue(s.Id, out var generation) ? generation : 0L);
+        }
+    }
+
     public async Task ReconcileWithScanAsync(CancellationToken cancellationToken = default)
     {
+        var lifecycle = CaptureLifecycleSnapshot();
         var ports = await _ports.ScanAsync(cancellationToken).ConfigureAwait(false);
-        await ReconcileAsync(ports, cancellationToken).ConfigureAwait(false);
+        await ReconcileAsync(ports, lifecycle, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>Reconciles against a scan taken just now.</summary>
+    public Task ReconcileAsync(IReadOnlyList<PortInfo> ports, CancellationToken cancellationToken = default) =>
+        ReconcileAsync(ports, CaptureLifecycleSnapshot(), cancellationToken);
 
     /// <summary>
     /// Aligns runtime state with the latest scan. A profile is only ever
     /// Running while a process this session owns still serves its port.
     /// The shared scan is passed in so a normal refresh drives reconciliation
     /// without a second polling loop.
+    ///
+    /// Reconciliation releases runtimes, so it joins the per-service lifecycle
+    /// gate without waiting: a service whose gate is held, or whose lifecycle
+    /// changed since <paramref name="lifecycle"/> was captured, is skipped and
+    /// left to the next refresh. State is re-read only after the gate is held.
     /// </summary>
-    public async Task ReconcileAsync(IReadOnlyList<PortInfo> ports, CancellationToken cancellationToken = default)
+    public async Task ReconcileAsync(
+        IReadOnlyList<PortInfo> ports,
+        IReadOnlyDictionary<Guid, long> lifecycle,
+        CancellationToken cancellationToken = default)
     {
-        foreach (var state in Services)
+        foreach (var (id, generation) in lifecycle)
         {
-            switch (state.Status)
+            await TryWithLifecycleGateAsync(id, generation, async () =>
             {
-                case ManagedServiceStatus.Starting:
-                case ManagedServiceStatus.Stopping:
-                    continue;
-                case ManagedServiceStatus.Running:
-                    await ReconcileRunningAsync(state, ports, cancellationToken).ConfigureAwait(false);
-                    break;
-                default:
-                    ReconcileUnOwned(state, ports);
-                    break;
-            }
+                var state = Find(id);
+                if (state is null) return;
+                switch (state.Status)
+                {
+                    case ManagedServiceStatus.Starting:
+                    case ManagedServiceStatus.Stopping:
+                        return;
+                    case ManagedServiceStatus.Running:
+                        await ReconcileRunningAsync(state, ports, cancellationToken).ConfigureAwait(false);
+                        return;
+                    default:
+                        ReconcileUnOwned(state, ports);
+                        return;
+                }
+            }).ConfigureAwait(false);
         }
     }
 

@@ -171,6 +171,135 @@ public class ManagedServiceManagerTests
     }
 
     [Fact]
+    public async Task ReconcileSkipsServiceWhileLifecycleMutationIsInFlight()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+
+        // Hold Start inside its lifecycle gate at the port preflight.
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var hookCalls = 0;
+        ports.BeforeInspect = async () =>
+        {
+            if (Interlocked.Increment(ref hookCalls) == 1)
+            {
+                entered.TrySetResult();
+                await release.Task;
+            }
+        };
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+
+        var start = manager.StartAsync(config.Id);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // A stale scan claiming a foreign occupant must not touch the service,
+        // and reconciliation must not wait for the lifecycle operation.
+        await manager.ReconcileAsync(new List<PortInfo> { Active(8080, 9999) })
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        var held = manager.Find(config.Id)!;
+        Assert.Equal(ManagedServiceStatus.Stopped, held.Status);
+        Assert.Null(held.Conflict);
+        Assert.Empty(processes.StopRequests);
+
+        release.TrySetResult();
+        Assert.True(await start);
+
+        var state = manager.Find(config.Id)!;
+        Assert.Equal(ManagedServiceStatus.Running, state.Status);
+        Assert.Single(processes.StartedPids);
+        Assert.True(processes.IsTracked(config.Id));
+        Assert.Empty(processes.StopRequests);
+    }
+
+    [Fact]
+    public async Task ReconcileCannotTerminateReplacementRuntimeFromRestart()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+        ports.OccupyAfter(8080, calls: 1, pid: 7000);
+        Assert.True(await manager.StartAsync(config.Id));
+        Assert.Equal(7000, manager.Find(config.Id)!.RootPid);
+
+        // Reconciliation begins with snapshot A: lifecycle captured, scan taken
+        // while the first runtime (7000) still serves the port.
+        var staleLifecycle = manager.CaptureLifecycleSnapshot();
+        var staleScan = new List<PortInfo> { Active(8080, 7000) };
+
+        // Restart replaces the owned runtime with 7001 before snapshot A lands.
+        ports.OccupyAfter(8080, calls: 4, pid: 7001);
+        processes.OnStop = _ => ports.Release(8080);
+        Assert.True(await manager.RestartAsync(config.Id));
+        Assert.Equal(7001, manager.Find(config.Id)!.RootPid);
+        Assert.Single(processes.StopRequests);
+
+        // Applying snapshot A would see no owned listener and release 7001.
+        await manager.ReconcileAsync(staleScan, staleLifecycle);
+
+        var state = manager.Find(config.Id)!;
+        Assert.Equal(ManagedServiceStatus.Running, state.Status);
+        Assert.Equal(7001, state.RootPid);
+        Assert.Null(state.Conflict);
+        Assert.True(processes.IsTracked(config.Id));
+        Assert.Single(processes.StopRequests);
+
+        // The next fresh scan still reconciles normally.
+        await manager.ReconcileAsync(new List<PortInfo> { Active(8080, 7001) });
+        Assert.Equal(ManagedServiceStatus.Running, manager.Find(config.Id)!.Status);
+        Assert.Single(processes.StopRequests);
+    }
+
+    [Fact]
+    public async Task UpdateIsRejectedWhileStartHoldsTheLifecycleGate()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config("web", 8080);
+        Assert.Null(manager.Add(config));
+
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var hookCalls = 0;
+        ports.BeforeInspect = async () =>
+        {
+            if (Interlocked.Increment(ref hookCalls) == 1)
+            {
+                entered.TrySetResult();
+                await release.Task;
+            }
+        };
+        ports.OccupyAfter(8080, calls: 1, pid: 7777);
+
+        var start = manager.StartAsync(config.Id);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // The profile still reads Stopped, but Start owns its lifecycle.
+        Assert.Equal(ManagedServiceStatus.Stopped, manager.Find(config.Id)!.Status);
+        var edited = config.Clone();
+        edited.Name = "renamed";
+        var error = manager.Update(edited);
+
+        Assert.NotNull(error);
+        Assert.Equal(ManagedServiceValidationErrorKind.ServiceTransitioning, error!.Kind);
+        Assert.Equal("web", manager.Find(config.Id)!.Name);
+
+        release.TrySetResult();
+        Assert.True(await start);
+        Assert.Equal("web", manager.Find(config.Id)!.Name);
+    }
+
+    [Fact]
     public async Task StopOnlySignalsTheOwnedRootAndWaitsForThePort()
     {
         var storage = new FakeStorage();

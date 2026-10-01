@@ -928,6 +928,13 @@ Ownership invariants enforced by the controller:
   signal the same tree twice or touch a handle after it has been closed.
 - A runtime this instance never tracked is never reported as running and is
   never signalled, regardless of any PID that matches a stale value.
+- Reconciliation joins the same per-service lifecycle gate without waiting.
+  A service whose gate is held, or whose lifecycle generation changed since
+  the scan's snapshot was captured, is skipped for that scan and reconciled
+  by the next shared refresh. A stale scan therefore can never release a
+  runtime or overwrite a state produced by a newer Start/Stop/Restart.
+- Config edits take the same gate without waiting, so a profile cannot be
+  edited while Start owns its lifecycle (for example during preflight).
 
 ### 17.4 Port inspection seam
 

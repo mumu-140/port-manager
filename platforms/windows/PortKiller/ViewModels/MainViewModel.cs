@@ -124,6 +124,9 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
 
         try
         {
+            // Snapshot lifecycle generations before scanning so reconciliation
+            // never applies this scan across a newer Start/Stop/Restart.
+            var lifecycle = _managedServices?.CaptureLifecycleSnapshot();
             var scannedPorts = await _scanner.ScanPortsAsync();
             
             // Update on UI thread
@@ -144,7 +147,9 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
             // second polling loop (design notes, section 6.4).
             if (_managedServices is not null)
             {
-                await _managedServices.ReconcileAsync(scannedPorts).ConfigureAwait(false);
+                await _managedServices.ReconcileAsync(
+                    scannedPorts,
+                    lifecycle ?? _managedServices.CaptureLifecycleSnapshot()).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
