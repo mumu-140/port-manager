@@ -135,6 +135,42 @@ public class ManagedServiceManagerTests
     }
 
     [Fact]
+    public async Task ConcurrentStartsLaunchExactlyOneRuntime()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Create(storage, processes, ports);
+        var config = Config();
+        Assert.Null(manager.Add(config));
+
+        // Barrier on the preflight: the first inspection waits (bounded) for a
+        // second caller to arrive. Without a lifecycle gate both Starts pass the
+        // state guard and the empty preflight together, then both launch.
+        var arrivals = 0;
+        var bothArrived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ports.BeforeInspect = async () =>
+        {
+            var n = Interlocked.Increment(ref arrivals);
+            if (n == 2) bothArrived.TrySetResult();
+            if (n == 1) await Task.WhenAny(bothArrived.Task, Task.Delay(500)).ConfigureAwait(false);
+        };
+        // The port listens once the readiness loop inspects after a launch.
+        ports.OccupyAfter(config.Port, 2, 9100);
+
+        var a = manager.StartAsync(config.Id);
+        var b = manager.StartAsync(config.Id);
+        var results = await Task.WhenAll(a, b);
+
+        Assert.Single(processes.StartedPids);
+        Assert.Equal(1, results.Count(r => r));
+        var state = manager.Find(config.Id)!;
+        Assert.Equal(ManagedServiceStatus.Running, state.Status);
+        Assert.True(processes.IsTracked(config.Id));
+        Assert.Equal((int?)processes.StartedPids[0], state.RootPid);
+    }
+
+    [Fact]
     public async Task StopOnlySignalsTheOwnedRootAndWaitsForThePort()
     {
         var storage = new FakeStorage();

@@ -106,6 +106,9 @@ internal sealed class FakePortInspector : IManagedServicePortInspector
     /// <summary>When set, <see cref="InspectAsync"/> throws once the call count exceeds the threshold.</summary>
     public (int AfterCalls, Exception Error)? InspectFailure { get; set; }
 
+    /// <summary>When set, awaited before every <see cref="InspectAsync"/> call (barrier seam).</summary>
+    public Func<Task>? BeforeInspect { get; set; }
+
     public void Occupy(int port, int pid)
     {
         if (!_occupants.TryGetValue(port, out var list))
@@ -128,7 +131,13 @@ internal sealed class FakePortInspector : IManagedServicePortInspector
     public Task<IReadOnlyList<PortInfo>> ScanAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<PortInfo>>(_occupants.Values.SelectMany(v => v).ToList());
 
-    public Task<IReadOnlyList<PortInfo>> InspectAsync(int port, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PortInfo>> InspectAsync(int port, CancellationToken cancellationToken = default)
+    {
+        if (BeforeInspect is { } hook) await hook().ConfigureAwait(false);
+        return InspectNow(port);
+    }
+
+    private IReadOnlyList<PortInfo> InspectNow(int port)
     {
         _calls.TryGetValue(port, out var calls);
         calls++;
@@ -145,10 +154,9 @@ internal sealed class FakePortInspector : IManagedServicePortInspector
             _later.Remove(port);
         }
 
-        var result = _occupants.TryGetValue(port, out var list)
+        return _occupants.TryGetValue(port, out var list)
             ? list.ToList()
             : new List<PortInfo>();
-        return Task.FromResult<IReadOnlyList<PortInfo>>(result);
     }
 
     public async Task<bool> IsReadyAsync(int port, CancellationToken cancellationToken = default) =>

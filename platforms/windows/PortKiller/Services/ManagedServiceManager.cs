@@ -29,6 +29,7 @@ public sealed class ManagedServiceManager
     private readonly IManagedServiceStateDispatcher _stateDispatcher;
     private readonly List<ManagedServiceState> _services = new();
     private readonly object _gate = new();
+    private readonly Dictionary<Guid, SemaphoreSlim> _lifecycleGates = new();
 
     public ManagedServiceManager(
         IManagedServiceStorage storage,
@@ -112,7 +113,7 @@ public sealed class ManagedServiceManager
         return null;
     }
 
-    public Task<bool> RemoveAsync(Guid id)
+    public Task<bool> RemoveAsync(Guid id) => WithLifecycleGateAsync(id, () =>
     {
         var state = Find(id);
         if (state is null) return Task.FromResult(false);
@@ -121,9 +122,13 @@ public sealed class ManagedServiceManager
         ManagedServiceRuntimeLogStore.Cleanup(id);
         Persist();
         return Task.FromResult(true);
-    }
+    }, CancellationToken.None);
 
-    public async Task<bool> StartAsync(Guid id, CancellationToken cancellationToken = default)
+    public Task<bool> StartAsync(Guid id, CancellationToken cancellationToken = default) =>
+        WithLifecycleGateAsync(id, () => StartCoreAsync(id, cancellationToken), cancellationToken);
+
+    /// <summary>Start path; the caller owns the service lifecycle gate.</summary>
+    private async Task<bool> StartCoreAsync(Guid id, CancellationToken cancellationToken)
     {
         var state = Find(id);
         if (state is null) return false;
@@ -232,7 +237,7 @@ public sealed class ManagedServiceManager
         }
 
         Mutate(state, s => s.LastError = $"Service did not listen on port {s.Config.Port} in time.");
-        await StopAsync(id, CancellationToken.None).ConfigureAwait(false);
+        await StopCoreAsync(id, CancellationToken.None).ConfigureAwait(false);
         Mutate(state, s =>
         {
             s.ClearRuntime();
@@ -241,7 +246,11 @@ public sealed class ManagedServiceManager
         return false;
     }
 
-    public async Task<bool> StopAsync(Guid id, CancellationToken cancellationToken = default)
+    public Task<bool> StopAsync(Guid id, CancellationToken cancellationToken = default) =>
+        WithLifecycleGateAsync(id, () => StopCoreAsync(id, cancellationToken), cancellationToken);
+
+    /// <summary>Stop path; the caller owns the service lifecycle gate.</summary>
+    private async Task<bool> StopCoreAsync(Guid id, CancellationToken cancellationToken)
     {
         var state = Find(id);
         if (state is null) return false;
@@ -306,30 +315,36 @@ public sealed class ManagedServiceManager
         return false;
     }
 
-    public async Task<bool> RestartAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var state = Find(id);
-        if (state is null) return false;
-        if (state.Status != ManagedServiceStatus.Running) return false;
-        await StopAsync(id, cancellationToken).ConfigureAwait(false);
-        if (Find(id)?.Status != ManagedServiceStatus.Stopped) return false;
-        return await StartAsync(id, cancellationToken).ConfigureAwait(false);
-    }
+    /// <summary>Stop then start under one gate acquisition; never a parallel launch.</summary>
+    public Task<bool> RestartAsync(Guid id, CancellationToken cancellationToken = default) =>
+        WithLifecycleGateAsync(id, async () =>
+        {
+            var state = Find(id);
+            if (state is null) return false;
+            if (state.Status != ManagedServiceStatus.Running) return false;
+            await StopCoreAsync(id, cancellationToken).ConfigureAwait(false);
+            if (Find(id)?.Status != ManagedServiceStatus.Stopped) return false;
+            return await StartCoreAsync(id, cancellationToken).ConfigureAwait(false);
+        }, cancellationToken);
 
-    public async Task<bool> StopForEditingAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var state = Find(id);
-        if (state is null) return false;
-        if (!state.IsOwned) return !state.IsTransitioning;
-        await StopAsync(id, cancellationToken).ConfigureAwait(false);
-        return Find(id)?.Status == ManagedServiceStatus.Stopped;
-    }
+    public Task<bool> StopForEditingAsync(Guid id, CancellationToken cancellationToken = default) =>
+        WithLifecycleGateAsync(id, async () =>
+        {
+            var state = Find(id);
+            if (state is null) return false;
+            if (!state.IsOwned) return !state.IsTransitioning;
+            await StopCoreAsync(id, cancellationToken).ConfigureAwait(false);
+            return Find(id)?.Status == ManagedServiceStatus.Stopped;
+        }, cancellationToken);
 
     /// <summary>
     /// Terminates only the occupant PIDs the user confirmed, then starts.
     /// Processes that acquire the port after confirmation are never signalled.
     /// </summary>
-    public async Task<bool> ResolveConflictAndStartAsync(Guid id, CancellationToken cancellationToken = default)
+    public Task<bool> ResolveConflictAndStartAsync(Guid id, CancellationToken cancellationToken = default) =>
+        WithLifecycleGateAsync(id, () => ResolveConflictAndStartCoreAsync(id, cancellationToken), cancellationToken);
+
+    private async Task<bool> ResolveConflictAndStartCoreAsync(Guid id, CancellationToken cancellationToken)
     {
         var state = Find(id);
         if (state is null || state.Status != ManagedServiceStatus.Conflict || state.Conflict is null) return false;
@@ -374,7 +389,39 @@ public sealed class ManagedServiceManager
             s.ListenerPids.Clear();
             s.Status = ManagedServiceStatus.Stopped;
         });
-        return await StartAsync(id, cancellationToken).ConfigureAwait(false);
+        return await StartCoreAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Serializes every lifecycle mutation of one service. Public entry points
+    /// acquire the gate exactly once; *Core methods assume it is held and never
+    /// re-enter a public entry point, so there is no nested acquisition.
+    /// </summary>
+    private async Task<bool> WithLifecycleGateAsync(Guid id, Func<Task<bool>> action, CancellationToken cancellationToken)
+    {
+        SemaphoreSlim gate;
+        lock (_gate)
+        {
+            if (_lifecycleGates.TryGetValue(id, out var existing))
+            {
+                gate = existing;
+            }
+            else
+            {
+                gate = new SemaphoreSlim(1, 1);
+                _lifecycleGates[id] = gate;
+            }
+        }
+
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await action().ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     public void ClearOutput(Guid id)

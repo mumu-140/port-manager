@@ -18,6 +18,7 @@ internal static class ManagedServiceRuntimeLauncher
 {
     private const uint CREATE_NO_WINDOW = 0x08000000;
     private const uint CREATE_UNICODE_ENVIRONMENT = 0x00000400;
+    private const uint CREATE_SUSPENDED = 0x00000004;
     private const uint STARTF_USESTDHANDLES = 0x00000100;
     private const uint GENERIC_READ = 0x80000000;
     private const uint GENERIC_WRITE = 0x40000000;
@@ -108,6 +109,9 @@ internal static class ManagedServiceRuntimeLauncher
     private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
 
     [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint ResumeThread(IntPtr hThread);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -163,24 +167,50 @@ internal static class ManagedServiceRuntimeLauncher
 
         try
         {
+            // The root is created suspended so it cannot execute any user code,
+            // and therefore cannot spawn a descendant, until it is inside the
+            // job object. Launch fails closed: there is no root-only ownership.
             if (!CreateProcessW(null, commandLine, IntPtr.Zero, IntPtr.Zero, true,
-                    CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT, environment, workingDirectory,
+                    CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED, environment, workingDirectory,
                     ref startup, out var processInfo))
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to start managed service process.");
             }
 
+            var job = IntPtr.Zero;
+            try
+            {
+                job = CreateJobObjectW(IntPtr.Zero, null);
+                if (job == IntPtr.Zero)
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to create the managed-service job object.");
+                }
+
+                if (!AssignProcessToJobObject(job, processInfo.hProcess))
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to assign the managed service to its job object.");
+                }
+
+                if (ResumeThread(processInfo.hThread) == uint.MaxValue)
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to resume the managed service process.");
+                }
+            }
+            catch
+            {
+                // The root never ran user code (or is already contained); kill
+                // it and release every handle before reporting the failure.
+                TerminateTree(job, processInfo.hProcess);
+                WaitForSingleObject(processInfo.hProcess, 3000);
+                CloseQuietly(job);
+                CloseQuietly(processInfo.hThread);
+                CloseQuietly(processInfo.hProcess);
+                throw;
+            }
+
             CloseHandle(processInfo.hThread);
             processHandle = processInfo.hProcess;
-
-            var job = CreateJobObjectW(IntPtr.Zero, null);
-            if (job != IntPtr.Zero && !AssignProcessToJobObject(job, processHandle))
-            {
-                CloseHandle(job);
-                job = IntPtr.Zero;
-            }
             jobHandle = job;
-
             return processInfo.dwProcessId;
         }
         finally
@@ -206,9 +236,9 @@ internal static class ManagedServiceRuntimeLauncher
 
     public static void TerminateTree(IntPtr jobHandle, IntPtr processHandle)
     {
-        // Prefer the job object so the whole owned tree dies at once. If the
-        // job is unavailable or the call fails, still signal the owned root
-        // rather than reporting a stop that terminated nothing.
+        // Prefer the job object so the whole owned tree dies at once. A
+        // successfully launched runtime always has a job; the root fallback
+        // only covers cleanup of a partially created launch or a failed call.
         var terminated = jobHandle != IntPtr.Zero && TerminateJobObject(jobHandle, 1);
         if (!terminated && processHandle != IntPtr.Zero)
         {

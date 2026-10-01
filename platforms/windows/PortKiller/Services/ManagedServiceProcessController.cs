@@ -4,6 +4,16 @@ using PortKiller.Models;
 
 namespace PortKiller.Services;
 
+/// <summary>Launch seam matching <see cref="ManagedServiceRuntimeLauncher.Launch"/>.</summary>
+internal delegate int ManagedServiceLaunch(
+    string command,
+    string? workingDirectory,
+    Guid serviceId,
+    string stdoutPath,
+    string stderrPath,
+    out IntPtr processHandle,
+    out IntPtr jobHandle);
+
 /// <summary>
 /// Windows process controller for managed services.
 ///
@@ -20,57 +30,87 @@ public sealed class ManagedServiceProcessController : IManagedServiceProcessCont
 
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Runtime> _runtimes = new();
+    private readonly HashSet<Guid> _launching = new();
+    private readonly ManagedServiceLaunch _launch;
+
+    public ManagedServiceProcessController()
+        : this(ManagedServiceRuntimeLauncher.Launch)
+    {
+    }
+
+    /// <summary>Test seam: observe or replace native process creation.</summary>
+    internal ManagedServiceProcessController(ManagedServiceLaunch launch)
+    {
+        _launch = launch;
+    }
 
     public event EventHandler<ManagedServiceOutputEventArgs>? Output;
 
-    public async Task<int> StartAsync(ManagedServiceConfig config, CancellationToken cancellationToken = default)
+    public Task<int> StartAsync(ManagedServiceConfig config, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var command = ManagedServiceCommandRenderer.Render(config.StartCommand, config.Port);
-        ManagedServiceRuntimeLogStore.Prepare(config.Id, out var stdoutPath, out var stderrPath);
-
-        int pid;
-        IntPtr processHandle;
-        IntPtr jobHandle;
-        try
-        {
-            pid = ManagedServiceRuntimeLauncher.Launch(
-                command,
-                config.WorkingDirectory,
-                config.Id,
-                stdoutPath,
-                stderrPath,
-                out processHandle,
-                out jobHandle);
-        }
-        catch
-        {
-            ManagedServiceRuntimeLogStore.Cleanup(config.Id);
-            throw;
-        }
-
-        var runtime = new Runtime(config.Id, pid, processHandle, jobHandle);
-
-        // A service is owned by exactly one runtime per controller instance. If
-        // a previous runtime is still tracked (a racing start, or a restart
-        // whose stop did not reap it), detach it first so its handles and
-        // tailers are released and its tree is terminated rather than orphaned.
-        var superseded = DetachRuntime(config.Id);
-
+        // Reserve the id before any side effect. A service that is tracked or
+        // mid-launch is rejected: no log truncation, no second child, and a
+        // tracked runtime is never replaced.
         lock (_gate)
         {
-            _runtimes[config.Id] = runtime;
+            if (_runtimes.ContainsKey(config.Id) || !_launching.Add(config.Id))
+            {
+                throw new InvalidOperationException($"Service {config.Id} already has an owned runtime.");
+            }
         }
 
-        StartTailers(runtime, stdoutPath, stderrPath);
-
-        if (superseded is not null)
+        try
         {
-            await TerminateAsync(superseded).ConfigureAwait(false);
-        }
+            var command = ManagedServiceCommandRenderer.Render(config.StartCommand, config.Port);
+            ManagedServiceRuntimeLogStore.Prepare(config.Id, out var stdoutPath, out var stderrPath);
 
-        return pid;
+            int pid;
+            IntPtr processHandle;
+            IntPtr jobHandle;
+            try
+            {
+                pid = _launch(
+                    command,
+                    config.WorkingDirectory,
+                    config.Id,
+                    stdoutPath,
+                    stderrPath,
+                    out processHandle,
+                    out jobHandle);
+            }
+            catch
+            {
+                ManagedServiceRuntimeLogStore.Cleanup(config.Id);
+                throw;
+            }
+
+            // Every owned runtime is contained by a job object. A launch that
+            // returns without one is torn down and never tracked.
+            if (jobHandle == IntPtr.Zero)
+            {
+                ManagedServiceRuntimeLauncher.TerminateTree(IntPtr.Zero, processHandle);
+                ManagedServiceRuntimeLauncher.CloseHandleQuietly(processHandle);
+                throw new InvalidOperationException("Managed service launched without a job object.");
+            }
+
+            var runtime = new Runtime(config.Id, pid, processHandle, jobHandle);
+            lock (_gate)
+            {
+                _runtimes[config.Id] = runtime;
+            }
+
+            StartTailers(runtime, stdoutPath, stderrPath);
+            return Task.FromResult(pid);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _launching.Remove(config.Id);
+            }
+        }
     }
 
     public async Task StopAsync(Guid serviceId, CancellationToken cancellationToken = default)

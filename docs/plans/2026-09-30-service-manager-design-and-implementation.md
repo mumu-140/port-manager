@@ -910,10 +910,19 @@ Never kill by port in the normal Stop path.
 
 Ownership invariants enforced by the controller:
 
-- One runtime per service id per controller instance. Starting a service that
-  is already tracked detaches the previous runtime first, then terminates its
-  tree and releases its handles, so a racing or repeated start can never
-  orphan or leak a runtime.
+- One runtime per service id per controller instance. Start atomically
+  reserves the id before any side effect; a service that is already tracked
+  or mid-launch is rejected before a process is created. A tracked runtime is
+  never replaced.
+- The manager serializes every lifecycle mutation of a service (start, stop,
+  restart, resolve-conflict-and-start, stop-for-editing, remove) through a
+  per-service async gate. Public entry points acquire it once; internal core
+  paths assume it is held, so there is no nested acquisition.
+- The root is created with `CREATE_SUSPENDED`, assigned to a fresh job object,
+  and only then resumed. Job creation, assignment or resume failure terminates
+  the suspended root, closes every handle and fails the launch. No runtime is
+  ever owned without a job. `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` is not set, so
+  the tree still survives Port Manager exiting.
 - Ownership is only ever taken from the tracked table, atomically. Exactly one
   caller can detach a runtime, so stop and the dead-runtime reaper can never
   signal the same tree twice or touch a handle after it has been closed.
