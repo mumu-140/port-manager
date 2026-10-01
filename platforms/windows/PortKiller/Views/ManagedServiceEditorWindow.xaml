@@ -1,0 +1,36 @@
+<Window x:Class="PortKiller.Views.ManagedServiceEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Service profile" Width="480" Height="520" WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E" ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Name" Foreground="#A0A0A0" FontSize="12"/>
+            <TextBox x:Name="NameBox" Margin="0,0,0,10" Padding="6"/>
+
+            <TextBlock Text="Port" Foreground="#A0A0A0" FontSize="12"/>
+            <TextBox x:Name="PortBox" Margin="0,0,0,10" Padding="6"/>
+
+            <TextBlock Text="Host" Foreground="#A0A0A0" FontSize="12"/>
+            <TextBox x:Name="HostBox" Margin="0,0,0,10" Padding="6"/>
+
+            <TextBlock Text="Working directory" Foreground="#A0A0A0" FontSize="12"/>
+            <TextBox x:Name="DirectoryBox" Margin="0,0,0,10" Padding="6"/>
+
+            <TextBlock Text="Start command" Foreground="#A0A0A0" FontSize="12"/>
+            <TextBox x:Name="CommandBox" Margin="0,0,0,6" Padding="6" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
+            <TextBlock Text="Use {port} in the command if the command should automatically follow future port edits." Foreground="#808080" FontSize="11" TextWrapping="Wrap"/>
+            <TextBlock Text="Commands are stored in plain text. Prefer environment variables over embedding secrets." Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+            <TextBlock x:Name="ErrorText" Foreground="#E06C6C" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" Click="Cancel_Click" Padding="16,8" Margin="0,0,8,0"/>
+            <Button Content="Save" Click="Save_Click" Padding="16,8"/>
+        </StackPanel>
+    </Grid>
+</Window>

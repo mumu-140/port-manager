@@ -14,8 +14,10 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly TunnelViewModel _tunnelViewModel;
+    private readonly ManagedServicesViewModel _managedServicesViewModel;
     private Hardcodet.Wpf.TaskbarNotification.TaskbarIcon? _trayIcon;
     private bool _isShuttingDown = false;
+    private bool _isRoutingSearch = false;
 
     public MainWindow()
     {
@@ -24,6 +26,10 @@ public partial class MainWindow : Window
         _viewModel = App.Services.GetRequiredService<MainViewModel>();
         _tunnelViewModel = App.Services.GetRequiredService<TunnelViewModel>();
         TunnelProtocolCombo.DataContext = _tunnelViewModel;
+
+        _managedServicesViewModel = App.Services.GetRequiredService<ManagedServicesViewModel>();
+        ManagedServicesViewControl.DataContext = _managedServicesViewModel;
+        _managedServicesViewModel.Load();
         InitializeAsync();
         
         // Setup keyboard shortcuts
@@ -175,9 +181,40 @@ public partial class MainWindow : Window
         await _viewModel.RefreshPortsCommand.ExecuteAsync(null);
     }
 
+    /// <summary>
+    /// The global search box feeds whichever panel is active. Port search and
+    /// Local Services search keep independent state; switching the sidebar
+    /// restores that panel's own query.
+    /// </summary>
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        _viewModel.Search(SearchBox.Text);
+        if (_isRoutingSearch) return;
+
+        if (_viewModel.SelectedSidebarItem == SidebarItem.ManagedServices)
+        {
+            _managedServicesViewModel.SearchText = SearchBox.Text;
+        }
+        else
+        {
+            _viewModel.Search(SearchBox.Text);
+        }
+    }
+
+    private void ApplySidebarSearch()
+    {
+        _isRoutingSearch = true;
+        try
+        {
+            var isServices = _viewModel.SelectedSidebarItem == SidebarItem.ManagedServices;
+            SearchPlaceholder.Text = isServices ? "Search services..." : "Search ports, processes...";
+            SearchBox.Text = isServices
+                ? _managedServicesViewModel.SearchText
+                : _viewModel.Filter.SearchText;
+        }
+        finally
+        {
+            _isRoutingSearch = false;
+        }
     }
 
     private void SidebarButton_Click(object sender, RoutedEventArgs e)
@@ -188,18 +225,28 @@ public partial class MainWindow : Window
             {
                 _viewModel.SelectedSidebarItem = sidebarItem;
                 HeaderText.Text = sidebarItem.GetTitle();
+                ApplySidebarSearch();
                 
-                // Toggle between ports view and tunnels view
+                // Exactly one top-level panel is visible at a time.
                 if (sidebarItem == SidebarItem.CloudflareTunnels)
                 {
                     PortsPanel.Visibility = Visibility.Collapsed;
                     DetailPanel.Visibility = Visibility.Collapsed;
+                    ManagedServicesPanel.Visibility = Visibility.Collapsed;
                     TunnelsPanel.Visibility = Visibility.Visible;
                     UpdateTunnelsUI();
+                }
+                else if (sidebarItem == SidebarItem.ManagedServices)
+                {
+                    PortsPanel.Visibility = Visibility.Collapsed;
+                    DetailPanel.Visibility = Visibility.Collapsed;
+                    TunnelsPanel.Visibility = Visibility.Collapsed;
+                    ManagedServicesPanel.Visibility = Visibility.Visible;
                 }
                 else
                 {
                     TunnelsPanel.Visibility = Visibility.Collapsed;
+                    ManagedServicesPanel.Visibility = Visibility.Collapsed;
                     PortsPanel.Visibility = Visibility.Visible;
                 }
                 

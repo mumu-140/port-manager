@@ -17,13 +17,14 @@ namespace PortKiller.ViewModels;
 /// Main view model managing application state and port operations.
 /// Equivalent to macOS AppState.swift
 /// </summary>
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IPortScanCoordinator
 {
     private readonly PortScannerService _scanner;
     private readonly ProcessKillerService _killer;
     private readonly SettingsService _settings;
     private readonly NotificationService _notifications;
     private readonly Dispatcher _dispatcher;
+    private readonly ManagedServiceManager? _managedServices;
     
     private CancellationTokenSource? _refreshCancellation;
     private Dictionary<int, bool> _previousPortStates = new();
@@ -64,13 +65,15 @@ public partial class MainViewModel : ObservableObject
         ProcessKillerService killer,
         SettingsService settings,
         NotificationService notifications,
-        Dispatcher dispatcher)
+        Dispatcher dispatcher,
+        ManagedServiceManager? managedServices = null)
     {
         _scanner = scanner;
         _killer = killer;
         _settings = settings;
         _notifications = notifications;
         _dispatcher = dispatcher;
+        _managedServices = managedServices;
 
         LoadSettings();
     }
@@ -121,6 +124,9 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            // Snapshot lifecycle generations before scanning so reconciliation
+            // never applies this scan across a newer Start/Stop/Restart.
+            var lifecycle = _managedServices?.CaptureLifecycleSnapshot();
             var scannedPorts = await _scanner.ScanPortsAsync();
             
             // Update on UI thread
@@ -135,6 +141,16 @@ public partial class MainViewModel : ObservableObject
                 UpdateFilteredPorts();
                 CheckWatchedPorts();
             });
+
+            // The same scan that refreshes the port list reconciles managed
+            // services, so a normal refresh keeps their state honest without a
+            // second polling loop (design notes, section 6.4).
+            if (_managedServices is not null)
+            {
+                await _managedServices.ReconcileAsync(
+                    scannedPorts,
+                    lifecycle ?? _managedServices.CaptureLifecycleSnapshot()).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {

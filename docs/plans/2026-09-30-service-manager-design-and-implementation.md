@@ -908,6 +908,34 @@ Stop behavior:
 
 Never kill by port in the normal Stop path.
 
+Ownership invariants enforced by the controller:
+
+- One runtime per service id per controller instance. Start atomically
+  reserves the id before any side effect; a service that is already tracked
+  or mid-launch is rejected before a process is created. A tracked runtime is
+  never replaced.
+- The manager serializes every lifecycle mutation of a service (start, stop,
+  restart, resolve-conflict-and-start, stop-for-editing, remove) through a
+  per-service async gate. Public entry points acquire it once; internal core
+  paths assume it is held, so there is no nested acquisition.
+- The root is created with `CREATE_SUSPENDED`, assigned to a fresh job object,
+  and only then resumed. Job creation, assignment or resume failure terminates
+  the suspended root, closes every handle and fails the launch. No runtime is
+  ever owned without a job. `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` is not set, so
+  the tree still survives Port Manager exiting.
+- Ownership is only ever taken from the tracked table, atomically. Exactly one
+  caller can detach a runtime, so stop and the dead-runtime reaper can never
+  signal the same tree twice or touch a handle after it has been closed.
+- A runtime this instance never tracked is never reported as running and is
+  never signalled, regardless of any PID that matches a stale value.
+- Reconciliation joins the same per-service lifecycle gate without waiting.
+  A service whose gate is held, or whose lifecycle generation changed since
+  the scan's snapshot was captured, is skipped for that scan and reconciled
+  by the next shared refresh. A stale scan therefore can never release a
+  runtime or overwrite a state produced by a newer Start/Stop/Restart.
+- Config edits take the same gate without waiting, so a profile cannot be
+  edited while Start owns its lifecycle (for example during preflight).
+
 ### 17.4 Port inspection seam
 
 Do not tightly couple the manager to a concrete scanner in tests.
@@ -1011,10 +1039,10 @@ Keep Cloudflare tunnel behavior routed through the existing TunnelViewModel.
 | --- | --- | --- |
 | Profile storage | Defaults | settings.json |
 | Default command shell | `/bin/zsh -lc` | `cmd.exe /d /s /c` |
-| Working directory | `Process.currentDirectoryURL` | `ProcessStartInfo.WorkingDirectory` |
-| Output capture | File-backed runtime logs (tailed) | redirected async stdout/stderr |
+| Working directory | `Process.currentDirectoryURL` | `CreateProcess` working directory |
+| Output capture | File-backed runtime logs (tailed) | file-backed runtime logs (tailed) |
 | Graceful stop | SIGTERM owned tree | close when possible |
-| Force stop | SIGKILL owned tree | `Kill(entireProcessTree: true)` |
+| Force stop | SIGKILL owned tree | job object terminate (owned tree) |
 | Port inspection | existing `PortScannerProtocol` | existing scanner through interface |
 | Browser open | NSWorkspace | Process.Start / shell execute |
 | Quick Tunnel | TunnelManager | TunnelViewModel/TunnelService |

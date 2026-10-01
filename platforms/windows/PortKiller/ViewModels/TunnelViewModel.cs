@@ -12,7 +12,7 @@ namespace PortKiller.ViewModels;
 /// <summary>
 /// ViewModel for managing Cloudflare tunnels
 /// </summary>
-public class TunnelViewModel : INotifyPropertyChanged
+public class TunnelViewModel : INotifyPropertyChanged, IManagedServiceTunnelHost
 {
     private readonly TunnelService _tunnelService;
     private readonly NotificationService _notificationService;

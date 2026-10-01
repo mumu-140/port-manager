@@ -102,7 +102,7 @@ public class PortScannerService
     /// Scans all listening TCP ports using Windows API.
     /// Equivalent to macOS lsof command.
     /// </summary>
-    public async Task<List<PortInfo>> ScanPortsAsync()
+    public virtual async Task<List<PortInfo>> ScanPortsAsync()
     {
         return await Task.Run(() =>
         {

@@ -80,6 +80,7 @@ public enum SidebarItem
     System,
     Other,
     KubernetesPortForward,
+    ManagedServices,
     CloudflareTunnels,
     Settings
 }
@@ -97,6 +98,7 @@ public static class SidebarItemExtensions
         SidebarItem.System => "System",
         SidebarItem.Other => "Other",
         SidebarItem.KubernetesPortForward => "K8s Port Forward",
+        SidebarItem.ManagedServices => "Local Services",
         SidebarItem.CloudflareTunnels => "Cloudflare Tunnels",
         SidebarItem.Settings => "Settings",
         _ => "Unknown"
@@ -113,6 +115,7 @@ public static class SidebarItemExtensions
         SidebarItem.System => "\uE713", // Settings
         SidebarItem.Other => "\uE7E8", // Plug
         SidebarItem.KubernetesPortForward => "\uE968", // Connect
+        SidebarItem.ManagedServices => "\uE8F1", // Applications
         SidebarItem.CloudflareTunnels => "\uE753", // Cloud
         SidebarItem.Settings => "\uE713", // Settings
         _ => "\uE7E8"

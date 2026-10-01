@@ -17,12 +17,16 @@ public class SettingsService
     private const string SettingsFileName = "settings.json";
     private readonly string _settingsPath;
 
-    public SettingsService()
+    public SettingsService(string? settingsPath = null)
     {
-        var appDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            AppName);
-        
+        if (!string.IsNullOrWhiteSpace(settingsPath))
+        {
+            _settingsPath = Path.GetFullPath(settingsPath);
+            var directory = Path.GetDirectoryName(_settingsPath);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            return;
+        }
+        var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppName);
         Directory.CreateDirectory(appDataPath);
         _settingsPath = Path.Combine(appDataPath, SettingsFileName);
     }
@@ -35,6 +39,7 @@ public class SettingsService
         public bool AutoStart { get; set; }
         public bool ShowNotifications { get; set; } = true;
         public string CloudflaredProtocol { get; set; } = "http2";
+        public List<ManagedServiceConfig>? ManagedServices { get; set; }
     }
 
     private SettingsData LoadSettingsData()
@@ -149,6 +154,13 @@ public class SettingsService
         var data = LoadSettingsData();
         data.CloudflaredProtocol = protocol.ToArgument();
         SaveSettingsData(data);
+    }
+
+    public List<ManagedServiceConfig> GetManagedServices() => LoadSettingsData().ManagedServices ?? new List<ManagedServiceConfig>();
+
+    public void SaveManagedServices(List<ManagedServiceConfig> services)
+    {
+        var data = LoadSettingsData(); data.ManagedServices = services; SaveSettingsData(data);
     }
 
     // Clear all settings
