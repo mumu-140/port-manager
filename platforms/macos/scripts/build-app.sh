@@ -143,6 +143,17 @@ echo "📋 Copying files..."
 cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/"
 cp "Resources/Info.plist" "$CONTENTS_DIR/"
 
+# Release builds may override the checked-in development version.
+# This happens before codesign so the final bundle signature remains valid.
+if [ -n "${APP_VERSION:-}" ]; then
+    echo "🏷️ Setting app version to $APP_VERSION"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$CONTENTS_DIR/Info.plist"
+fi
+if [ -n "${APP_BUILD_NUMBER:-}" ]; then
+    echo "🏷️ Setting build number to $APP_BUILD_NUMBER"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_BUILD_NUMBER" "$CONTENTS_DIR/Info.plist"
+fi
+
 # Debug: List contents of build directory
 echo "📂 Contents of $BUILD_DIR:"
 ls -la "$BUILD_DIR/" | grep -E "\.bundle$|^total" || echo "  (no bundles found)"

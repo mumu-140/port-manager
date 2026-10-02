@@ -1,6 +1,6 @@
 # Presets + Exposure UX v1 — Implementation Plan
 
-**Status:** DRAFT FOR REVIEW
+**Status:** IMPLEMENTED — merged to `main` at `4b3bcbebf89979eb4656dbfb53d485fce0716995`
 **Date:** 2026-10-01
 **Design:** `docs/plans/2026-10-01-presets-exposure-design.md` (companion)
 **Research:** `docs/research/2026-10-01-presets-exposure-research.md`
