@@ -71,7 +71,16 @@ jobs:
           xcode-version: latest-stable
 
       - name: Build universal app bundle
-        run: ./scripts/build-app.sh
+        run: |
+          APP_VERSION="${RELEASE_VERSION#v}" \
+          APP_BUILD_NUMBER="${GITHUB_RUN_NUMBER}" \
+          ./scripts/build-app.sh
+
+      - name: Verify macOS embedded version
+        run: |
+          EXPECTED="${RELEASE_VERSION#v}"
+          ACTUAL=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ".build/apple/Products/Release/PortKiller.app/Contents/Info.plist")
+          test "$ACTUAL" = "$EXPECTED" || { echo "Expected $EXPECTED, got $ACTUAL"; exit 1; }
 
       - name: Package macOS app
         run: |
@@ -113,10 +122,26 @@ jobs:
         run: dotnet restore platforms/windows/PortKiller/PortKiller.csproj
 
       - name: Publish x64
-        run: dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-x64 --self-contained false -o publish/win-x64
+        shell: pwsh
+        run: |
+          $version = $env:RELEASE_VERSION -replace '^v', ''
+          dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-x64 --self-contained false -p:Version="$version" -o publish/win-x64
 
       - name: Publish arm64
-        run: dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-arm64 --self-contained false -o publish/win-arm64
+        shell: pwsh
+        run: |
+          $version = $env:RELEASE_VERSION -replace '^v', ''
+          dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-arm64 --self-contained false -p:Version="$version" -o publish/win-arm64
+
+      - name: Verify Windows embedded version
+        shell: pwsh
+        run: |
+          $expected = $env:RELEASE_VERSION -replace '^v', ''
+          $dll = Get-Item "publish/win-x64/PortKiller.dll"
+          $actual = $dll.VersionInfo.ProductVersion
+          if (-not $actual.StartsWith($expected)) {
+            throw "Expected ProductVersion to start with $expected, got $actual"
+          }
 
       - name: Package Windows builds
         shell: pwsh
