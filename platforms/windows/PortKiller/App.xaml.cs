@@ -11,6 +11,10 @@ public partial class App : Application
 
     public App()
     {
+        // WinForms TaskDialog (delete confirmations) requires visual styles to
+        // be enabled once before the first dialog; WPF does not do it itself.
+        System.Windows.Forms.Application.EnableVisualStyles();
+
         // Runtime logs are disposable artifacts of the previous session. Never
         // delete profile configuration here, and never stop a managed service:
         // services are deliberately allowed to outlive Port Manager.
