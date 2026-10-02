@@ -86,7 +86,7 @@ public partial class ManagedServicesViewModel : ObservableObject
 
     /// <summary>SSH reverse presets publish rather than expose; the Network
     /// Access section shows a hint instead of tunnel actions.</summary>
-    public bool IsSshReversePreset => SelectedService?.PresetId == "ssh-reverse-forward";
+    public bool IsSshReversePreset => SelectedService?.Config.PresetId == "ssh-reverse-forward";
 
     public void Load()
     {

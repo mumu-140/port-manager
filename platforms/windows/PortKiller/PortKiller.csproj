@@ -4,7 +4,6 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>PortKiller</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Nullable>enable</Nullable>
@@ -14,6 +13,10 @@
     <Product>PortKiller</Product>
     <Description>A native Windows app for finding and killing processes on open ports</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />

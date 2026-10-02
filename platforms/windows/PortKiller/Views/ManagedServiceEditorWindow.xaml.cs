@@ -219,8 +219,8 @@ public partial class ManagedServiceEditorWindow : Window
                     };
                     if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                     {
-                        _fieldValues[field.Id] = dialog.SelectedFolder;
-                        dirText.Text = dialog.SelectedFolder;
+                        _fieldValues[field.Id] = dialog.SelectedPath;
+                        dirText.Text = dialog.SelectedPath;
                     }
                 };
                 row.Children.Add(dirText);

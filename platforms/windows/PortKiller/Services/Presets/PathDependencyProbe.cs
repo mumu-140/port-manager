@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.IO;
+
 namespace PortKiller.Services;
 
 /// <summary>Result of a read-only dependency probe.</summary>
@@ -18,7 +21,7 @@ public enum DependencyProbeState
 public sealed class PathDependencyProbe
 {
     private readonly Func<string, bool> _fileExists;
-    private readonly Func<string, IReadOnlyList<string>> _pathEntries;
+    private readonly Func<IReadOnlyList<string>> _pathEntries;
 
     private readonly Dictionary<string, (DependencyProbeState State, string Path)> _cache = new();
 
@@ -32,7 +35,7 @@ public sealed class PathDependencyProbe
     }
 
     /// <summary>Test probe: inject existence and PATH layout.</summary>
-    public PathDependencyProbe(Func<string, bool> fileExists, Func<string, IReadOnlyList<string>> pathEntries)
+    public PathDependencyProbe(Func<string, bool> fileExists, Func<IReadOnlyList<string>> pathEntries)
     {
         _fileExists = fileExists;
         _pathEntries = pathEntries;

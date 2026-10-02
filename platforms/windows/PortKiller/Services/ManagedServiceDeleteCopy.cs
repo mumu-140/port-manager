@@ -30,13 +30,15 @@ public static class ManagedServiceDeleteCopy
         public string ButtonText { get; init; } = string.Empty;
     }
 
+    private const string Quote = "\"";
+
     public static Copy For(ManagedServiceDeleteContext context)
     {
         if (context.IsConflict)
         {
             return new Copy
             {
-                Message = "Delete configuration \""\" + context.Name + "\"? The external process using port "
+                Message = "Delete configuration " + Quote + context.Name + Quote + "? The external process using port "
                     + context.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     + " will not be terminated.",
                 ButtonText = "Delete Configuration Only",
@@ -45,8 +47,8 @@ public static class ManagedServiceDeleteCopy
         if (context.IsOwnedRunning)
         {
             var message = context.HasQuickTunnel
-                ? "Stop and delete \""\" + context.Name + "\"? The owned service and its temporary public tunnel will both be stopped."
-                : "Stop and delete \""\" + context.Name + "\"? The owned service will be stopped first.";
+                ? "Stop and delete " + Quote + context.Name + Quote + "? The owned service and its temporary public tunnel will both be stopped."
+                : "Stop and delete " + Quote + context.Name + Quote + "? The owned service will be stopped first.";
             return new Copy
             {
                 Message = message,
@@ -55,7 +57,7 @@ public static class ManagedServiceDeleteCopy
         }
         return new Copy
         {
-            Message = "Delete service \""\" + context.Name + "\"? This removes the saved configuration.",
+            Message = "Delete service " + Quote + context.Name + Quote + "? This removes the saved configuration.",
             ButtonText = "Delete",
         };
     }

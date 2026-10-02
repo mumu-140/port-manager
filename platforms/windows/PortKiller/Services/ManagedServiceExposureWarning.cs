@@ -1,3 +1,5 @@
+using PortKiller.Models;
+
 namespace PortKiller.Services;
 
 /// <summary>
