@@ -64,6 +64,9 @@ bun.lockb
 # Rust
 **/target/
 
+# Session-local agent state
+.local/
+
 # Python (Linux tray app)
 __pycache__/
 *.py[cod]

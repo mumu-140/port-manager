@@ -19,6 +19,14 @@ public sealed class ManagedServiceConfig
     public string StartCommand { get; set; } = string.Empty;
 
     /// <summary>
+    /// Preset that produced this profile, if any (design: presets-exposure, section 4.1).
+    /// Purely presentational/editing metadata: null on custom profiles, never read by
+    /// the manager lifecycle, and absence on pre-preset profiles deserializes to null.
+    /// Unknown preset IDs degrade to custom editing.
+    /// </summary>
+    public string? PresetId { get; set; }
+
+    /// <summary>
     /// Host used for display and Open. Wildcard bind hosts normalize to localhost.
     /// </summary>
     [JsonIgnore]
@@ -47,6 +55,7 @@ public sealed class ManagedServiceConfig
         Host = Host,
         WorkingDirectory = WorkingDirectory,
         StartCommand = StartCommand,
+        PresetId = PresetId,
     };
 }
 

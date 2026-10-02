@@ -76,6 +76,18 @@ public partial class ManagedServicesViewModel : ObservableObject
         _ => "Tunnel idle",
     };
 
+    /// <summary>Local URL for the selected service while it runs (Network
+    /// Access row). Same URL the existing Open command launches.</summary>
+    public string? LocalUrl => SelectedService is { Status: ManagedServiceStatus.Running } state
+        ? $"http://localhost:{state.Config.Port}"
+        : null;
+
+    public bool HasLocalUrl => !string.IsNullOrEmpty(LocalUrl);
+
+    /// <summary>SSH reverse presets publish rather than expose; the Network
+    /// Access section shows a hint instead of tunnel actions.</summary>
+    public bool IsSshReversePreset => SelectedService?.PresetId == "ssh-reverse-forward";
+
     public void Load()
     {
         var states = _manager.Load();
@@ -112,6 +124,9 @@ public partial class ManagedServicesViewModel : ObservableObject
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(RequiresStopBeforeEdit));
         OnPropertyChanged(nameof(HasConflict));
+        OnPropertyChanged(nameof(LocalUrl));
+        OnPropertyChanged(nameof(HasLocalUrl));
+        OnPropertyChanged(nameof(IsSshReversePreset));
         NotifyTunnelChanged();
     }
 
@@ -132,6 +147,9 @@ public partial class ManagedServicesViewModel : ObservableObject
 
     private void NotifyTunnelChanged()
     {
+        OnPropertyChanged(nameof(LocalUrl));
+        OnPropertyChanged(nameof(HasLocalUrl));
+        OnPropertyChanged(nameof(IsSshReversePreset));
         OnPropertyChanged(nameof(ServiceTunnel));
         OnPropertyChanged(nameof(HasServiceTunnel));
         OnPropertyChanged(nameof(CanShareService));

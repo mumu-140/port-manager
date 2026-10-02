@@ -70,9 +70,47 @@
                                 IsEnabled="{Binding CanDelete}"/>
                     </StackPanel>
 
-                    <Border Margin="0,20,0,0" Padding="12" Background="#22302F" CornerRadius="8">
+                    <TextBlock Text="Network Access" FontWeight="SemiBold" Foreground="#E0E0E0" Margin="0,20,0,0"/>
+
+                    <!-- Local row: formalizes what Open does, with the URL visible -->
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="Local" Foreground="#A0A0A0" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding LocalUrl}" FontFamily="Consolas" Foreground="#4EA1F3" FontSize="12" Margin="10,0,0,0"
+                                   Visibility="{Binding HasLocalUrl, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        <TextBlock Text="Start the service to access it locally." Foreground="#808080" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasLocalUrl}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- SSH reverse presets publish instead of expose -->
+                    <TextBlock Text="This service publishes your local port to the SSH host at the configured remote bind address."
+                               Foreground="#808080" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSshReversePreset}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- Temporary public (Quick Tunnel runtime unchanged) -->
+                    <Border Margin="0,10,0,0" Padding="12" Background="#22302F" CornerRadius="8">
                         <StackPanel>
-                            <TextBlock Text="Cloudflare Quick Tunnel" FontWeight="SemiBold" Foreground="#E0E0E0"/>
+                            <TextBlock Text="Temporary public" FontWeight="SemiBold" Foreground="#E0E0E0"/>
+                            <TextBlock Text="Uses a Cloudflare Quick Tunnel. The address is random and disappears when the tunnel or Port Manager stops." Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
                             <TextBlock Text="{Binding ServiceTunnelStatusText}" Foreground="#A0A0A0" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding ServiceTunnelUrl}" Foreground="#4EA1F3" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
                                        Visibility="{Binding HasServiceTunnelUrl, Converter={StaticResource BooleanToVisibilityConverter}}"/>

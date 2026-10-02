@@ -778,8 +778,11 @@ struct ManagedServiceManagerTests {
     @Test func deleteConfirmationsIncludeServiceName() {
         let name = "Python Test Server"
 
-        #expect(L("service.delete.message", name).contains(name))
-        #expect(L("service.delete.runningMessage", name).contains(name))
+        // Semantic delete copy (design section 8.1): every message carries the name.
+        #expect(L("service.delete.stoppedMessage", name).contains(name))
+        #expect(L("service.delete.stopAndDeleteMessage", name).contains(name))
+        #expect(L("service.delete.stopAndDeleteTunnelMessage", name).contains(name))
+        #expect(L("service.delete.conflictMessage", name, 8080).contains(name))
     }
 }
 

@@ -14,6 +14,10 @@ struct ManagedServicesListView: View {
     @State private var pendingDeleteID: UUID?
     @State private var stopAndEditRequest: ManagedServiceStopAndEditRequest?
 
+    private func presetIcon(_ preset: ManagedServicePreset) -> String {
+        preset.icon.isEmpty ? "gearshape" : preset.icon
+    }
+
     var body: some View {
         Group {
             if filteredServices.isEmpty {
@@ -37,8 +41,21 @@ struct ManagedServicesListView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    editorTarget = .add
+                Menu {
+                    Button {
+                        editorTarget = .add
+                    } label: {
+                        Label(L("preset.custom.title"), systemImage: "slider.horizontal.3")
+                    }
+                    Divider()
+                    ForEach(ManagedServicePresets.all, id: \.id) { preset in
+                        Button {
+                            editorTarget = .addPreset(preset)
+                        } label: {
+                            Label(L(preset.titleKey), systemImage: presetIcon(preset))
+                        }
+                        .disabled(false)
+                    }
                 } label: {
                     Label(L("service.add"), systemImage: "plus")
                 }
@@ -46,14 +63,17 @@ struct ManagedServicesListView: View {
             }
         }
         .sheet(item: $editorTarget) { target in
-            ManagedServiceEditorView(editingConfig: target.config)
+            ManagedServiceEditorView(
+                editingConfig: target.config,
+                openingPreset: target.preset
+            )
         }
         .confirmationDialog(
             L("service.delete.title"),
             isPresented: isDeleteDialogPresented,
             titleVisibility: .visible
         ) {
-            Button(L("service.delete.confirm"), role: .destructive) {
+            Button(L(deleteCopy?.buttonKey ?? "service.delete.confirm"), role: .destructive) {
                 if let id = pendingDeleteID {
                     Task { await appState.deleteManagedService(id: id) }
                 }
@@ -63,7 +83,9 @@ struct ManagedServicesListView: View {
                 pendingDeleteID = nil
             }
         } message: {
-            Text(L(deleteMessageKey, pendingDeleteService?.name ?? ""))
+            if let copy = deleteCopy {
+                Text(messageText(copy))
+            }
         }
         .managedServiceStopAndEditConfirmation($stopAndEditRequest) { id in
             Task { await stopAndEdit(id: id) }
@@ -107,11 +129,23 @@ struct ManagedServicesListView: View {
         return appState.managedServiceManager.service(id: id)
     }
 
-    /// A running service must warn that deletion stops it first.
-    private var deleteMessageKey: String {
-        (pendingDeleteService?.isOwned ?? false)
-            ? "service.delete.runningMessage"
-            : "service.delete.message"
+    private func messageText(_ copy: ManagedServiceDeleteConfirmation.Copy) -> String {
+        if let port = copy.port {
+            return L(copy.messageKey, copy.name, port)
+        }
+        return L(copy.messageKey, copy.name)
+    }
+
+    /// Semantic delete copy for the pending deletion (design section 8.1).
+    private var deleteCopy: ManagedServiceDeleteConfirmation.Copy? {
+        guard let service = pendingDeleteService else { return nil }
+        return ManagedServiceDeleteConfirmation.copy(for: ManagedServiceDeleteContext(
+            name: service.name,
+            port: service.port,
+            isOwnedRunning: service.isOwned,
+            isConflict: service.status == .conflict,
+            hasQuickTunnel: appState.tunnelManager.hasTunnel(for: service.port)
+        ))
     }
 
     /// Running services stop first; everything else opens the editor directly.
