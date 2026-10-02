@@ -56,6 +56,29 @@ public sealed class ManagedServiceManager
 
     public IReadOnlyList<ManagedServiceConfig> Configs => Services.Select(s => s.Config).ToList();
 
+    /// <summary>
+    /// Read-only port inspection for the editor's live availability hint.
+    /// Reuses the lifecycle inspector and filters the edited service's own
+    /// known listeners so a running profile never conflicts with itself.
+    /// </summary>
+    public async Task<IReadOnlyList<PortInfo>> InspectPortForEditorAsync(
+        int port,
+        Guid? editingId,
+        CancellationToken cancellationToken = default)
+    {
+        if (port is < 1 or > 65535) return Array.Empty<PortInfo>();
+
+        var listeners = (await _ports.InspectAsync(port, cancellationToken).ConfigureAwait(false)).ToList();
+        if (editingId is not { } id) return listeners;
+
+        var state = Find(id);
+        if (state is null || state.Config.Port != port || !state.IsOwned) return listeners;
+
+        var ownedListenerPids = state.ListenerPids.ToHashSet();
+        return listeners.Where(listener => !ownedListenerPids.Contains(listener.Pid)).ToList();
+    }
+
+
     public ManagedServiceState? Find(Guid id)
     {
         lock (_gate) return _services.FirstOrDefault(s => s.Id == id);
