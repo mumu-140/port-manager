@@ -1,6 +1,6 @@
 # Presets + Exposure UX v1 — Design and Implementation Plan
 
-**Status:** DRAFT FOR REVIEW — do not implement until reviewed
+**Status:** IMPLEMENTED — merged to `main` at `4b3bcbebf89979eb4656dbfb53d485fce0716995`
 **Date:** 2026-10-01
 **Repository:** `mumu-140/port-manager`
 **Base SHA:** `3e007d4` (main)
