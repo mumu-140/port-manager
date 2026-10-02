@@ -14,7 +14,7 @@ public sealed class PathDependencyProbeTests
     private static PathDependencyProbe Probe(Dictionary<string, bool> files, string path = "")
     {
         return new PathDependencyProbe(
-            path => files.TryGetValue(path, out var ok) && ok,
+            path => files.Keys.Any(key => string.Equals(key, path, StringComparison.OrdinalIgnoreCase) && files[key]),
             () => path.Length == 0 ? Array.Empty<string>() : path.Split(";"));
     }
 

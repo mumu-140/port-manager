@@ -21,10 +21,10 @@ public static class ManagedServiceExposureWarning
                 // Mode is encoded in the generated flags; detect writability
                 // from the command rather than persisting form state.
                 return config.StartCommand.Contains("--allow-upload", StringComparison.Ordinal)
-                    ? PresetStrings.Lookup("exposure.warning.dufsWritablePublic")
-                    : PresetStrings.Lookup("exposure.warning.dufsPublic");
+                    ? "exposure.warning.dufsWritablePublic"
+                    : "exposure.warning.dufsPublic";
             case "jupyter-lab":
-                return PresetStrings.Lookup("exposure.warning.jupyterPublic");
+                return "exposure.warning.jupyterPublic";
             default:
                 return null;
         }

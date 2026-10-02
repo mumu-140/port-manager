@@ -140,7 +140,7 @@ public partial class ManagedServicesView : UserControl
         if (warning is not null)
         {
             var confirm = MessageBox.Show(
-                warning,
+                PortKiller.Services.PresetStrings.Lookup(warning),
                 PortKiller.Services.PresetStrings.Lookup("exposure.confirm.title"),
                 MessageBoxButton.OKCancel, MessageBoxImage.Warning);
             if (confirm != MessageBoxResult.OK) return;

@@ -36,7 +36,7 @@ public sealed class DependencyRequirement
         KnownPaths = new[]
         {
             Environment.SystemDirectory + "\\ssh.exe",
-            @"C:\\Program Files\\OpenSSH\\ssh.exe",
+            @"C:\Program Files\OpenSSH\ssh.exe",
         },
         VersionArgs = new[] { "-V" },
         NotInstalledKey = "dependency.ssh.notInstalled",
