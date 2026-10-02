@@ -91,13 +91,50 @@ public sealed class ManagedServicePresetTests
     }
 
     [Fact]
-    public void Ssh_socks5_and_reverse_generators_produce_valid_profiles()
+    public void Ssh_socks5_generator_produces_valid_profile()
     {
-        foreach (var id in new[] { "ssh-socks5-proxy", "ssh-reverse-forward" })
+        foreach (var id in new[] { "ssh-socks5-proxy" })
         {
             var config = Preset(id).Generate(Context(), Values(Preset(id), new() { ["sshHost"] = "box.lan", ["remotePort"] = "8080" }));
             Assert.Null(ManagedServiceValidator.Validate(config, Array.Empty<ManagedServiceConfig>(), new ExistingDirectoryStub()));
         }
+    }
+
+    [Fact]
+    public void Capability_mapping_matches_protocol()
+    {
+        foreach (var id in new[] { "static-file-share", "dufs-file-share", "jupyter-lab" })
+        {
+            var preset = Preset(id);
+            Assert.True(preset.IsHttpService, id);
+            Assert.True(preset.SupportsQuickTunnel, id);
+        }
+        foreach (var id in new[] { "ssh-local-forward", "ssh-socks5-proxy" })
+        {
+            var preset = Preset(id);
+            Assert.False(preset.IsHttpService, id);
+            Assert.False(preset.SupportsQuickTunnel, id);
+        }
+    }
+
+    [Fact]
+    public void Jupyter_rejects_filesystem_roots()
+    {
+        var preset = Preset("jupyter-lab");
+        var field = preset.Fields.First(f => f.Kind == PresetFieldKind.Directory);
+        Assert.Equal(PresetFieldValueErrorKind.RootDirectory, preset.ValidateField(field, "/"));
+        Assert.Equal(PresetFieldValueErrorKind.RootDirectory, preset.ValidateField(field, "C:\\"));
+        Assert.Equal(PresetFieldValueErrorKind.RootDirectory, preset.ValidateField(field, "d:\\"));
+        Assert.Equal(PresetFieldValueErrorKind.RootDirectory, preset.ValidateField(field, "z:\\"));
+    }
+
+    [Fact]
+    public void Root_guard_rejects_windows_drive_roots_but_not_deeper_paths()
+    {
+        Assert.True(ManagedServicePreset.IsRootDirectory("C:\\"));
+        Assert.True(ManagedServicePreset.IsRootDirectory("/"));
+        Assert.False(ManagedServicePreset.IsRootDirectory(@"C:\Users"));
+        Assert.False(ManagedServicePreset.IsRootDirectory(@"C:\sharesdocs"));
     }
 
     [Fact]
@@ -142,7 +179,7 @@ public sealed class ManagedServicePresetTests
     [Fact]
     public void Ssh_presets_always_carry_N_and_ExitOnForwardFailure()
     {
-        foreach (var id in new[] { "ssh-local-forward", "ssh-socks5-proxy", "ssh-reverse-forward" })
+        foreach (var id in new[] { "ssh-local-forward", "ssh-socks5-proxy" })
         {
             var command = GeneratedCommand(id);
             Assert.Contains("-N", command);
@@ -156,15 +193,18 @@ public sealed class ManagedServicePresetTests
     public void Ssh_local_forward_renders_forward_spec()
     {
         var command = GeneratedCommand("ssh-local-forward", new() { ["sshHost"] = "web.example.com", ["remoteHost"] = "127.0.0.1", ["remotePort"] = "5432" }, 15432);
-        Assert.Contains("-L {port}:127.0.0.1:5432", command);
+        Assert.Contains("-L 127.0.0.1:{port}:127.0.0.1:5432", command);
         Assert.EndsWith("web.example.com", command);
     }
 
     [Fact]
-    public void Ssh_reverse_forward_renders_remote_bind_first()
+    public void Ssh_local_forward_binds_loopback_explicitly()
     {
-        var command = GeneratedCommand("ssh-reverse-forward", new() { ["sshHost"] = "box.lan", ["remoteBind"] = "127.0.0.1", ["remotePort"] = "8080" });
-        Assert.Contains("-R 127.0.0.1:8080:127.0.0.1:{port}", command);
+        var command = GeneratedCommand("ssh-local-forward", new() { ["sshHost"] = "web.example.com", ["remoteHost"] = "127.0.0.1", ["remotePort"] = "5432" }, 15432);
+        // The bind host is explicit; the port stays the {port} placeholder
+        // (substituted by the manager at start time).
+        Assert.Contains("-L 127.0.0.1:{port}:127.0.0.1:5432", command);
+        Assert.DoesNotContain("-g", command);
     }
 
     [Fact]
@@ -204,7 +244,11 @@ public sealed class ManagedServicePresetTests
         var preset = Preset("ssh-local-forward");
         var field = preset.Fields.First(f => f.Id == "sshHost");
         Assert.Null(preset.ValidateField(field, "web.example.com"));
-        Assert.Null(preset.ValidateField(field, "user@host:2222"));
+        Assert.Null(preset.ValidateField(field, "user@host"));
+        // IPv6 literals are deferred (v1 constrains forward targets to
+        // hostname/IPv4 so colon-concatenated forward specs stay parseable).
+        Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "host:2222"));
+        Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "2001:db8::1"));
         Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "a b"));
         Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "a;b"));
         Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "$(x)"));
@@ -215,10 +259,32 @@ public sealed class ManagedServicePresetTests
     public void Integer_charset_rejects_non_digits()
     {
         var preset = Preset("ssh-local-forward");
-        var field = preset.Fields.First(f => f.Id == "remotePort");
-        Assert.Null(preset.ValidateField(field, "5432"));
-        Assert.Equal(PresetFieldValueErrorKind.NotAnInteger, preset.ValidateField(field, "5432x"));
+        var field = preset.Fields.First(f => f.Id == "keepaliveInterval");
+        Assert.Null(preset.ValidateField(field, "15"));
+        Assert.Equal(PresetFieldValueErrorKind.NotAnInteger, preset.ValidateField(field, "15x"));
         Assert.Equal(PresetFieldValueErrorKind.NotAnInteger, preset.ValidateField(field, "port"));
+    }
+
+    [Fact]
+    public void Remote_port_rejects_values_outside_the_tcp_range()
+    {
+        var preset = Preset("ssh-local-forward");
+        var field = preset.Fields.First(f => f.Id == "remotePort");
+        Assert.Null(preset.ValidateField(field, "1"));
+        Assert.Null(preset.ValidateField(field, "65535"));
+        Assert.Equal(PresetFieldValueErrorKind.OutOfRange, preset.ValidateField(field, "0"));
+        Assert.Equal(PresetFieldValueErrorKind.OutOfRange, preset.ValidateField(field, "65536"));
+        Assert.Equal(PresetFieldValueErrorKind.OutOfRange, preset.ValidateField(field, "5432x"));
+    }
+
+    [Fact]
+    public void Keepalive_fields_are_not_tcp_port_bounded()
+    {
+        var preset = Preset("ssh-local-forward");
+        var interval = preset.Fields.First(f => f.Id == "keepaliveInterval");
+        Assert.Null(preset.ValidateField(interval, "0"));
+        Assert.Null(preset.ValidateField(interval, "999999"));
+        Assert.Equal(PresetFieldValueErrorKind.NotAnInteger, preset.ValidateField(interval, "15x"));
     }
 
     [Fact]
@@ -231,18 +297,6 @@ public sealed class ManagedServicePresetTests
         Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, @"C:a%b"));
     }
 
-    [Fact]
-    public void Extra_options_charset_rejects_quotes_dollars_and_backslashes()
-    {
-        var preset = Preset("ssh-local-forward");
-        var field = preset.Fields.First(f => f.Id == "extraOptions");
-        Assert.Null(preset.ValidateField(field, "-o Compression=yes"));
-        Assert.Null(preset.ValidateField(field, "-L 80:bad"));
-        Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "a'b"));
-        Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "a$b"));
-        Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, @"a\b"));
-        Assert.Equal(PresetFieldValueErrorKind.InvalidCharacters, preset.ValidateField(field, "a;b"));
-    }
 
     [Fact]
     public void Generated_profiles_carry_preset_id()

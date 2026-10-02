@@ -134,7 +134,6 @@ public sealed class PathDependencyProbeTests
         Assert.Equal("python", DependencyRequirement.RequirementForPresetId("static-file-share")?.BinaryName);
         Assert.Equal("ssh", DependencyRequirement.RequirementForPresetId("ssh-local-forward")?.BinaryName);
         Assert.Equal("ssh", DependencyRequirement.RequirementForPresetId("ssh-socks5-proxy")?.BinaryName);
-        Assert.Equal("ssh", DependencyRequirement.RequirementForPresetId("ssh-reverse-forward")?.BinaryName);
         Assert.Equal("dufs", DependencyRequirement.RequirementForPresetId("dufs-file-share")?.BinaryName);
         Assert.Equal("jupyter", DependencyRequirement.RequirementForPresetId("jupyter-lab")?.BinaryName);
         Assert.Null(DependencyRequirement.RequirementForPresetId("custom"));
@@ -142,8 +141,8 @@ public sealed class PathDependencyProbeTests
     }
 
     [Fact]
-    public void Ssh_known_paths_prefer_system32()
+    public void Ssh_known_paths_prefer_system32_openssh()
     {
-        Assert.Equal(Environment.SystemDirectory + "\\ssh.exe", DependencyRequirement.Ssh.KnownPaths[0]);
+        Assert.Equal(Path.Combine(Environment.SystemDirectory, "OpenSSH", "ssh.exe"), DependencyRequirement.Ssh.KnownPaths[0]);
     }
 }

@@ -46,27 +46,25 @@ import Testing
         #expect(keys.contains("preset.file-share.warning.homeRoot"))
     }
 
-    @Test func gatewayportsWarningSuppressedAtDefaultBind() {
-        let preset = ManagedServicePresets.sshReverseForward
-        let values = preset.defaultFieldValues()
-        let keys = preset.activeWarningKeys(fieldValues: values, homeDirectory: home)
-        #expect(!keys.contains("preset.ssh-reverse-forward.warning.gatewayports"))
-    }
-
-    @Test func gatewayportsWarningAppearsBeyondLoopback() {
-        let preset = ManagedServicePresets.sshReverseForward
-        var values = preset.defaultFieldValues()
-        values["remoteBind"] = "0.0.0.0"
-        let keys = preset.activeWarningKeys(fieldValues: values, homeDirectory: home)
-        #expect(keys.contains("preset.ssh-reverse-forward.warning.gatewayports"))
-    }
-
-    @Test func dufsShowsNoAuthAndWritableWarnings() {
+    /// Read-only Dufs is not writable: only the no-auth warning applies.
+    @Test func readOnlyDufsShowsOnlyNoAuthWarning() {
         let preset = ManagedServicePresets.dufsFileShare
-        let values = preset.defaultFieldValues()
+        var values = preset.defaultFieldValues()
+        values["mode"] = "read-only"
         let keys = preset.activeWarningKeys(fieldValues: values, homeDirectory: home)
         #expect(keys.contains("preset.dufs-file-share.warning.noAuth"))
-        #expect(keys.contains("preset.dufs-file-share.warning.writable"))
+        #expect(!keys.contains("preset.dufs-file-share.warning.writable"))
+    }
+
+    @Test func writableDufsModesShowNoAuthAndWritableWarnings() {
+        let preset = ManagedServicePresets.dufsFileShare
+        for mode in ["upload", "read-write"] {
+            var values = preset.defaultFieldValues()
+            values["mode"] = mode
+            let keys = preset.activeWarningKeys(fieldValues: values, homeDirectory: home)
+            #expect(keys.contains("preset.dufs-file-share.warning.noAuth"))
+            #expect(keys.contains("preset.dufs-file-share.warning.writable"))
+        }
     }
 
     @Test func jupyterShowsTokenAndPublicWarnings() {
@@ -79,9 +77,10 @@ import Testing
 
     // MARK: Exposure double-warning
 
-    @Test func writableDufsSharesWithExplicitWarning() {
+    @Test func uploadDufsSharesWithExplicitWarning() {
         let preset = ManagedServicePresets.dufsFileShare
         var values = preset.defaultFieldValues()
+        values["mode"] = "upload"
         values["directory"] = home + "/public"
         values["mode"] = "read-write"
         let config = preset.generate(

@@ -2,17 +2,15 @@ import Foundation
 
 extension ManagedServicePreset {
     /// Warnings that apply right now given the current field values (design
-    /// section 10.2). Static warningKeys minus the GatewayPorts warning while
-    /// the SSH reverse remote bind is still 127.0.0.1, plus the serving-scope
-    /// home-root warning when a directory field points at the home directory
-    /// itself.
+    /// section 10.2). Static warningKeys with mode-dependent refinement — a
+    /// read-only Dufs share is not writable, so the writable warning does
+    /// not apply — plus the serving-scope home-root warning when a directory
+    /// field points at the home directory itself.
     func activeWarningKeys(fieldValues: [String: String], homeDirectory: String) -> [String] {
         var keys = warningKeys
-        if id == "ssh-reverse-forward" {
-            let remoteBind = fieldValues["remoteBind"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "127.0.0.1"
-            if remoteBind == "127.0.0.1" {
-                keys.removeAll { $0 == "preset.ssh-reverse-forward.warning.gatewayports" }
-            }
+        if id == "dufs-file-share",
+           (fieldValues["mode"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "read-only") == "read-only" {
+            keys.removeAll { $0 == "preset.dufs-file-share.warning.writable" }
         }
         if fields.contains(where: { $0.kind == .directory }),
            let directory = fieldValues["directory"]?.trimmingCharacters(in: .whitespacesAndNewlines),

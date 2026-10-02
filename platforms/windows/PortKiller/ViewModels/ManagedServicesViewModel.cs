@@ -84,9 +84,18 @@ public partial class ManagedServicesViewModel : ObservableObject
 
     public bool HasLocalUrl => !string.IsNullOrEmpty(LocalUrl);
 
-    /// <summary>SSH reverse presets publish rather than expose; the Network
-    /// Access section shows a hint instead of tunnel actions.</summary>
-    public bool IsSshReversePreset => SelectedService?.Config.PresetId == "ssh-reverse-forward";
+    /// <summary>Preset capability check for the Network Access section and
+    /// the Open action: HTTP services expose Open and Quick Tunnel actions;
+    /// custom services (no preset ID) keep them for compatibility.</summary>
+    public bool IsHttpServicePreset
+    {
+        get
+        {
+            var presetId = SelectedService?.Config.PresetId;
+            if (presetId is null) return true;
+            return ManagedServicePresets.PresetWithId(presetId)?.IsHttpService ?? true;
+        }
+    }
 
     public void Load()
     {
@@ -126,7 +135,7 @@ public partial class ManagedServicesViewModel : ObservableObject
         OnPropertyChanged(nameof(HasConflict));
         OnPropertyChanged(nameof(LocalUrl));
         OnPropertyChanged(nameof(HasLocalUrl));
-        OnPropertyChanged(nameof(IsSshReversePreset));
+        OnPropertyChanged(nameof(IsHttpServicePreset));
         NotifyTunnelChanged();
     }
 
@@ -149,7 +158,7 @@ public partial class ManagedServicesViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(LocalUrl));
         OnPropertyChanged(nameof(HasLocalUrl));
-        OnPropertyChanged(nameof(IsSshReversePreset));
+        OnPropertyChanged(nameof(IsHttpServicePreset));
         OnPropertyChanged(nameof(ServiceTunnel));
         OnPropertyChanged(nameof(HasServiceTunnel));
         OnPropertyChanged(nameof(CanShareService));

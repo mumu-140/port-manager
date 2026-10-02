@@ -74,21 +74,26 @@ public sealed class ManagedServiceExposureWarningTests
     }
 
     [Fact]
-    public void Active_warnings_suppress_gatewayports_at_default_bind()
+    public void Active_warnings_omit_writable_for_read_only_dufs()
     {
-        var preset = ManagedServicePresets.PresetWithId("ssh-reverse-forward")!;
+        var preset = ManagedServicePresets.PresetWithId("dufs-file-share")!;
         var keys = preset.ActiveWarningKeys(preset.DefaultFieldValues(), Home);
-        Assert.DoesNotContain("preset.ssh-reverse-forward.warning.gatewayports", keys);
+        Assert.Contains("preset.dufs-file-share.warning.noAuth", keys);
+        Assert.DoesNotContain("preset.dufs-file-share.warning.writable", keys);
     }
 
     [Fact]
-    public void Active_warnings_include_gatewayports_beyond_loopback()
+    public void Active_warnings_include_writable_for_write_enabled_dufs_modes()
     {
-        var preset = ManagedServicePresets.PresetWithId("ssh-reverse-forward")!;
-        var values = preset.DefaultFieldValues();
-        values["remoteBind"] = "0.0.0.0";
-        var keys = preset.ActiveWarningKeys(values, Home);
-        Assert.Contains("preset.ssh-reverse-forward.warning.gatewayports", keys);
+        var preset = ManagedServicePresets.PresetWithId("dufs-file-share")!;
+        foreach (var mode in new[] { "upload", "read-write" })
+        {
+            var values = preset.DefaultFieldValues();
+            values["mode"] = mode;
+            var keys = preset.ActiveWarningKeys(values, Home);
+            Assert.Contains("preset.dufs-file-share.warning.noAuth", keys);
+            Assert.Contains("preset.dufs-file-share.warning.writable", keys);
+        }
     }
 
     [Fact]

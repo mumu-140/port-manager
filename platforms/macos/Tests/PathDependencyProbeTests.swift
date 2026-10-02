@@ -115,7 +115,6 @@ import Testing
         #expect(DependencyRequirement.requirement(forPresetID: "static-file-share")?.binaryName == "python3")
         #expect(DependencyRequirement.requirement(forPresetID: "ssh-local-forward")?.binaryName == "ssh")
         #expect(DependencyRequirement.requirement(forPresetID: "ssh-socks5-proxy")?.binaryName == "ssh")
-        #expect(DependencyRequirement.requirement(forPresetID: "ssh-reverse-forward")?.binaryName == "ssh")
         #expect(DependencyRequirement.requirement(forPresetID: "dufs-file-share")?.binaryName == "dufs")
         #expect(DependencyRequirement.requirement(forPresetID: "jupyter-lab")?.binaryName == "jupyter")
         #expect(DependencyRequirement.requirement(forPresetID: "custom") == nil)

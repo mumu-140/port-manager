@@ -89,7 +89,7 @@ struct DependencyRequirement {
     static func requirement(forPresetID presetID: String) -> DependencyRequirement? {
         switch presetID {
         case "static-file-share": return .python3
-        case "ssh-local-forward", "ssh-socks5-proxy", "ssh-reverse-forward": return .ssh
+        case "ssh-local-forward", "ssh-socks5-proxy": return .ssh
         case "dufs-file-share": return .dufs
         case "jupyter-lab": return .jupyter
         default: return nil

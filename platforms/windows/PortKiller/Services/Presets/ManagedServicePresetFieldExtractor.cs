@@ -1,4 +1,5 @@
 using PortKiller.Models;
+using System.IO;
 
 namespace PortKiller.Services;
 
@@ -43,23 +44,14 @@ public static class ManagedServicePresetFieldExtractor
             case "ssh-socks5-proxy":
                 ApplySshTail(tokens, values);
                 break;
-
-            case "ssh-reverse-forward":
-                // -R <remoteBind>:<remotePort>:127.0.0.1:{port}
-                if (ForwardSpec(tokens, "-R", localIsFirst: false) is { } remoteSpec)
-                {
-                    values["remoteBind"] = remoteSpec.Host;
-                    values["remotePort"] = remoteSpec.RemotePort;
-                }
-                ApplySshTail(tokens, values);
-                break;
         }
         return values;
     }
 
     /// <summary>
-    /// -L {port}:<host>:<remotePort> (localIsFirst) or
-    /// -R <bind>:<remotePort>:127.0.0.1:{port} (localIsFirst = false).
+    /// -L 127.0.0.1:{port}:<host>:<remotePort> (localIsFirst). Legacy
+    /// profiles saved before the explicit loopback bind (-L {port}:host:port)
+    /// still parse so re-editing them keeps their values.
     /// </summary>
     private static (string Host, string RemotePort)? ForwardSpec(
         string[] tokens, string flag, bool localIsFirst)
@@ -68,13 +60,16 @@ public static class ManagedServicePresetFieldExtractor
         {
             if (tokens[i] != flag) continue;
             var parts = tokens[i + 1].Split(':');
-            if (localIsFirst && parts.Length == 3)
+            if (localIsFirst)
             {
-                return (parts[1], parts[2]);
-            }
-            if (!localIsFirst && parts.Length == 4)
-            {
-                return (parts[0], parts[1]);
+                if (parts.Length == 4 && parts[0] == "127.0.0.1")
+                {
+                    return (parts[2], parts[3]);
+                }
+                if (parts.Length == 3)
+                {
+                    return (parts[1], parts[2]);
+                }
             }
         }
         return null;
@@ -82,14 +77,15 @@ public static class ManagedServicePresetFieldExtractor
 
     /// <summary>
     /// The ssh host is the final token of every generated SSH command; keepalive
-    /// values come from their fixed -o options; anything option-shaped that is
-    /// not one of the fixed flags is the user's extraOptions. Only runs on the
-    /// generated shape (ssh ... with a forward flag); anything else keeps defaults.
+    /// values come from their fixed -o options. The first token may be a quoted
+    /// absolute executable path (dependency-resolved generation), so the guard
+    /// matches on its file name. Only runs on the generated shape (ssh ... with
+    /// a forward flag); anything else keeps defaults.
     /// </summary>
     private static void ApplySshTail(string[] tokens, Dictionary<string, string> values)
     {
-        if (tokens.Length == 0 || tokens[0] != "ssh") return;
-        var hasForwardFlag = Array.Exists(tokens, t => t == "-L" || t == "-D" || t == "-R");
+        if (tokens.Length == 0 || Path.GetFileName(Unquote(tokens[0])) is not ("ssh" or "ssh.exe")) return;
+        var hasForwardFlag = Array.Exists(tokens, t => t == "-L" || t == "-D");
         if (!hasForwardFlag) return;
 
         for (var i = tokens.Length - 1; i >= 0; i--)
@@ -111,12 +107,6 @@ public static class ManagedServicePresetFieldExtractor
             else if (option.StartsWith("ServerAliveCountMax="))
             {
                 values["keepaliveCount"] = option["ServerAliveCountMax=".Length..];
-            }
-            else if (option != "ExitOnForwardFailure=yes")
-            {
-                values["extraOptions"] = (values.TryGetValue("extraOptions", out var prior) && prior.Length > 0)
-                    ? prior + " -o " + option
-                    : "-o " + option;
             }
         }
     }

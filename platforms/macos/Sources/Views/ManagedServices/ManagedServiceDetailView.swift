@@ -151,8 +151,10 @@ struct ManagedServiceDetailView: View {
                 .disabled(service.status == .conflict || service.status == .stopping)
             }
 
-            Button(L("service.open")) { open(service) }
-                .disabled(service.status != .running)
+            if isHTTPService(service) {
+                Button(L("service.open")) { open(service) }
+                    .disabled(service.status != .running)
+            }
 
             Button(L("service.edit")) { beginEdit(service) }
                 .disabled(service.isTransitioning)
@@ -250,10 +252,10 @@ struct ManagedServiceDetailView: View {
         }
     }
 
-    /// Network Access section (design section 7.2): Local row, Temporary
-    /// public (the unchanged Quick Tunnel runtime) and the Stable public
-    /// deep-link. SSH reverse presets get an informational hint instead —
-    /// they are not an exposure provider.
+    /// Network Access section (design section 7.2): Local row always, the
+    /// Temporary public (unchanged Quick Tunnel runtime) and Stable public
+    /// deep-link rows only for HTTP services — Quick Tunnel proxies an HTTP
+    /// endpoint, so non-HTTP presets (SSH forwards) do not offer it.
     @ViewBuilder
     private func exposureSection(_ service: ManagedServiceState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -262,15 +264,19 @@ struct ManagedServiceDetailView: View {
 
             localRow(service)
 
-            if service.config.presetID == "ssh-reverse-forward" {
-                Text(L("service.exposure.sshReverseHint"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
+            if isHTTPService(service) {
                 temporaryPublicRow(service)
                 stablePublicRow()
             }
         }
+    }
+
+    /// Preset capability check: HTTP services expose Open and Quick Tunnel
+    /// actions; custom services (no preset ID) and unknown preset IDs keep
+    /// the existing behavior for compatibility.
+    private func isHTTPService(_ service: ManagedServiceState) -> Bool {
+        guard let presetID = service.config.presetID else { return true }
+        return ManagedServicePresets.preset(withID: presetID)?.isHTTPService ?? true
     }
 
     /// Local row: formalizes what Open already does, with Copy added.

@@ -21,11 +21,20 @@ final class ManagedServiceEditorViewModel {
     private(set) var editingID: UUID?
 
     /// Preset mode: non-nil while the form is driven by a preset definition
-    /// (design section 4.1). nil is the custom editor, byte-for-byte as before.
-    @ObservationIgnored private(set) var presetID: String?
+    /// (design section 4.1). nil is the custom editor. Observable on purpose:
+    /// the picker binding, the whole preset form, warnings and Save state
+    /// read it, so switching presets must be observed.
+    private(set) var presetID: String?
 
-    /// Live preset field values, keyed by field id.
-    @ObservationIgnored var fieldValues: [String: String] = [:]
+    /// Live preset field values, keyed by field id. Observable: every field
+    /// binding, the warning banner, invalid-field captions and the Save
+    /// button track it.
+    var fieldValues: [String: String] = [:]
+
+    /// Executable path the dependency probe resolved for the current preset,
+    /// injected by the editor view after its probe refresh. Generation-only
+    /// input: nothing renders from it, so observation is unnecessary.
+    @ObservationIgnored var resolvedExecutablePath: String?
 
     /// Memoized working-directory stat, keyed by the current path text.
     @ObservationIgnored private var directoryCheckCache: (path: String, isValid: Bool)?
@@ -68,6 +77,7 @@ final class ManagedServiceEditorViewModel {
         validationError = nil
         presetID = nil
         fieldValues = [:]
+        resolvedExecutablePath = nil
     }
 
     /// Begins add mode driven by a preset: fields prefill with defaults, the
@@ -82,6 +92,7 @@ final class ManagedServiceEditorViewModel {
         workingDirectory = ""
         startCommand = ""
         validationError = nil
+        resolvedExecutablePath = nil
     }
 
     func beginEdit(_ config: ManagedServiceConfig) {
@@ -145,7 +156,8 @@ final class ManagedServiceEditorViewModel {
                     id: editingID ?? UUID(),
                     name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                     port: parsedPort,
-                    homeDirectory: NSHomeDirectory()
+                    homeDirectory: NSHomeDirectory(),
+                    resolvedExecutablePath: resolvedExecutablePath
                 ),
                 fieldValues
             )

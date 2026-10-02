@@ -98,15 +98,16 @@ struct PresetField: Identifiable, Sendable, Equatable {
 /// the start command is single-line.
 enum PresetFieldCharset: Sendable, Equatable {
     /// SSH host or alias: letters, digits, dot, dash, underscore, plus
-    /// user@host and IPv6 colons.
+    /// user@host. IPv6 literals are deferred (v1 constrains forward targets
+    /// to hostname/IPv4 so colon-concatenated forward specs stay parseable).
     case sshHost
-    /// Digits only (ports, intervals).
+    /// Digits only (ServerAliveInterval / ServerAliveCountMax — integers
+    /// with their own semantics, deliberately not TCP-port bounded).
     case integer
+    /// TCP port number: digits in 1...65535.
+    case tcpPort
     /// Filesystem path: everything except double-quote, percent and newlines.
     case path
-    /// Extra SSH options: a conservative flag-list character set with no
-    /// shell metacharacters at all.
-    case sshExtraOptions
     /// Free text with no newlines (preset names and similar).
     case freeText
 }
@@ -116,6 +117,10 @@ enum PresetFieldValueError: Error, Equatable {
     case empty
     case notAnInteger
     case invalidCharacters
+    /// Numeric value outside the field's semantic range (TCP ports).
+    case outOfRange
+    /// Directory field points at a filesystem root (Jupyter guard).
+    case rootDirectory
 }
 
 // MARK: - Preset definition
@@ -131,6 +136,26 @@ struct PresetGenerationContext: Sendable {
     /// Platform home directory, used as the working directory for presets
     /// that have no natural one (SSH forwards).
     let homeDirectory: String
+    /// Absolute executable path the dependency probe resolved for this
+    /// preset's binary, when available. Generators render this path (quoted)
+    /// instead of the bare binary name so the command always executes the
+    /// binary the probe reported as available — a fallback/known-path hit
+    /// must not silently degrade to a bare name the shell may not resolve.
+    let resolvedExecutablePath: String?
+
+    init(
+        id: UUID,
+        name: String,
+        port: Int,
+        homeDirectory: String,
+        resolvedExecutablePath: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.port = port
+        self.homeDirectory = homeDirectory
+        self.resolvedExecutablePath = resolvedExecutablePath
+    }
 }
 
 /// A static service preset: metadata + ordered form fields + pure generator.
@@ -153,6 +178,11 @@ struct ManagedServicePreset: Identifiable, Sendable {
     let suggestedPort: Int?
     /// Localization keys for preset-level warning captions shown in the form.
     let warningKeys: [String]
+    /// Whether the preset serves HTTP on {port}: gates the Open-in-browser
+    /// action. SSH forwards are not HTTP services.
+    var isHTTPService: Bool = false
+    /// Whether the Cloudflare Quick Tunnel flow applies (HTTP services only).
+    var supportsQuickTunnel: Bool = false
     /// Pure transformation from field values to a complete profile.
     let generate: @Sendable (PresetGenerationContext, [String: String]) -> ManagedServiceConfig
 
@@ -162,10 +192,16 @@ struct ManagedServicePreset: Identifiable, Sendable {
     }
 
     /// Validates one field's value against its charset and requiredness.
+    /// Jupyter additionally rejects filesystem roots as the notebook
+    /// directory: sharing \`/\` (or a Windows drive root) would publish the
+    /// whole volume.
     func validate(field: PresetField, value: String) -> PresetFieldValueError? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             return field.isRequired ? .empty : nil
+        }
+        if id == "jupyter-lab", field.kind == .directory, Self.isRootDirectory(trimmed) {
+            return .rootDirectory
         }
         return field.charset.validate(trimmed)
     }
@@ -179,6 +215,25 @@ struct ManagedServicePreset: Identifiable, Sendable {
         }
         return nil
     }
+
+    /// True for filesystem roots that must never be shared as a Jupyter
+    /// notebook directory: the POSIX root and Windows drive roots.
+    /// Pure so both platforms' tests exercise the same rule.
+    static func isRootDirectory(_ path: String) -> Bool {
+        var normalized = path
+        while normalized.count > 1 && (normalized.hasSuffix("/") || normalized.hasSuffix("\\")) {
+            normalized.removeLast()
+        }
+        if normalized == "/" || normalized == "\\" { return true }
+        let lowered = normalized.lowercased()
+        // A Windows drive root ("C:\\") loses its backslash to the trim and
+        // survives as "c:" — still a drive root, never a real directory.
+        if lowered.count == 2, lowered.hasSuffix(":"),
+           let first = lowered.first, first.isASCII, first.isLetter {
+            return true
+        }
+        return false
+    }
 }
 
 // MARK: - Charset validation
@@ -190,17 +245,18 @@ extension PresetFieldCharset {
         case .integer:
             return value.allSatisfy(\.isNumber) ? nil : .notAnInteger
         case .sshHost:
-            let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-@:")
+            let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-@")
             return value.unicodeScalars.allSatisfy { allowed.contains($0) }
                 ? nil : .invalidCharacters
         case .path:
             let forbidden = CharacterSet(charactersIn: "\"%").union(.newlines)
             return value.unicodeScalars.contains { forbidden.contains($0) }
                 ? .invalidCharacters : nil
-        case .sshExtraOptions:
-            let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 =:._/-")
-            return value.unicodeScalars.allSatisfy { allowed.contains($0) }
-                ? nil : .invalidCharacters
+        case .tcpPort:
+            guard value.allSatisfy(\.isNumber), let port = Int(value), (1...65535).contains(port) else {
+                return .outOfRange
+            }
+            return nil
         case .freeText:
             return value.contains(where: { $0.isNewline }) ? .invalidCharacters : nil
         }

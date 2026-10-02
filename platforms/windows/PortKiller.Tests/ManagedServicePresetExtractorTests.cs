@@ -56,7 +56,6 @@ public sealed class ManagedServicePresetExtractorTests
         {
             ["sshHost"] = "web.example.com",
             ["remotePort"] = "5432",
-            ["extraOptions"] = "-o Compression=yes",
         }, 15432);
         var values = ManagedServicePresetFieldExtractor.ExtractFieldValues(preset, config, Home);
         Assert.Equal("web.example.com", values["sshHost"]);
@@ -64,23 +63,42 @@ public sealed class ManagedServicePresetExtractorTests
         Assert.Equal("5432", values["remotePort"]);
         Assert.Equal("15", values["keepaliveInterval"]);
         Assert.Equal("3", values["keepaliveCount"]);
-        Assert.Equal("-o Compression=yes", values["extraOptions"]);
     }
 
     [Fact]
-    public void Ssh_reverse_forward_round_trips_remote_bind()
+    public void Ssh_local_forward_round_trips_legacy_forward_spec()
     {
-        var preset = ManagedServicePresets.PresetWithId("ssh-reverse-forward")!;
-        var config = Generated("ssh-reverse-forward", new()
+        var preset = ManagedServicePresets.PresetWithId("ssh-local-forward")!;
+        // Hand-written command in the pre-loopback shape: no explicit bind host.
+        var config = new ManagedServiceConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "Legacy",
+            Port = 7000,
+            Host = "localhost",
+            WorkingDirectory = Home,
+            StartCommand = "ssh -N -L {port}:db.internal:8080 -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 'box.lan'",
+            PresetId = "ssh-local-forward",
+        };
+        var values = ManagedServicePresetFieldExtractor.ExtractFieldValues(preset, config, Home);
+        Assert.Equal("db.internal", values["remoteHost"]);
+        Assert.Equal("8080", values["remotePort"]);
+        Assert.Equal("box.lan", values["sshHost"]);
+    }
+
+    [Fact]
+    public void Ssh_local_forward_parses_resolved_executable_command()
+    {
+        var preset = ManagedServicePresets.PresetWithId("ssh-local-forward")!;
+        var config = Generated("ssh-local-forward", new()
         {
             ["sshHost"] = "box.lan",
-            ["remoteBind"] = "127.0.0.1",
-            ["remotePort"] = "8080",
+            ["remotePort"] = "5432",
         });
+        config.StartCommand = "\"C:\\OpenSSH\\ssh.exe\" -N -L 127.0.0.1:{port}:127.0.0.1:5432 " + config.StartCommand[config.StartCommand.IndexOf("-N")..];
         var values = ManagedServicePresetFieldExtractor.ExtractFieldValues(preset, config, Home);
-        Assert.Equal("box.lan", values["sshHost"]);
-        Assert.Equal("127.0.0.1", values["remoteBind"]);
-        Assert.Equal("8080", values["remotePort"]);
+        Assert.Equal("127.0.0.1", values["remoteHost"]);
+        Assert.Equal("5432", values["remotePort"]);
     }
 
     [Fact]

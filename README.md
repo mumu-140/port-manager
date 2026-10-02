@@ -75,16 +75,16 @@ The repository is the source of truth for this fork:
 
 ### Managed service presets
 
-The Managed Services tab ships six built-in presets that generate a ready-to-run profile from a short form (no shell command writing required):
+The Managed Services tab ships five built-in presets that generate a ready-to-run profile from a short form (no shell command writing required):
 
 - **Static file share** — `python3 -m http.server`, read-only, loopback-bound.
-- **SSH local forward / SOCKS5 proxy / SSH reverse forward** — your existing SSH agent and config; keepalives and `ExitOnForwardFailure` are fixed.
+- **SSH local forward / SOCKS5 proxy** — your existing SSH agent and config (enter the host or `user@host` manually); keepalives and `ExitOnForwardFailure` are fixed.
 - **Dufs file share** — read-only / upload / read-write modes (external binary; detected via PATH, with install docs when missing).
 - **Jupyter Lab** — loopback-bound, `--port-retries=0` so a busy port becomes a conflict instead of a silent port move.
 
 Safety properties:
 
-- Every listening preset binds `127.0.0.1` explicitly; the only non-loopback bind offered is the SSH reverse remote-bind choice, behind an explicit GatewayPorts warning.
+- Every listening preset binds `127.0.0.1` explicitly — including the SSH local forward's listener (`-L 127.0.0.1:{port}:`); no non-loopback bind is offered.
 - No credentials, tokens, or key-path fields in any preset; Jupyter's token stays server-generated.
 - Dependency discovery is read-only (PATH probes only) — the app never installs anything.
 - Choosing your home directory root as a share folder warns and suggests a narrower folder.

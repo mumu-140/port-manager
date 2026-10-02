@@ -198,8 +198,8 @@ struct ManagedServiceEditorView: View {
         }
     }
 
-    /// Preset warnings (design section 10.2): static keys, with the
-    /// GatewayPorts warning only while the remote bind leaves loopback and a
+    /// Preset warnings (design section 10.2): static keys, with mode-dependent
+    /// refinement (a read-only Dufs share hides the writable warning) and a
     /// home-root scope warning for directory presets.
     @ViewBuilder private func presetWarnings(for preset: ManagedServicePreset) -> some View {
         let keys = preset.activeWarningKeys(
@@ -313,6 +313,14 @@ struct ManagedServiceEditorView: View {
         for requirement in [DependencyRequirement.ssh, .python3, .dufs, .jupyter] {
             dependencyStates[requirement.binaryName] = probe.state(for: requirement)
         }
+        // Hand the resolved executable path to the form model so preset
+        // generation launches exactly the binary the probe reported.
+        if let preset = model.preset,
+           case .available(let path) = dependencyState(for: preset) {
+            model.resolvedExecutablePath = path
+        } else {
+            model.resolvedExecutablePath = nil
+        }
     }
 
     private func openInstallDocuments(_ requirement: DependencyRequirement) {
@@ -327,6 +335,8 @@ struct ManagedServiceEditorView: View {
         case .empty: return "preset.error.empty"
         case .notAnInteger: return "preset.error.notAnInteger"
         case .invalidCharacters: return "preset.error.invalidCharacters"
+        case .outOfRange: return "preset.error.outOfRange"
+        case .rootDirectory: return "preset.error.rootDirectory"
         }
     }
 

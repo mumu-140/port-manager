@@ -35,7 +35,6 @@ enum ManagedServicePresets {
         staticFileShare,
         sshLocalForward,
         sshSocks5Proxy,
-        sshReverseForward,
         dufsFileShare,
         jupyterLab,
     ]
@@ -72,9 +71,12 @@ extension ManagedServicePresets {
             "preset.static-file-share.warning.listing",
             "preset.static-file-share.warning.symlinks",
         ],
+        isHTTPService: true,
+        supportsQuickTunnel: true,
         generate: { context, fields in
             let directory = fields["directory"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let command = "python3 -m http.server {port} --bind 127.0.0.1 --directory "
+            let executable = context.resolvedExecutablePath.map { ManagedServicePresetCommandRenderer.shellSingleQuoted($0) } ?? "python3"
+            let command = "\(executable) -m http.server {port} --bind 127.0.0.1 --directory "
                 + ManagedServicePresetCommandRenderer.shellSingleQuoted(directory)
             return ManagedServiceConfig(
                 id: context.id,
@@ -94,21 +96,16 @@ extension ManagedServicePresets {
 extension ManagedServicePresets {
     private static let sshExitOnForwardFailure = "-o ExitOnForwardFailure=yes"
 
-    /// Renders the shared keepalive + extra-option tail shared by the SSH
-    /// presets. ExitOnForwardFailure makes bind failures fail fast (Failed
+    /// Renders the shared keepalive tail shared by the SSH presets. ExitOnForwardFailure makes bind failures fail fast (Failed
     /// state) instead of idling; ServerAlive* detects dead connections through
     /// the encrypted channel.
     private static func sshOptionsTail(_ fields: [String: String]) -> String {
         let interval = fields["keepaliveInterval"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "15"
         let count = fields["keepaliveCount"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "3"
-        var tail = " -o ServerAliveInterval=\(interval) -o ServerAliveCountMax=\(count)"
-        if let extra = fields["extraOptions"]?.trimmingCharacters(in: .whitespacesAndNewlines), !extra.isEmpty {
-            tail += " " + extra
-        }
-        return tail
+        return " -o ServerAliveInterval=\(interval) -o ServerAliveCountMax=\(count)"
     }
 
-    /// SSH host field shared by all three SSH presets.
+    /// SSH host field shared by both SSH presets.
     private static let sshHostField = PresetField(
         id: "sshHost",
         titleKey: presetFieldKey("ssh", "host"),
@@ -138,16 +135,6 @@ extension ManagedServicePresets {
         isAdvanced: true
     )
 
-    private static let extraOptionsField = PresetField(
-        id: "extraOptions",
-        titleKey: presetFieldKey("ssh", "extraOptions"),
-        helpKey: presetFieldKey("ssh", "extraOptions.help"),
-        kind: .text,
-        charset: .sshExtraOptions,
-        defaultValue: "",
-        isAdvanced: true
-    )
-
     static let sshLocalForward = ManagedServicePreset(
         id: "ssh-local-forward",
         titleKey: "preset.ssh-local-forward.title",
@@ -171,13 +158,12 @@ extension ManagedServicePresets {
                 id: "remotePort",
                 titleKey: presetFieldKey("ssh", "remotePort"),
                 kind: .port,
-                charset: .integer,
+                charset: .tcpPort,
                 defaultValue: "",
                 isRequired: true
             ),
             keepaliveIntervalField,
             keepaliveCountField,
-            extraOptionsField,
         ],
         suggestedPort: nil,
         warningKeys: [],
@@ -185,7 +171,10 @@ extension ManagedServicePresets {
             let host = fields["sshHost"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let remoteHost = fields["remoteHost"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "127.0.0.1"
             let remotePort = fields["remotePort"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let command = "ssh -N -L {port}:\(remoteHost):\(remotePort) \(sshExitOnForwardFailure)\(sshOptionsTail(fields)) "
+            // The listener bind is spelled out: it must never depend on the
+            // user's ssh_config GatewayPorts settings.
+            let executable = context.resolvedExecutablePath.map { ManagedServicePresetCommandRenderer.shellSingleQuoted($0) } ?? "ssh"
+            let command = "\(executable) -N -L 127.0.0.1:{port}:\(remoteHost):\(remotePort) \(sshExitOnForwardFailure)\(sshOptionsTail(fields)) "
                 + ManagedServicePresetCommandRenderer.shellSingleQuoted(host)
             return ManagedServiceConfig(
                 id: context.id,
@@ -210,13 +199,13 @@ extension ManagedServicePresets {
             sshHostField,
             keepaliveIntervalField,
             keepaliveCountField,
-            extraOptionsField,
         ],
         suggestedPort: nil,
         warningKeys: [],
         generate: { context, fields in
             let host = fields["sshHost"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let command = "ssh -N -D 127.0.0.1:{port} \(sshExitOnForwardFailure)\(sshOptionsTail(fields)) "
+            let executable = context.resolvedExecutablePath.map { ManagedServicePresetCommandRenderer.shellSingleQuoted($0) } ?? "ssh"
+            let command = "\(executable) -N -D 127.0.0.1:{port} \(sshExitOnForwardFailure)\(sshOptionsTail(fields)) "
                 + ManagedServicePresetCommandRenderer.shellSingleQuoted(host)
             return ManagedServiceConfig(
                 id: context.id,
@@ -226,59 +215,6 @@ extension ManagedServicePresets {
                 workingDirectory: context.homeDirectory,
                 startCommand: command,
                 presetID: "ssh-socks5-proxy"
-            )
-        }
-    )
-
-    static let sshReverseForward = ManagedServicePreset(
-        id: "ssh-reverse-forward",
-        titleKey: "preset.ssh-reverse-forward.title",
-        summaryKey: "preset.ssh-reverse-forward.summary",
-        icon: "arrow.up.forward",
-        category: .tunnel,
-        dependencyBinary: "ssh",
-        fields: [
-            sshHostField,
-            PresetField(
-                id: "remoteBind",
-                titleKey: presetFieldKey("ssh", "remoteBind"),
-                helpKey: presetFieldKey("ssh", "remoteBind.help"),
-                kind: .text,
-                charset: .sshHost,
-                defaultValue: "127.0.0.1",
-                isRequired: true,
-                isAdvanced: true
-            ),
-            PresetField(
-                id: "remotePort",
-                titleKey: presetFieldKey("ssh", "remotePort"),
-                kind: .port,
-                charset: .integer,
-                defaultValue: "",
-                isRequired: true
-            ),
-            keepaliveIntervalField,
-            keepaliveCountField,
-            extraOptionsField,
-        ],
-        suggestedPort: nil,
-        warningKeys: [
-            "preset.ssh-reverse-forward.warning.gatewayports",
-        ],
-        generate: { context, fields in
-            let host = fields["sshHost"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let remoteBind = fields["remoteBind"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "127.0.0.1"
-            let remotePort = fields["remotePort"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let command = "ssh -N -R \(remoteBind):\(remotePort):127.0.0.1:{port} \(sshExitOnForwardFailure)\(sshOptionsTail(fields)) "
-                + ManagedServicePresetCommandRenderer.shellSingleQuoted(host)
-            return ManagedServiceConfig(
-                id: context.id,
-                name: context.name,
-                port: context.port,
-                host: "localhost",
-                workingDirectory: context.homeDirectory,
-                startCommand: command,
-                presetID: "ssh-reverse-forward"
             )
         }
     )
@@ -323,6 +259,8 @@ extension ManagedServicePresets {
             "preset.dufs-file-share.warning.noAuth",
             "preset.dufs-file-share.warning.writable",
         ],
+        isHTTPService: true,
+        supportsQuickTunnel: true,
         generate: { context, fields in
             let directory = fields["directory"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let mode = fields["mode"] ?? "read-only"
@@ -333,7 +271,8 @@ extension ManagedServicePresets {
             if mode == "read-write" {
                 flags += " --allow-delete"
             }
-            let command = "dufs \(flags) "
+            let executable = context.resolvedExecutablePath.map { ManagedServicePresetCommandRenderer.shellSingleQuoted($0) } ?? "dufs"
+            let command = "\(executable) \(flags) "
                 + ManagedServicePresetCommandRenderer.shellSingleQuoted(directory)
             return ManagedServiceConfig(
                 id: context.id,
@@ -374,9 +313,12 @@ extension ManagedServicePresets {
             "preset.jupyter-lab.warning.token",
             "preset.jupyter-lab.warning.public",
         ],
+        isHTTPService: true,
+        supportsQuickTunnel: true,
         generate: { context, fields in
             let directory = fields["directory"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let command = "jupyter lab --no-browser --ip 127.0.0.1 --port-retries=0 --port {port} --notebook-dir "
+            let executable = context.resolvedExecutablePath.map { ManagedServicePresetCommandRenderer.shellSingleQuoted($0) } ?? "jupyter"
+            let command = "\(executable) lab --no-browser --ip 127.0.0.1 --port-retries=0 --port {port} --notebook-dir "
                 + ManagedServicePresetCommandRenderer.shellSingleQuoted(directory)
             return ManagedServiceConfig(
                 id: context.id,

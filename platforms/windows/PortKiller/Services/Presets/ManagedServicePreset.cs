@@ -40,17 +40,24 @@ public sealed class PresetSelectOption
 /// </summary>
 public enum PresetFieldCharset
 {
-    /// <summary>SSH host or alias: letters, digits, dot, dash, underscore, plus user@host and IPv6 colons.</summary>
+    /// <summary>
+    /// SSH host or alias: letters, digits, dot, dash, underscore, plus user@host.
+    /// IPv6 literals are deferred (v1 constrains forward targets to
+    /// hostname/IPv4 so colon-concatenated forward specs stay parseable).
+    /// </summary>
     SshHost,
 
-    /// <summary>Digits only (ports, intervals).</summary>
+    /// <summary>Digits only (ServerAliveInterval / ServerAliveCountMax — integers
+    /// with their own semantics, deliberately not TCP-port bounded).</summary>
     Integer,
+
+    /// <summary>TCP port number: digits in 1...65535.</summary>
+    TcpPort,
 
     /// <summary>Filesystem path: everything except double-quote, percent and newlines.</summary>
     Path,
 
     /// <summary>Extra SSH options: a conservative flag-list set with no shell metacharacters at all.</summary>
-    SshExtraOptions,
 
     /// <summary>Free text with no newlines.</summary>
     FreeText,
@@ -62,6 +69,12 @@ public enum PresetFieldValueErrorKind
     Empty,
     NotAnInteger,
     InvalidCharacters,
+
+    /// <summary>Numeric value outside the field's semantic range (TCP ports).</summary>
+    OutOfRange,
+
+    /// <summary>Directory field points at a filesystem root (Jupyter guard).</summary>
+    RootDirectory,
 }
 
 /// <summary>One editable field of a preset form. Mirrors macOS PresetField.</summary>
@@ -89,6 +102,15 @@ public sealed class PresetGenerationContext
     /// <summary>Platform home directory, used as the working directory for presets
     /// that have no natural one (SSH forwards).</summary>
     public string HomeDirectory { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Absolute executable path the dependency probe resolved for this
+    /// preset's binary, when available. Generators render this path (quoted)
+    /// instead of the bare binary name so the command always executes the
+    /// binary the probe reported as available — a fallback/known-path hit
+    /// must not silently degrade to a bare name the shell may not resolve.
+    /// </summary>
+    public string? ResolvedExecutablePath { get; init; }
 }
 
 /// <summary>
@@ -120,13 +142,26 @@ public sealed class ManagedServicePreset
     /// <summary>Suggested port for the editor's port field; null keeps the existing editor default.</summary>
     public int? SuggestedPort { get; init; }
     public IReadOnlyList<string> WarningKeys { get; init; } = Array.Empty<string>();
+
+    /// <summary>Whether the preset serves HTTP on {port}: gates the Open-in-browser
+    /// action. SSH forwards are not HTTP services.</summary>
+    public bool IsHttpService { get; init; }
+
+    /// <summary>Whether the Cloudflare Quick Tunnel flow applies (HTTP services only).</summary>
+    public bool SupportsQuickTunnel { get; init; }
+
     public required Func<PresetGenerationContext, IReadOnlyDictionary<string, string>, ManagedServiceConfig> Generate { get; init; }
 
     /// <summary>Field values with every field's default applied.</summary>
     public Dictionary<string, string> DefaultFieldValues() =>
         Fields.ToDictionary(field => field.Id, field => field.DefaultValue);
 
-    /// <summary>Validates one field's value against its charset and requiredness.</summary>
+    /// <summary>
+    /// Validates one field's value against its charset and requiredness.
+    /// Jupyter additionally rejects filesystem roots as the notebook
+    /// directory: sharing / (or a Windows drive root) would publish the
+    /// whole volume.
+    /// </summary>
     public PresetFieldValueErrorKind? ValidateField(PresetField field, string? value)
     {
         var trimmed = (value ?? string.Empty).Trim();
@@ -134,27 +169,44 @@ public sealed class ManagedServicePreset
         {
             return field.IsRequired ? PresetFieldValueErrorKind.Empty : null;
         }
+        if (Id == "jupyter-lab" && field.Kind == PresetFieldKind.Directory && IsRootDirectory(trimmed))
+        {
+            return PresetFieldValueErrorKind.RootDirectory;
+        }
         return ManagedServicePresetCharsetValidator.Validate(field.Charset, trimmed);
     }
 
     /// <summary>
+    /// True for filesystem roots that must never be shared as a Jupyter
+    /// notebook directory: the POSIX root and Windows drive roots. Pure so
+    /// both platforms' tests exercise the same rule.
+    /// </summary>
+    public static bool IsRootDirectory(string path)
+    {
+        var normalized = path.TrimEnd('/', '\\');
+        if (normalized is "/" or "\\") return true;
+        var lowered = normalized.ToLowerInvariant();
+        // A Windows drive root ("C:\\") loses its backslash to the trim and
+        // survives as "c:" — still a drive root, never a real directory.
+        if (lowered.Length == 2 && lowered.EndsWith(":") && char.IsAsciiLetter(lowered[0])) return true;
+        return false;
+    }
+
+    /// <summary>
     /// Warnings that apply right now given the current field values (design
-    /// section 10.2). Static WarningKeys minus the GatewayPorts warning while
-    /// the SSH reverse remote bind is still 127.0.0.1, plus the serving-scope
-    /// home-root warning when a directory field points at the home directory
-    /// itself. Mirrors macOS ManagedServicePreset.activeWarningKeys.
+    /// section 10.2). Static WarningKeys with mode-dependent refinement — a
+    /// read-only Dufs share is not writable, so the writable warning does
+    /// not apply — plus the serving-scope home-root warning when a directory
+    /// field points at the home directory itself. Mirrors macOS
+    /// ManagedServicePreset.activeWarningKeys.
     /// </summary>
     public List<string> ActiveWarningKeys(IReadOnlyDictionary<string, string> fieldValues, string homeDirectory)
     {
         var keys = new List<string>(WarningKeys);
-        if (Id == "ssh-reverse-forward")
+        var mode = fieldValues.TryGetValue("mode", out var m) ? m.Trim() : "read-only";
+        if (Id == "dufs-file-share" && (mode.Length == 0 || mode == "read-only"))
         {
-            var remoteBind = fieldValues.TryGetValue("remoteBind", out var bind) ? bind.Trim() : "127.0.0.1";
-            if (remoteBind.Length == 0) remoteBind = "127.0.0.1";
-            if (remoteBind == "127.0.0.1")
-            {
-                keys.RemoveAll(key => key == "preset.ssh-reverse-forward.warning.gatewayports");
-            }
+            keys.RemoveAll(key => key == "preset.dufs-file-share.warning.writable");
         }
         if (Fields.Any(field => field.Kind == PresetFieldKind.Directory)
             && fieldValues.TryGetValue("directory", out var directory)
@@ -204,15 +256,18 @@ public static class ManagedServicePresetCharsetValidator
         {
             case PresetFieldCharset.Integer:
                 return value.All(char.IsDigit) ? null : PresetFieldValueErrorKind.NotAnInteger;
+            case PresetFieldCharset.TcpPort:
+                if (!value.All(char.IsDigit) || !int.TryParse(value, out var tcpPort) || tcpPort is < 1 or > 65535)
+                {
+                    return PresetFieldValueErrorKind.OutOfRange;
+                }
+                return null;
             case PresetFieldCharset.SshHost:
-                return value.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' or '@' or ':')
+                return value.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' or '@')
                     ? null : PresetFieldValueErrorKind.InvalidCharacters;
             case PresetFieldCharset.Path:
                 return value.Any(c => c == '"' || c == '%' || c == '\r' || c == '\n')
                     ? PresetFieldValueErrorKind.InvalidCharacters : null;
-            case PresetFieldCharset.SshExtraOptions:
-                return value.All(c => char.IsLetterOrDigit(c) || c is ' ' or '=' or ':' or '.' or '_' or '/' or '-')
-                    ? null : PresetFieldValueErrorKind.InvalidCharacters;
             case PresetFieldCharset.FreeText:
                 return value.Any(char.IsControl) ? PresetFieldValueErrorKind.InvalidCharacters : null;
             default:

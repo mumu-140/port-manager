@@ -37,14 +37,6 @@ enum ManagedServicePresetFieldExtractor {
         case "ssh-socks5-proxy":
             applySSHTail(tokens: tokens, to: &values)
 
-        case "ssh-reverse-forward":
-            // -R <remoteBind>:<remotePort>:127.0.0.1:{port}
-            if let spec = forwardSpec(command: command, flag: "-R", localIsFirst: false) {
-                values["remoteBind"] = spec.host
-                values["remotePort"] = spec.remotePort
-            }
-            applySSHTail(tokens: tokens, to: &values)
-
         default:
             break
         }
@@ -53,36 +45,41 @@ enum ManagedServicePresetFieldExtractor {
 
     // MARK: - Parsers
 
-    /// -L {port}:<host>:<remotePort> (localIsFirst) or
-    /// -R <bind>:<remotePort>:127.0.0.1:{port} (localIsFirst = false).
+    /// -L 127.0.0.1:{port}:<host>:<remotePort> (localIsFirst). Legacy
+    /// profiles saved before the explicit loopback bind (-L {port}:<host>:<remotePort>)
+    /// still parse so re-editing them keeps their values.
     private static func forwardSpec(command: String, flag: String, localIsFirst: Bool) -> (host: String, remotePort: String)? {
         let tokens = command.split(separator: " ").map(String.init)
         for (index, token) in tokens.enumerated() where token == flag {
             guard index + 1 < tokens.count else { continue }
             let parts = tokens[index + 1].split(separator: ":").map(String.init)
             if localIsFirst {
-                guard parts.count == 3 else { continue }
-                return (host: parts[1], remotePort: parts[2])
+                if parts.count == 4, parts[0] == "127.0.0.1" {
+                    return (host: parts[2], remotePort: parts[3])
+                }
+                if parts.count == 3 {
+                    return (host: parts[1], remotePort: parts[2])
+                }
+                continue
             } else {
-                guard parts.count == 4 else { continue }
-                return (host: parts[0], remotePort: parts[1])
+                continue
             }
         }
         return nil
     }
 
     /// sshHost is the final token of every generated SSH command; keepalive
-    /// values come from their fixed -o options; everything else that is
-    /// option-shaped and not one of the fixed flags is the user extraOptions.
-    /// Only runs on the generated shape (ssh ... with a forward flag);
-    /// anything else keeps the defaults.
+    /// values come from their fixed -o options. The first token may be a
+    /// quoted absolute executable path (dependency-resolved generation), so
+    /// the guard matches on its basename. Only runs on the generated shape
+    /// (ssh ... with a forward flag); anything else keeps the defaults.
     private static func applySSHTail(tokens: [String], to values: inout [String: String]) {
-        guard tokens.first == "ssh",
-              tokens.contains(where: { $0 == "-L" || $0 == "-D" || $0 == "-R" }),
+        guard let firstToken = tokens.first,
+              (shellSingleUnquote(firstToken) as NSString).lastPathComponent == "ssh",
+              tokens.contains(where: { $0 == "-L" || $0 == "-D" }),
               let hostIndex = tokens.lastIndex(where: { !$0.hasPrefix("-") && !$0.contains(":") }) else { return }
         values["sshHost"] = shellSingleUnquote(tokens[hostIndex])
 
-        var extras: [String] = []
         var index = 0
         while index < tokens.count {
             let token = tokens[index]
@@ -95,13 +92,8 @@ enum ManagedServicePresetFieldExtractor {
                 values["keepaliveInterval"] = String(option.dropFirst("ServerAliveInterval=".count))
             } else if option.hasPrefix("ServerAliveCountMax=") {
                 values["keepaliveCount"] = String(option.dropFirst("ServerAliveCountMax=".count))
-            } else if option != "ExitOnForwardFailure=yes" {
-                extras.append(token + " " + option)
             }
             index += 2
-        }
-        if !extras.isEmpty {
-            values["extraOptions"] = extras.joined(separator: " ")
         }
     }
 

@@ -81,7 +81,7 @@ File-level plan per milestone. Paths relative to repo root. No milestone changes
 
 ### macOS
 - Modify: `platforms/macos/Sources/Views/ManagedServices/ManagedServiceDetailView.swift` — rename section slot to "Network Access" (new key `exposure.section`); three rows: Local (Open/Copy when running), Temporary public (existing Quick Tunnel controls re-worded: intent-based labels + helper copy), Stable public (link row to the existing Cloudflare tunnels UI — navigation via existing AppState/sidebar routing).
-- SSH-reverse hint: when `config.presetID == "ssh-reverse-forward"`, show static hint text (no actions).
+- Capability-gated actions: Open and Quick Tunnel controls are visible only for HTTP presets (`isHTTPService` metadata); custom services keep them. (SSH reverse preset removed during review — see the design doc's "Deferred" note.)
 - Tests: view-model level (row visibility matrix); localization tests.
 
 ### Windows
@@ -92,7 +92,7 @@ File-level plan per milestone. Paths relative to repo root. No milestone changes
 
 ## M7 — Dufs + Jupyter presets (forms + warnings)
 
-- Forms land with dependency banners (available at <path> / notInstalled + install link: brew/GitHub releases for dufs; jupyter.org for jupyter), mode selects (Dufs: read-only/upload/read+write with warnings), Jupyter fixed-flags notice + working-directory validation (rejects / and drive roots).
+- Forms land with dependency banners (available at <path> / notInstalled + install link: brew/GitHub releases for dufs; jupyter.org for jupyter), mode selects (Dufs: read-only/upload/read+write with warnings), Jupyter fixed-flags notice + working-directory validation (rejects / and drive roots; home root warns only).
 - Warnings wiring: writable Dufs + exposure → double warning in Exposure panel; public Jupyter warning text.
 - Tests: generator/validator coverage (M1 suite extends); localization keys.
 

@@ -69,6 +69,14 @@ struct ManagedServicePresetTests {
         #expect(ManagedServicePresets.preset(withID: "removed-preset") == nil)
     }
 
+    /// SSH Reverse Forward is deferred: the ManagedService readiness model
+    /// needs a local listener on {port}, which a reverse command cannot
+    /// provide. It must not sit in the v1 registry (review fix, 2026-10-02).
+    @Test func reverseForwardIsNotAV1Preset() {
+        #expect(ManagedServicePresets.preset(withID: "ssh-reverse-forward") == nil)
+        #expect(!ManagedServicePresets.all.map(\.id).contains("ssh-reverse-forward"))
+    }
+
     @Test func everyPresetHasFieldsAndIcons() {
         for preset in ManagedServicePresets.all {
             #expect(!preset.fields.isEmpty)
@@ -99,12 +107,10 @@ struct ManagedServicePresetTests {
         #expect(ManagedServiceValidator.validate(config, existing: [], directoryValidator: validator) == nil)
     }
 
-    @Test func sshSocks5AndReverseGeneratorsProduceValidProfiles() {
-        for id in ["ssh-socks5-proxy", "ssh-reverse-forward"] {
-            let preset = ManagedServicePresets.preset(withID: id)!
-            let config = preset.generate(context(), values(preset, ["sshHost": "box.lan", "remotePort": "8080"]))
-            #expect(ManagedServiceValidator.validate(config, existing: [], directoryValidator: validator) == nil)
-        }
+    @Test func sshSocks5GeneratorProducesValidProfile() {
+        let preset = ManagedServicePresets.preset(withID: "ssh-socks5-proxy")!
+        let config = preset.generate(context(), values(preset, ["sshHost": "box.lan"]))
+        #expect(ManagedServiceValidator.validate(config, existing: [], directoryValidator: validator) == nil)
     }
 
     @Test func dufsAndJupyterGeneratorsProduceValidProfiles() {
@@ -138,7 +144,7 @@ struct ManagedServicePresetTests {
     }
 
     @Test func sshPresetsAlwaysCarryNAndExitOnForwardFailure() {
-        for id in ["ssh-local-forward", "ssh-socks5-proxy", "ssh-reverse-forward"] {
+        for id in ["ssh-local-forward", "ssh-socks5-proxy"] {
             let command = generatedCommand(id)
             #expect(command.contains("-N"))
             #expect(command.contains("-o ExitOnForwardFailure=yes"))
@@ -153,16 +159,23 @@ struct ManagedServicePresetTests {
             ["sshHost": "web.example.com", "remoteHost": "127.0.0.1", "remotePort": "5432"],
             port: 15432
         )
-        #expect(command.contains("-L {port}:127.0.0.1:5432"))
+        // The listener bind is spelled out — it must not depend on the
+        // user's ssh_config GatewayPorts settings.
+        #expect(command.contains("-L 127.0.0.1:{port}:127.0.0.1:5432"))
         #expect(command.hasSuffix("'web.example.com'"))
     }
 
-    @Test func sshReverseForwardRendersRemoteBindFirst() {
+    /// Full explicit bind including the resolved port placeholder target.
+    @Test func sshLocalForwardBindsLoopbackExplicitly() {
         let command = generatedCommand(
-            "ssh-reverse-forward",
-            ["sshHost": "box.lan", "remoteBind": "127.0.0.1", "remotePort": "8080"]
+            "ssh-local-forward",
+            ["sshHost": "web.example.com", "remotePort": "5432"],
+            port: 15432
         )
-        #expect(command.contains("-R 127.0.0.1:8080:127.0.0.1:{port}"))
+        // The bind host is explicit; the port stays the {port} placeholder
+        // (substituted by the manager at start time).
+        #expect(command.contains("-L 127.0.0.1:{port}:127.0.0.1:5432"))
+        #expect(!command.contains("-g"))
     }
 
     @Test func dufsModesRenderPermissionFlags() {
@@ -171,11 +184,6 @@ struct ManagedServicePresetTests {
         #expect(!generatedCommand("dufs-file-share", ["mode": "upload"]).contains("--allow-delete"))
         let rw = generatedCommand("dufs-file-share", ["mode": "read-write"])
         #expect(rw.contains("--allow-upload") && rw.contains("--allow-delete"))
-    }
-
-    @Test func extraOptionsAreInsertedIntoSshCommands() {
-        let command = generatedCommand("ssh-local-forward", ["extraOptions": "-o Compression=yes -vv"])
-        #expect(command.contains("-o Compression=yes -vv"))
     }
 
     // MARK: - Field validation
@@ -190,18 +198,42 @@ struct ManagedServicePresetTests {
         let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
         let field = preset.fields.first { $0.id == "sshHost" }!
         #expect(preset.validate(field: field, value: "web.example.com") == nil)
-        #expect(preset.validate(field: field, value: "user@host:2222") == nil)
+        // Manual Host alias / user@host is the v1 form; the ssh CLI does not
+        // parse host:port, so colons are rejected (IPv6 deferred).
+        #expect(preset.validate(field: field, value: "user@host") == nil)
+        #expect(preset.validate(field: field, value: "host:2222") == .invalidCharacters)
+        #expect(preset.validate(field: field, value: "2001:db8::1") == .invalidCharacters)
         #expect(preset.validate(field: field, value: "a b") == .invalidCharacters)
         #expect(preset.validate(field: field, value: "a;b") == .invalidCharacters)
         #expect(preset.validate(field: field, value: "$(x)") == .invalidCharacters)
         #expect(preset.validate(field: field, value: "it's") == .invalidCharacters)
     }
 
-    @Test func integerCharsetRejectsNonDigits() {
+    /// remotePort is a real TCP port (1...65535), not merely digits;
+    /// ServerAlive fields stay unbounded integers.
+    @Test func remotePortRejectsOutsideTCPRange() {
         let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
         let field = preset.fields.first { $0.id == "remotePort" }!
-        #expect(preset.validate(field: field, value: "5432") == nil)
-        #expect(preset.validate(field: field, value: "5432x") == .notAnInteger)
+        #expect(preset.validate(field: field, value: "1") == nil)
+        #expect(preset.validate(field: field, value: "65535") == nil)
+        #expect(preset.validate(field: field, value: "0") == .outOfRange)
+        #expect(preset.validate(field: field, value: "65536") == .outOfRange)
+        #expect(preset.validate(field: field, value: "5432x") == .outOfRange)
+    }
+
+    @Test func keepaliveFieldsAreNotTCPPortBounded() {
+        let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
+        let interval = preset.fields.first { $0.id == "keepaliveInterval" }!
+        #expect(preset.validate(field: interval, value: "0") == nil)
+        #expect(preset.validate(field: interval, value: "999999") == nil)
+        #expect(preset.validate(field: interval, value: "15x") == .notAnInteger)
+    }
+
+    @Test func integerCharsetRejectsNonDigits() {
+        let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
+        let field = preset.fields.first { $0.id == "keepaliveInterval" }!
+        #expect(preset.validate(field: field, value: "15") == nil)
+        #expect(preset.validate(field: field, value: "15x") == .notAnInteger)
         #expect(preset.validate(field: field, value: "port") == .notAnInteger)
     }
 
@@ -214,15 +246,51 @@ struct ManagedServicePresetTests {
         #expect(preset.validate(field: field, value: "/tmp/a\nb") == .invalidCharacters)
     }
 
-    @Test func extraOptionsCharsetRejectsQuotesDollarsAndBackslashes() {
-        let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
-        let field = preset.fields.first { $0.id == "extraOptions" }!
-        #expect(preset.validate(field: field, value: "-o Compression=yes") == nil)
-        #expect(preset.validate(field: field, value: "-L 80:bad") == nil)
-        #expect(preset.validate(field: field, value: "a'b") == .invalidCharacters)
-        #expect(preset.validate(field: field, value: "a$b") == .invalidCharacters)
-        #expect(preset.validate(field: field, value: "a\\b") == .invalidCharacters)
-        #expect(preset.validate(field: field, value: "a;b") == .invalidCharacters)
+    // MARK: - Capability mapping
+
+    /// v1 capability mapping: HTTP presets expose Open and Quick Tunnel;
+    /// SSH presets expose neither (Quick Tunnel proxies an HTTP endpoint).
+    @Test func capabilityMappingMatchesProtocol() {
+        for id in ["static-file-share", "dufs-file-share", "jupyter-lab"] {
+            let preset = ManagedServicePresets.preset(withID: id)!
+            #expect(preset.isHTTPService)
+            #expect(preset.supportsQuickTunnel)
+        }
+        for id in ["ssh-local-forward", "ssh-socks5-proxy"] {
+            let preset = ManagedServicePresets.preset(withID: id)!
+            #expect(!preset.isHTTPService)
+            #expect(!preset.supportsQuickTunnel)
+        }
+    }
+
+    // MARK: - Jupyter root guard
+
+    /// Filesystem roots must never be accepted as the Jupyter notebook
+    /// directory: sharing / (or a Windows drive root) publishes the volume.
+    @Test func jupyterRejectsFilesystemRoots() {
+        let preset = ManagedServicePresets.preset(withID: "jupyter-lab")!
+        let field = preset.fields.first { $0.id == "directory" }!
+        #expect(preset.validate(field: field, value: "/") == .rootDirectory)
+        #expect(preset.validate(field: field, value: "C:\\") == .rootDirectory)
+        #expect(preset.validate(field: field, value: "d:\\") == .rootDirectory)
+        #expect(preset.validate(field: field, value: "/") == .rootDirectory)
+    }
+
+    @Test func jupyterAcceptsDeeperPathsAndHomeRootWarnsOnly() {
+        let preset = ManagedServicePresets.preset(withID: "jupyter-lab")!
+        let field = preset.fields.first { $0.id == "directory" }!
+        #expect(preset.validate(field: field, value: "/tmp/notebooks") == nil)
+        #expect(preset.validate(field: field, value: "C:\\Users\\me\\notebooks") == nil)
+        // Home directory stays warning-only (not a validation error).
+        #expect(ManagedServicePreset.isRootDirectory("/Users/preset-tester") == false)
+    }
+
+    @Test func rootGuardRejectsWindowsDriveRoots() {
+        #expect(ManagedServicePreset.isRootDirectory("C:\\") == true)
+        #expect(ManagedServicePreset.isRootDirectory("z:\\") == true)
+        #expect(ManagedServicePreset.isRootDirectory("C:\\Users") == false)
+        #expect(ManagedServicePreset.isRootDirectory("/tmp") == false)
+        #expect(ManagedServicePreset.isRootDirectory("relative/path") == false)
     }
 
     // MARK: - Renderer

@@ -21,6 +21,7 @@ public partial class ManagedServiceEditorWindow : Window
     private readonly ManagedServiceConfig _config;
     private readonly bool _isNew;
     private readonly PathDependencyProbe _probe = new();
+    private string? _resolvedExecutablePath;
     private string? _docsUrl;
     private ManagedServicePreset? PreviousPreset { get; set; }
     private Dictionary<string, string> _fieldValues = new();
@@ -158,9 +159,9 @@ public partial class ManagedServiceEditorWindow : Window
 
         RefreshDependencyBanner(preset);
 
-        // Preset warnings (design section 10.2): static keys, with the
-        // GatewayPorts warning only while the remote bind leaves loopback and
-        // a home-root scope warning for directory presets.
+        // Preset warnings (design section 10.2): static keys, with
+        // mode-dependent refinement (a read-only Dufs share hides the writable
+        // warning) and a home-root scope warning for directory presets.
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         foreach (var warningKey in preset.ActiveWarningKeys(_fieldValues, home))
         {
@@ -278,9 +279,11 @@ public partial class ManagedServiceEditorWindow : Window
         if (requirement is null)
         {
             DependencyBanner.Visibility = Visibility.Collapsed;
+            _resolvedExecutablePath = null;
             return;
         }
         var (state, path) = _probe.Probe(requirement);
+        _resolvedExecutablePath = state == DependencyProbeState.Available ? path : null;
         if (state == DependencyProbeState.Available)
         {
             DependencyBannerText.Text = PresetStrings.Lookup("dependency.available", path);
@@ -328,6 +331,7 @@ public partial class ManagedServiceEditorWindow : Window
             Name = NameBox.Text.Trim(),
             Port = ParsePort(),
             HomeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ResolvedExecutablePath = _resolvedExecutablePath,
         }, _fieldValues);
 
     private int ParsePort() =>
@@ -379,7 +383,7 @@ public partial class ManagedServiceEditorWindow : Window
         foreach (var field in preset.Fields)
         {
             var value = _fieldValues.TryGetValue(field.Id, out var raw) ? raw : string.Empty;
-            var kindError = ManagedServicePresetCharsetValidator.Validate(field.Charset, value);
+            var kindError = preset.ValidateField(field, value);
             if (kindError is PresetFieldValueErrorKind.Empty)
             {
                 if (field.IsRequired)
@@ -395,6 +399,14 @@ public partial class ManagedServiceEditorWindow : Window
             if (kindError is PresetFieldValueErrorKind.InvalidCharacters)
             {
                 return PresetStrings.Lookup("preset.error.invalidCharacters", PresetStrings.Lookup(field.TitleKey));
+            }
+            if (kindError is PresetFieldValueErrorKind.OutOfRange)
+            {
+                return PresetStrings.Lookup("preset.error.outOfRange", PresetStrings.Lookup(field.TitleKey));
+            }
+            if (kindError is PresetFieldValueErrorKind.RootDirectory)
+            {
+                return PresetStrings.Lookup("preset.error.rootDirectory", PresetStrings.Lookup(field.TitleKey));
             }
         }
         return null;

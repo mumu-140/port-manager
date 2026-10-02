@@ -28,9 +28,6 @@ public static class PresetStrings
         ["preset.ssh-socks5-proxy.title"] = "SSH SOCKS5 Proxy",
         ["preset.ssh-socks5-proxy.summary"] = "Route traffic through an SSH host as a SOCKS5 proxy.",
 
-        ["preset.ssh-reverse-forward.title"] = "SSH Reverse Forward",
-        ["preset.ssh-reverse-forward.summary"] = "Publish a local port on the SSH host.",
-        ["preset.ssh-reverse-forward.warning.gatewayports"] = "Remote access beyond 127.0.0.1 requires GatewayPorts on the SSH host.",
 
         ["preset.dufs-file-share.title"] = "Dufs File Share",
         ["preset.dufs-file-share.summary"] = "Serve a directory with upload controls via Dufs.",
@@ -63,17 +60,15 @@ public static class PresetStrings
         ["preset.ssh.field.remoteHost"] = "Remote Host",
         ["preset.ssh.field.remoteHost.help"] = "Host as seen from the SSH server.",
         ["preset.ssh.field.remotePort"] = "Remote Port",
-        ["preset.ssh.field.remoteBind"] = "Remote Bind Address",
-        ["preset.ssh.field.remoteBind.help"] = "Address bound on the SSH host (127.0.0.1 by default).",
         ["preset.ssh.field.keepaliveInterval"] = "Keepalive Interval (s)",
         ["preset.ssh.field.keepaliveInterval.help"] = "ServerAliveInterval for the connection.",
         ["preset.ssh.field.keepaliveCount"] = "Keepalive Count",
-        ["preset.ssh.field.extraOptions"] = "Extra SSH Options",
-        ["preset.ssh.field.extraOptions.help"] = "Plain flags only, e.g. -o Compression=yes. No quotes or $ characters.",
 
         ["preset.error.empty"] = "{0} is required.",
         ["preset.error.notAnInteger"] = "{0} must be a number.",
         ["preset.error.invalidCharacters"] = "{0} contains characters that are not allowed here.",
+        ["preset.error.outOfRange"] = "{0} is outside the valid range (1-65535 for TCP ports).",
+        ["preset.error.rootDirectory"] = "The root directory cannot be shared.",
 
         ["dependency.notInstalled"] = "Not installed",
         ["dependency.availableTitle"] = "Dependency Ready",

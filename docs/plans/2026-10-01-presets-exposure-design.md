@@ -35,11 +35,17 @@ This increment makes common local-service and tunnel workflows easy to configure
 | Static File Share | `static-file-share` | File share | `python3` / `python` | Core |
 | SSH Local Forward | `ssh-local-forward` | Tunnel | `ssh` | Core |
 | SSH SOCKS5 Proxy | `ssh-socks5-proxy` | Tunnel | `ssh` | Advanced |
-| SSH Reverse Forward | `ssh-reverse-forward` | Tunnel | `ssh` | Advanced |
 | Dufs File Share | `dufs-file-share` | File share | `dufs` binary | Advanced |
 | Jupyter Lab | `jupyter-lab` | Notebook | `jupyter` (pip) | Advanced |
 
-Rationale (full evaluation §13): the two zero-extra-dependency presets (Static File Share, SSH Local) are core — they work out of the box on both platforms and cover the most common workflows. The SSH family shares one architecture, so SOCKS5 and Reverse cost little after Local exists. Dufs and Jupyter are advanced: external installs, shipped with detection gates and "not installed" states, never auto-install.
+Rationale (full evaluation §13): the two zero-extra-dependency presets (Static File Share, SSH Local) are core — they work out of the box on both platforms and cover the most common workflows. The SSH family shares one architecture, so SOCKS5 costs little after Local exists. Dufs and Jupyter are advanced: external installs, shipped with detection gates and "not installed" states, never auto-install.
+
+> **Review decision (v1):** the SSH Reverse Forward preset is **not shipped in v1**. Its lifecycle
+> contradicts the ManagedService contract: Start requires {port} to be free plus a local listener
+> ready, and a reverse forward (`-R`) is a remote-side bind with no local listener at all — the
+> readiness model cannot observe it. SSH Reverse Forward moves to the future
+> Exposure/provider design (or a readiness-model design). The GatewayPorts findings from the
+> research are retained for that future work.
 
 ---
 
@@ -48,7 +54,7 @@ Rationale (full evaluation §13): the two zero-extra-dependency presets (Static 
 ### 3.1 Preset picker (creation)
 
 - The list view "+" opens a **preset picker** (menu/popover), not the raw editor.
-- Picker entries: the 7 presets, each with icon + localized title + one-line description. Entries whose dependency is missing stay selectable but show a "not installed" tag; their form shows the dependency state with an install-documents link (never auto-install).
+- Picker entries: Custom + the 5 presets, each with icon + localized title + one-line description. Entries whose dependency is missing stay selectable but show a "not installed" tag; their form shows the dependency state with an install-documents link (never auto-install).
 - **Custom Service** opens the existing editor exactly as today (backwards compatible).
 - Preset forms prefill every field; the user edits and saves. Saving produces a normal profile through the existing validator + manager — the picker never bypasses validation or persistence.
 
@@ -63,13 +69,13 @@ Rationale (full evaluation §13): the two zero-extra-dependency presets (Static 
 
 ### 3.3 SSH preset flows
 
-**SSH Local Forward** — fields: SSH host (alias or user@host; prefilled from `~/.ssh/config` alias scan, editable free-text), Remote host (default `127.0.0.1`), Remote port, Local port. Advanced (collapsed): ServerAlive interval (default 15), ServerAlive count (default 3), extra SSH options (validated; §10). Generated command previewable but collapsed by default.
+**SSH Local Forward** — fields: SSH host (**v1: manual free-text only** — Host alias or `user@host`; alias enumeration is deferred with the SSH-config parsing research: Host lines only, never keys or IdentityFile values), Remote host (default `127.0.0.1`), Remote port (1...65535). Advanced (collapsed): ServerAlive interval (default 15), ServerAlive count (default 3). The listener bind is explicit — `-L 127.0.0.1:{port}:` — and never depends on ssh_config GatewayPorts. There are **no extra SSH options**: free-form fragments could re-enable non-loopback binds, alter the single-port lifecycle, or point ssh at key material, so v1 offers only the structured fields. Generated command previewable but collapsed by default.
 
-**SSH Reverse Forward** — fields: SSH host, **Remote bind (default `127.0.0.1`)**, Remote port, Local host (`127.0.0.1`), Local port. Remote loopback is the default. Choosing `0.0.0.0`/`*` as remote bind requires expanding an advanced warning and accepting explicit GatewayPorts copy (§10). The warning states the port becomes reachable by anyone who can reach the SSH server, subject to that server's GatewayPorts policy, and that the bind can fail server-side (surfaces as Failed with ExitOnForwardFailure=yes).
+**SSH Reverse Forward** — *not a v1 preset* (see the §2 review decision).
 
 **SSH SOCKS5 Proxy** — fields: SSH host, Local bind (`127.0.0.1`, locked to loopback — no `0.0.0.0` choice offered in v1), Local port, Advanced (keepalive). Never defaults to `0.0.0.0`.
 
-All three: `-N` and `-o ExitOnForwardFailure=yes` always included and not user-editable.
+Both SSH presets: `-N` and `-o ExitOnForwardFailure=yes` always included and not user-editable.
 
 ### 3.4 Jupyter Lab flow
 
@@ -155,7 +161,7 @@ The existing Quick Tunnel section slot (macOS `tunnelSection`; Windows Quick Tun
 - **Local** (always first, when running): `http://localhost:<port>` + Open/Copy. This formalizes what Open already does.
 - **Temporary public:** existing Quick Tunnel UI unchanged underneath (Start/Stop/Copy/Open + starting/active/error states + cloudflared-not-installed state). Wording changes from implementation-specific to intent-based: section label "Temporary public"; helper copy "Uses a Cloudflare Quick Tunnel. The address is random and disappears when the tunnel or Port Manager stops."
 - **Stable public (macOS):** a link row "Cloudflare Named Tunnel — configure or view in Tunnels" that deep-links to the existing global tunnels UI. No new runtime; no manager coupling. **Windows:** the row shows a localized "Not available on Windows in this version" caption (or is hidden — hidden is preferred to reduce noise; decision left to review).
-- **SSH Reverse:** not an exposure provider. When the selected service is an SSH reverse preset, the section shows a static explanatory hint ("This service publishes your local port to the SSH host at the configured remote bind address.") — informational only, no actions.
+- **SSH Reverse:** not an exposure provider — and not a v1 preset (§2 review decision), so no section branch is needed. HTTP presets (static/Dufs/Jupyter) show the full section; SSH presets and Custom keep Local-only behavior (Custom stays as-is for compatibility).
 
 Rationale for keeping Quick Tunnel runtime untouched: the existing port-keyed association, auto-stop-with-service, orphan cleanup, and URL parsing are tested and frozen. The grouping is presentational.
 
@@ -240,8 +246,8 @@ The task asked: does the single-string startCommand representation fundamentally
 ### 10.2 Fixed invariants carried into presets
 
 - **No credentials, ever:** no password/token/key-path fields in any preset (research §11.2). Dufs v1 has no auth field; Jupyter token stays server-generated; SSH uses the user's existing agent/config.
-- **Loopback-default binding:** every listening preset binds 127.0.0.1 explicitly (python's default is all-interfaces; Dufs' is 0.0.0.0). The only non-loopback bind offered in v1 is the SSH reverse remote-bind choice behind an explicit warning.
-- **SSH reverse GatewayPorts warning** (shown when remote bind ≠ 127.0.0.1): the port becomes reachable by everyone who can reach the SSH host, subject to that host's GatewayPorts policy; the bind can silently fail server-side (with ExitOnForwardFailure=yes it surfaces as Failed rather than a silent no-op).
+- **Loopback-only binding:** every listening preset binds 127.0.0.1 explicitly (python's default is all-interfaces; Dufs' is 0.0.0.0) — including the SSH local forward's listener. No non-loopback bind is offered in v1.
+- **No arbitrary option fragments:** SSH presets expose structured fields only (host, remote host/port, keepalives); no free-form extra-options field that could bypass the loopback/GatewayPorts rules, the single-port lifecycle, or the no-credential design.
 - **Exposure double-warning:** writable Dufs + Quick Tunnel = explicit warning; public Jupyter = strong warning (public Jupyter = arbitrary code execution).
 - **Serving-scope guardrails:** File Share shows the chosen directory; choosing the home directory root warns and suggests a narrower folder; presets never enable symlink exposure flags.
 - **Jupyter --port-retries=0 fixed** so a busy port becomes a Conflict, never a silent port move (which would break readiness and ownership).
@@ -287,7 +293,7 @@ SSH reverse could be modeled as an exposure action on an existing service (publi
 | Static File Share | v1 — Core | Zero extra deps both platforms; read-only; highest usefulness/risk ratio (§3) |
 | SSH Local Forward | v1 — Core | ssh present both platforms; safe defaults; common workflow (§2, §9) |
 | SSH SOCKS5 Proxy | v1 — Advanced | Same architecture as Local after it exists; loopback-locked |
-| SSH Reverse Forward | v1 — Advanced | Same family; GatewayPorts warning UI required (§2) |
+| SSH Reverse Forward | Not in v1 | Lifecycle contract mismatch (§2 review decision); future Exposure/provider design |
 | Dufs File Share | v1 — Advanced | External binary; detection gate + install docs; no-auth modes with warnings (§4) |
 | Jupyter Lab | v1 — Advanced | External pip package; fixed safe flags; token preserved (§8) |
 | Cloudflare Quick Tunnel | v1 — already exists | Surfaced under Exposure grouping; runtime untouched (§7) |
@@ -312,7 +318,7 @@ v1 reserves the path (no code): preset-rendered ssh commands stay **self-contain
 2. **Preset renderer adversarial matrix:** adversarial values (quotes, dollar, backtick, percent, caret, ampersand, pipe, semicolon, unicode, empty, 1000-char) per field type → rendered command is inert (macOS: assert escaped form matches the single-quote rule; Windows: assert validator rejects disallowed chars and quoting of allowed ones). The macOS round-trip was empirically verified during research; the test suite encodes it.
 3. **Field validators:** charset rejections (host/alias/path rules), port bounds, newline rejection, home-root warning for File Share.
 4. **Dependency mapping:** dependency requirement → probe stub states (available/notInstalled/unsupported) drive correct picker tag + banner copy; probes themselves thin (fileExists/PATH) with one integration-style test per platform using temp dirs.
-5. **SSH config alias scan:** fixture ssh config (comments, Include directives ignored, wildcards) → alias list; never reads key files.
+5. ~~SSH config alias scan~~ — **deferred with the alias enumeration feature** (v1 ships manual SSH-host entry only); the fixture plan stays here for the future work.
 6. **Delete confirmation mapping:** state × tunnel-presence matrix → exact message keys + button labels (table §8.1), including zh-CN variants; pure-function tests, no UI.
 7. **Backwards compatibility:** round-trip decode of profiles WITHOUT presetID → nil; with unknown presetID → custom-editor fallback; existing storage suites untouched.
 8. **Localization completeness:** new namespaces pass the existing table tests (both languages, format-specifier parity).
@@ -366,7 +372,7 @@ M1-M2 can proceed in parallel; M3/M4 depend on M1+M2; M5/M6 are independent of M
 
 - a) Windows Named Tunnel row: hide entirely vs show "not available" caption (§7.2 — reviewer preference).
 - b) File Share default port suggestion (8123?) and Dufs default (5000 is dufs' default but commonly taken — alternative 5001?).
-- c) SSH alias scan: include `Include`-directive expansion in v1 or ignore includes (proposal: ignore, documented)?
+- c) SSH alias scan: deferred out of v1 with the alias enumeration feature (when it lands, proposal: ignore `Include` directives, documented).
 - d) Whether M5 (delete copy) should also apply the new copy to the Windows transitioning guard, or keep that message as-is.
 
 ---

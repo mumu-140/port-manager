@@ -189,8 +189,10 @@ struct ManagedServicesListView: View {
 
         Divider()
 
-        Button(L("service.open")) { open(service) }
-            .disabled(service.status != .running)
+        if isOpenable(service) {
+            Button(L("service.open")) { open(service) }
+                .disabled(service.status != .running)
+        }
 
         Button(L("service.edit")) { beginEdit(service) }
             .disabled(service.isTransitioning)
@@ -202,6 +204,13 @@ struct ManagedServicesListView: View {
             pendingDeleteID = service.id
         }
         .disabled(service.isTransitioning)
+    }
+
+    /// HTTP services expose the Open action; custom services (no preset ID)
+    /// keep it for compatibility (preset capability mapping, v1).
+    private func isOpenable(_ service: ManagedServiceState) -> Bool {
+        guard let presetID = service.config.presetID else { return true }
+        return ManagedServicePresets.preset(withID: presetID)?.isHTTPService ?? true
     }
 
     private func open(_ service: ManagedServiceState) {

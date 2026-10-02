@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace PortKiller.Services;
@@ -35,7 +36,7 @@ public sealed class DependencyRequirement
         BinaryName = "ssh",
         KnownPaths = new[]
         {
-            Environment.SystemDirectory + "\\ssh.exe",
+            Path.Combine(Environment.SystemDirectory, "OpenSSH", "ssh.exe"),
             @"C:\Program Files\OpenSSH\ssh.exe",
         },
         VersionArgs = new[] { "-V" },
@@ -44,7 +45,7 @@ public sealed class DependencyRequirement
     };
 
     /// Windows python. PATH first; the WindowsApps Store stub is filtered by
-    /// the probe; the py launcher is a documented fallback.
+    /// the probe. (A py-launcher fallback is not implemented — deferred.)
     public static DependencyRequirement Python { get; } = new()
     {
         BinaryName = "python",
@@ -79,7 +80,7 @@ public sealed class DependencyRequirement
     public static DependencyRequirement? RequirementForPresetId(string? presetId) => presetId switch
     {
         "static-file-share" => Python,
-        "ssh-local-forward" or "ssh-socks5-proxy" or "ssh-reverse-forward" => Ssh,
+        "ssh-local-forward" or "ssh-socks5-proxy" => Ssh,
         "dufs-file-share" => Dufs,
         "jupyter-lab" => Jupyter,
         _ => null,

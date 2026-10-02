@@ -32,7 +32,6 @@ public static class ManagedServicePresets
             StaticFileShare,
             SshLocalForward,
             SshSocks5Proxy,
-            SshReverseForward,
             DufsFileShare,
             JupyterLab,
         });
@@ -53,12 +52,7 @@ public static class ManagedServicePresets
     {
         var interval = fields.TryGetValue("keepaliveInterval", out var iv) ? iv : "15";
         var count = fields.TryGetValue("keepaliveCount", out var cn) ? cn : "3";
-        var tail = " -o ServerAliveInterval=" + interval + " -o ServerAliveCountMax=" + count;
-        if (fields.TryGetValue("extraOptions", out var extra) && !string.IsNullOrWhiteSpace(extra))
-        {
-            tail += " " + extra;
-        }
-        return tail;
+        return " -o ServerAliveInterval=" + interval + " -o ServerAliveCountMax=" + count;
     }
 
     private static string QuotePath(string path)
@@ -103,6 +97,8 @@ public static class ManagedServicePresets
         DependencyBinary = "python",
         SuggestedPort = 8123,
         WarningKeys = new[] { "preset.static-file-share.warning.listing", "preset.static-file-share.warning.symlinks" },
+        IsHttpService = true,
+        SupportsQuickTunnel = true,
         Fields = new List<PresetField>
         {
             new()
@@ -119,8 +115,8 @@ public static class ManagedServicePresets
         Generate = static (ctx, fields) =>
         {
             var directory = fields.TryGetValue("directory", out var d) ? d.Trim() : "";
-            // Windows: python3 is a trap; use python or py
-            var command = $"python -m http.server {{port}} --bind 127.0.0.1 --directory {QuotePath(directory)}";
+            var executable = ctx.ResolvedExecutablePath is string pyPath ? QuotePath(pyPath) : "python";
+            var command = $"{executable} -m http.server {{port}} --bind 127.0.0.1 --directory {QuotePath(directory)}";
             return new ManagedServiceConfig
             {
                 Id = ctx.Id,
@@ -151,17 +147,19 @@ public static class ManagedServicePresets
         {
             new() { Id = "sshHost", TitleKey = FieldKey("ssh", "host"), HelpKey = FieldKey("ssh", "host.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshHost, DefaultValue = "", IsRequired = true },
             new() { Id = "remoteHost", TitleKey = FieldKey("ssh", "remoteHost"), HelpKey = FieldKey("ssh", "remoteHost.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshHost, DefaultValue = "127.0.0.1", IsRequired = true, IsAdvanced = true },
-            new() { Id = "remotePort", TitleKey = FieldKey("ssh", "remotePort"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "", IsRequired = true },
+            new() { Id = "remotePort", TitleKey = FieldKey("ssh", "remotePort"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.TcpPort, DefaultValue = "", IsRequired = true },
             new() { Id = "keepaliveInterval", TitleKey = FieldKey("ssh", "keepaliveInterval"), HelpKey = FieldKey("ssh", "keepaliveInterval.help"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "15", IsAdvanced = true },
             new() { Id = "keepaliveCount", TitleKey = FieldKey("ssh", "keepaliveCount"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "3", IsAdvanced = true },
-            new() { Id = "extraOptions", TitleKey = FieldKey("ssh", "extraOptions"), HelpKey = FieldKey("ssh", "extraOptions.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshExtraOptions, DefaultValue = "", IsAdvanced = true },
         },
         Generate = static (ctx, fields) =>
         {
             var host = fields.TryGetValue("sshHost", out var h) ? h.Trim() : "";
             var remoteHost = fields.TryGetValue("remoteHost", out var rh) ? rh.Trim() : "127.0.0.1";
             var remotePort = fields.TryGetValue("remotePort", out var rp) ? rp.Trim() : "";
-            var command = $"ssh -N -L {{port}}:{remoteHost}:{remotePort} {SshExitOnForwardFailure}{SshOptionsTail(fields)} {SshHost(host)}";
+            // The listener bind is spelled out: it must never depend on the
+            // user's ssh_config GatewayPorts settings.
+            var executable = ctx.ResolvedExecutablePath is string sshPath ? QuotePath(sshPath) : "ssh";
+            var command = $"{executable} -N -L 127.0.0.1:{{port}}:{remoteHost}:{remotePort} {SshExitOnForwardFailure}{SshOptionsTail(fields)} {SshHost(host)}";
             return new ManagedServiceConfig
             {
                 Id = ctx.Id,
@@ -193,12 +191,12 @@ public static class ManagedServicePresets
             new() { Id = "sshHost", TitleKey = FieldKey("ssh", "host"), HelpKey = FieldKey("ssh", "host.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshHost, DefaultValue = "", IsRequired = true },
             new() { Id = "keepaliveInterval", TitleKey = FieldKey("ssh", "keepaliveInterval"), HelpKey = FieldKey("ssh", "keepaliveInterval.help"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "15", IsAdvanced = true },
             new() { Id = "keepaliveCount", TitleKey = FieldKey("ssh", "keepaliveCount"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "3", IsAdvanced = true },
-            new() { Id = "extraOptions", TitleKey = FieldKey("ssh", "extraOptions"), HelpKey = FieldKey("ssh", "extraOptions.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshExtraOptions, DefaultValue = "", IsAdvanced = true },
         },
         Generate = static (ctx, fields) =>
         {
             var host = fields.TryGetValue("sshHost", out var h) ? h.Trim() : "";
-            var command = $"ssh -N -D 127.0.0.1:{{port}} {SshExitOnForwardFailure}{SshOptionsTail(fields)} {SshHost(host)}";
+            var executable = ctx.ResolvedExecutablePath is string proxyPath ? QuotePath(proxyPath) : "ssh";
+            var command = $"{executable} -N -D 127.0.0.1:{{port}} {SshExitOnForwardFailure}{SshOptionsTail(fields)} {SshHost(host)}";
             return new ManagedServiceConfig
             {
                 Id = ctx.Id,
@@ -208,47 +206,6 @@ public static class ManagedServicePresets
                 WorkingDirectory = ctx.HomeDirectory,
                 StartCommand = command,
                 PresetId = "ssh-socks5-proxy",
-            };
-        },
-    };
-
-    // -------------------------------------------------------------------------
-    // SSH Reverse Forward
-    // -------------------------------------------------------------------------
-
-    public static ManagedServicePreset SshReverseForward { get; } = new()
-    {
-        Id = "ssh-reverse-forward",
-        TitleKey = "preset.ssh-reverse-forward.title",
-        SummaryKey = "preset.ssh-reverse-forward.summary",
-        Icon = "arrow.up.forward",
-        Category = PresetCategory.Tunnel,
-        DependencyBinary = "ssh",
-        WarningKeys = new[] { "preset.ssh-reverse-forward.warning.gatewayports" },
-        Fields = new List<PresetField>
-        {
-            new() { Id = "sshHost", TitleKey = FieldKey("ssh", "host"), HelpKey = FieldKey("ssh", "host.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshHost, DefaultValue = "", IsRequired = true },
-            new() { Id = "remoteBind", TitleKey = FieldKey("ssh", "remoteBind"), HelpKey = FieldKey("ssh", "remoteBind.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshHost, DefaultValue = "127.0.0.1", IsRequired = true, IsAdvanced = true },
-            new() { Id = "remotePort", TitleKey = FieldKey("ssh", "remotePort"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "", IsRequired = true },
-            new() { Id = "keepaliveInterval", TitleKey = FieldKey("ssh", "keepaliveInterval"), HelpKey = FieldKey("ssh", "keepaliveInterval.help"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "15", IsAdvanced = true },
-            new() { Id = "keepaliveCount", TitleKey = FieldKey("ssh", "keepaliveCount"), Kind = PresetFieldKind.Port, Charset = PresetFieldCharset.Integer, DefaultValue = "3", IsAdvanced = true },
-            new() { Id = "extraOptions", TitleKey = FieldKey("ssh", "extraOptions"), HelpKey = FieldKey("ssh", "extraOptions.help"), Kind = PresetFieldKind.Text, Charset = PresetFieldCharset.SshExtraOptions, DefaultValue = "", IsAdvanced = true },
-        },
-        Generate = static (ctx, fields) =>
-        {
-            var host = fields.TryGetValue("sshHost", out var h) ? h.Trim() : "";
-            var remoteBind = fields.TryGetValue("remoteBind", out var rb) ? rb.Trim() : "127.0.0.1";
-            var remotePort = fields.TryGetValue("remotePort", out var rp) ? rp.Trim() : "";
-            var command = $"ssh -N -R {remoteBind}:{remotePort}:127.0.0.1:{{port}} {SshExitOnForwardFailure}{SshOptionsTail(fields)} {SshHost(host)}";
-            return new ManagedServiceConfig
-            {
-                Id = ctx.Id,
-                Name = ctx.Name,
-                Port = ctx.Port,
-                Host = "localhost",
-                WorkingDirectory = ctx.HomeDirectory,
-                StartCommand = command,
-                PresetId = "ssh-reverse-forward",
             };
         },
     };
@@ -267,6 +224,8 @@ public static class ManagedServicePresets
         DependencyBinary = "dufs",
         SuggestedPort = 5000,
         WarningKeys = new[] { "preset.dufs-file-share.warning.noAuth", "preset.dufs-file-share.warning.writable" },
+        IsHttpService = true,
+        SupportsQuickTunnel = true,
         Fields = new List<PresetField>
         {
             new() { Id = "directory", TitleKey = FieldKey("dufs-file-share", "directory"), Kind = PresetFieldKind.Directory, Charset = PresetFieldCharset.Path, DefaultValue = "", IsRequired = true },
@@ -299,7 +258,8 @@ public static class ManagedServicePresets
             {
                 flags += " --allow-delete";
             }
-            var command = $"dufs {flags} {QuotePath(directory)}";
+            var executable = ctx.ResolvedExecutablePath is string dufsPath ? QuotePath(dufsPath) : "dufs";
+            var command = $"{executable} {flags} {QuotePath(directory)}";
             return new ManagedServiceConfig
             {
                 Id = ctx.Id,
@@ -327,6 +287,8 @@ public static class ManagedServicePresets
         DependencyBinary = "jupyter",
         SuggestedPort = 8888,
         WarningKeys = new[] { "preset.jupyter-lab.warning.token", "preset.jupyter-lab.warning.public" },
+        IsHttpService = true,
+        SupportsQuickTunnel = true,
         Fields = new List<PresetField>
         {
             new()
@@ -343,7 +305,8 @@ public static class ManagedServicePresets
         Generate = static (ctx, fields) =>
         {
             var directory = fields.TryGetValue("directory", out var d) ? d.Trim() : "";
-            var command = $"jupyter lab --no-browser --ip 127.0.0.1 --port-retries=0 --port {{port}} --notebook-dir {QuotePath(directory)}";
+            var executable = ctx.ResolvedExecutablePath is string jupyterPath ? QuotePath(jupyterPath) : "jupyter";
+            var command = $"{executable} lab --no-browser --ip 127.0.0.1 --port-retries=0 --port {{port}} --notebook-dir {QuotePath(directory)}";
             return new ManagedServiceConfig
             {
                 Id = ctx.Id,

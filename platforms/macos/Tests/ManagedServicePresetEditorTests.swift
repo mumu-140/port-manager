@@ -212,18 +212,94 @@ import Testing
         #expect(values["remoteHost"] == "127.0.0.1")
     }
 
-    @Test func extractorParsesExtraOptions() {
+    /// Explicit loopback bind round-trips through the extractor.
+    @Test func extractorParsesExplicitLoopbackForwardSpec() {
         let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
         var values = preset.defaultFieldValues()
         values["sshHost"] = "box.lan"
+        values["remoteHost"] = "db.internal"
         values["remotePort"] = "8080"
-        values["extraOptions"] = "-o Compression=yes"
         let config = preset.generate(
             PresetGenerationContext(id: UUID(), name: "X", port: 7000, homeDirectory: "/tmp"),
             values
         )
+        #expect(config.startCommand.contains("-L 127.0.0.1:{port}:db.internal:8080"))
         let extracted = ManagedServicePresetFieldExtractor.extractFieldValues(
             for: preset, from: config, homeDirectory: "/tmp")
-        #expect(extracted["extraOptions"] == "-o Compression=yes")
+        #expect(extracted["remoteHost"] == "db.internal")
+        #expect(extracted["remotePort"] == "8080")
+    }
+
+    /// Legacy profiles saved before the explicit bind still re-open with
+    /// their values (compatibility with profiles persisted by 33025d3).
+    @Test func extractorStillParsesLegacyForwardSpec() {
+        let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
+        let legacy = ManagedServiceConfig(
+            id: UUID(), name: "Legacy", port: 7000, host: "localhost",
+            workingDirectory: "/tmp",
+            startCommand: "ssh -N -L {port}:db.internal:8080 -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 'box.lan'",
+            presetID: "ssh-local-forward"
+        )
+        let extracted = ManagedServicePresetFieldExtractor.extractFieldValues(
+            for: preset, from: legacy, homeDirectory: "/tmp")
+        #expect(extracted["remoteHost"] == "db.internal")
+        #expect(extracted["remotePort"] == "8080")
+        #expect(extracted["sshHost"] == "box.lan")
+    }
+
+    /// Dependency-resolved generation quotes the absolute executable; the
+    /// extractor must still find the SSH host after it.
+    @Test func extractorParsesResolvedExecutableCommand() {
+        let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
+        var values = preset.defaultFieldValues()
+        values["sshHost"] = "box.lan"
+        values["remotePort"] = "8080"
+        let config = preset.generate(
+            PresetGenerationContext(
+                id: UUID(), name: "X", port: 7000, homeDirectory: "/tmp",
+                resolvedExecutablePath: "/opt/homebrew/bin/ssh"),
+            values
+        )
+        #expect(config.startCommand.hasPrefix("'/opt/homebrew/bin/ssh' -N -L 127.0.0.1:"))
+        let extracted = ManagedServicePresetFieldExtractor.extractFieldValues(
+            for: preset, from: config, homeDirectory: "/tmp")
+        #expect(extracted["sshHost"] == "box.lan")
+        #expect(extracted["remotePort"] == "8080")
+    }
+
+    // MARK: Dependency-resolved generation
+
+    /// The probe's resolved path must land in the generated command: a
+    /// fallback/known-path binary may not be on the executor's PATH, so the
+    /// bare name would not resolve at start time.
+    @Test func resolvedExecutablePathIsRenderedIntoCommands() {
+        for id in ["static-file-share", "dufs-file-share", "jupyter-lab", "ssh-local-forward", "ssh-socks5-proxy"] {
+            let preset = ManagedServicePresets.preset(withID: id)!
+            var values = preset.defaultFieldValues()
+            if values["directory"] != nil { values["directory"] = "/tmp/demo" }
+            if values["sshHost"] != nil { values["sshHost"] = "box.lan" }
+            if values["remotePort"] != nil { values["remotePort"] = "8080" }
+            let config = preset.generate(
+                PresetGenerationContext(
+                    id: UUID(), name: "X", port: 7000, homeDirectory: "/tmp",
+                    resolvedExecutablePath: "/opt/tools/bin/" + (id.hasPrefix("ssh") ? "ssh" : id.hasPrefix("dufs") ? "dufs" : id.hasPrefix("jupyter") ? "jupyter" : "python3")),
+                values
+            )
+            #expect(config.startCommand.hasPrefix("'/opt/tools/bin/"), "preset \(id)")
+            #expect(!config.startCommand.hasPrefix("ssh ") && !config.startCommand.hasPrefix("python3 ") && !config.startCommand.hasPrefix("dufs ") && !config.startCommand.hasPrefix("jupyter "))
+        }
+    }
+
+    /// No resolved path falls back to the bare binary name.
+    @Test func nilResolvedPathFallsBackToBareBinary() {
+        let preset = ManagedServicePresets.preset(withID: "ssh-local-forward")!
+        var values = preset.defaultFieldValues()
+        values["sshHost"] = "box.lan"
+        values["remotePort"] = "8080"
+        let config = preset.generate(
+            PresetGenerationContext(id: UUID(), name: "X", port: 7000, homeDirectory: "/tmp"),
+            values
+        )
+        #expect(config.startCommand.hasPrefix("ssh -N -L 127.0.0.1:"))
     }
 }
