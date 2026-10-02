@@ -26,7 +26,7 @@ public sealed class DependencyRequirement
 
     /// <summary>Localized key with tailored copy for the WindowsApps python
     /// stub case (Microsoft Store alias that opens the Store instead of running).</summary>
-    public string StubCopyKey { get; init; }
+    public string StubCopyKey { get; init; } = string.Empty;
 
     /// <summary>v1 requirements (per research known-path tables).</summary>
 

@@ -183,7 +183,11 @@ public sealed class ManagedServicePreset
     /// </summary>
     public static bool IsRootDirectory(string path)
     {
-        var normalized = path.TrimEnd('/', '\\');
+        var normalized = path;
+        while (normalized.Length > 1 && (normalized.EndsWith('/') || normalized.EndsWith('\\')))
+        {
+            normalized = normalized[..^1];
+        }
         if (normalized is "/" or "\\") return true;
         var lowered = normalized.ToLowerInvariant();
         // A Windows drive root ("C:\\") loses its backslash to the trim and

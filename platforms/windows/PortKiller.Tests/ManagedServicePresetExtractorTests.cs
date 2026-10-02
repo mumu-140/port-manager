@@ -77,7 +77,7 @@ public sealed class ManagedServicePresetExtractorTests
             Port = 7000,
             Host = "localhost",
             WorkingDirectory = Home,
-            StartCommand = "ssh -N -L {port}:db.internal:8080 -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 'box.lan'",
+            StartCommand = "ssh -N -L {port}:db.internal:8080 -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \"box.lan\"",
             PresetId = "ssh-local-forward",
         };
         var values = ManagedServicePresetFieldExtractor.ExtractFieldValues(preset, config, Home);

@@ -67,7 +67,7 @@ public sealed class PathDependencyProbeTests
         var probe = Probe(
             new Dictionary<string, bool>
             {
-                ["C:\\Windows\\System32\\ssh.exe"] = true,
+                ["C:\\Windows\\System32\\OpenSSH\\ssh.exe"] = true,
                 ["C:\\Git\\ssh.exe"] = true,
             },
             "C:\\Git");
