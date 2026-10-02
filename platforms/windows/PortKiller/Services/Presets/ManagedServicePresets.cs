@@ -23,15 +23,21 @@ namespace PortKiller.Services;
 public static class ManagedServicePresets
 {
     /// <summary>All v1 presets in picker order (Custom Service is prepended by the UI).</summary>
-    public static IReadOnlyList<ManagedServicePreset> All { get; } = new List<ManagedServicePreset>
-    {
-        StaticFileShare,
-        SshLocalForward,
-        SshSocks5Proxy,
-        SshReverseForward,
-        DufsFileShare,
-        JupyterLab,
-    };
+    /// <remarks>Lazy: static property initializers run in textual order, so the
+    /// list must be built on first access, after the preset properties below
+    /// have initialized.</remarks>
+    private static readonly Lazy<IReadOnlyList<ManagedServicePreset>> AllLazy = new(
+        () => new List<ManagedServicePreset>
+        {
+            StaticFileShare,
+            SshLocalForward,
+            SshSocks5Proxy,
+            SshReverseForward,
+            DufsFileShare,
+            JupyterLab,
+        });
+
+    public static IReadOnlyList<ManagedServicePreset> All => AllLazy.Value;
 
     /// <summary>Looks a preset up by its persisted ID; null for custom/unknown IDs.</summary>
     public static ManagedServicePreset? PresetWithId(string id) =>
