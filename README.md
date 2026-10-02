@@ -73,6 +73,25 @@ The repository is the source of truth for this fork:
 - Start/stop supported local tunnel workflows.
 - Open or copy public URLs directly from the app.
 
+### Managed service presets
+
+The Managed Services tab ships five built-in presets that generate a ready-to-run profile from a short form (no shell command writing required):
+
+- **Static file share** — `python3 -m http.server`, read-only, loopback-bound.
+- **SSH local forward / SOCKS5 proxy** — your existing SSH agent and config (enter the host or `user@host` manually); keepalives and `ExitOnForwardFailure` are fixed.
+- **Dufs file share** — read-only / upload / read-write modes (external binary; detected via PATH, with install docs when missing).
+- **Jupyter Lab** — loopback-bound, `--port-retries=0` so a busy port becomes a conflict instead of a silent port move.
+
+Safety properties:
+
+- Every listening preset binds `127.0.0.1` explicitly — including the SSH local forward's listener (`-L 127.0.0.1:{port}:`); no non-loopback bind is offered.
+- No credentials, tokens, or key-path fields in any preset; Jupyter's token stays server-generated.
+- Dependency discovery is read-only (PATH probes only) — the app never installs anything.
+- Choosing your home directory root as a share folder warns and suggests a narrower folder.
+- Publicly sharing a writable Dufs or Jupyter asks for explicit confirmation first.
+
+The detail view groups access as **Network Access** (Local / Temporary public / Stable public on macOS), and delete confirmations state exactly what will happen — a conflict profile is deleted without ever touching the external process holding the port.
+
 ### macOS localization
 
 The macOS application supports:

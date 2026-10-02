@@ -76,6 +76,27 @@ public partial class ManagedServicesViewModel : ObservableObject
         _ => "Tunnel idle",
     };
 
+    /// <summary>Local URL for the selected service while it runs (Network
+    /// Access row). Same URL the existing Open command launches.</summary>
+    public string? LocalUrl => SelectedService is { Status: ManagedServiceStatus.Running } state
+        ? $"http://localhost:{state.Config.Port}"
+        : null;
+
+    public bool HasLocalUrl => !string.IsNullOrEmpty(LocalUrl);
+
+    /// <summary>Preset capability check for the Network Access section and
+    /// the Open action: HTTP services expose Open and Quick Tunnel actions;
+    /// custom services (no preset ID) keep them for compatibility.</summary>
+    public bool IsHttpServicePreset
+    {
+        get
+        {
+            var presetId = SelectedService?.Config.PresetId;
+            if (presetId is null) return true;
+            return ManagedServicePresets.PresetWithId(presetId)?.IsHttpService ?? true;
+        }
+    }
+
     public void Load()
     {
         var states = _manager.Load();
@@ -112,6 +133,9 @@ public partial class ManagedServicesViewModel : ObservableObject
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(RequiresStopBeforeEdit));
         OnPropertyChanged(nameof(HasConflict));
+        OnPropertyChanged(nameof(LocalUrl));
+        OnPropertyChanged(nameof(HasLocalUrl));
+        OnPropertyChanged(nameof(IsHttpServicePreset));
         NotifyTunnelChanged();
     }
 
@@ -132,6 +156,9 @@ public partial class ManagedServicesViewModel : ObservableObject
 
     private void NotifyTunnelChanged()
     {
+        OnPropertyChanged(nameof(LocalUrl));
+        OnPropertyChanged(nameof(HasLocalUrl));
+        OnPropertyChanged(nameof(IsHttpServicePreset));
         OnPropertyChanged(nameof(ServiceTunnel));
         OnPropertyChanged(nameof(HasServiceTunnel));
         OnPropertyChanged(nameof(CanShareService));

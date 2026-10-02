@@ -10,6 +10,7 @@ struct ManagedServiceDetailView: View {
 
     @State private var editorTarget: ManagedServiceEditorTarget?
     @State private var showDeleteConfirmation = false
+    @State private var pendingExposureWarning: String?
     @State private var stopAndEditRequest: ManagedServiceStopAndEditRequest?
 
     var body: some View {
@@ -25,7 +26,7 @@ struct ManagedServiceDetailView: View {
                         conflictSection(service, conflict)
                     }
                     detailsSection(service)
-                    tunnelSection(service)
+                    exposureSection(service)
                     ManagedServiceLogView(service: service)
                 }
                 .padding(18)
@@ -38,16 +39,33 @@ struct ManagedServiceDetailView: View {
                 isPresented: $showDeleteConfirmation,
                 titleVisibility: .visible
             ) {
-                Button(L("service.delete.confirm"), role: .destructive) {
+                Button(L(deleteCopy.buttonKey), role: .destructive) {
                     let id = service.id
                     Task { await appState.deleteManagedService(id: id) }
                 }
                 Button(L("service.cancel"), role: .cancel) {}
             } message: {
-                Text(L(deleteMessageKey, service.name))
+                Text(messageText(deleteCopy))
             }
             .managedServiceStopAndEditConfirmation($stopAndEditRequest) { id in
                 Task { await stopAndEdit(id: id) }
+            }
+            .confirmationDialog(
+                L("exposure.confirm.title"),
+                isPresented: exposureConfirmationBinding,
+                titleVisibility: .visible
+            ) {
+                Button(L("exposure.confirm.start"), role: .destructive) {
+                    if let service = selectedService {
+                        appState.tunnelManager.startTunnel(for: service.port)
+                    }
+                    pendingExposureWarning = nil
+                }
+                Button(L("service.cancel"), role: .cancel) {
+                    pendingExposureWarning = nil
+                }
+            } message: {
+                Text(L(pendingExposureWarning ?? ""))
             }
         } else {
             ContentUnavailableView {
@@ -63,10 +81,23 @@ struct ManagedServiceDetailView: View {
         return appState.managedServiceManager.service(id: id)
     }
 
-    private var deleteMessageKey: String {
-        (selectedService?.isOwned ?? false)
-            ? "service.delete.runningMessage"
-            : "service.delete.message"
+    /// Semantic delete copy for the selected service (design section 8.1).
+    private var deleteCopy: ManagedServiceDeleteConfirmation.Copy {
+        let service = selectedService
+        return ManagedServiceDeleteConfirmation.copy(for: ManagedServiceDeleteContext(
+            name: service?.name ?? "",
+            port: service?.port ?? 0,
+            isOwnedRunning: service?.isOwned ?? false,
+            isConflict: service?.status == .conflict,
+            hasQuickTunnel: service.map { appState.tunnelManager.hasTunnel(for: $0.port) } ?? false
+        ))
+    }
+
+    private func messageText(_ copy: ManagedServiceDeleteConfirmation.Copy) -> String {
+        if let port = copy.port {
+            return L(copy.messageKey, copy.name, port)
+        }
+        return L(copy.messageKey, copy.name)
     }
 
     /// Running services stop first; everything else opens the editor directly.
@@ -120,8 +151,10 @@ struct ManagedServiceDetailView: View {
                 .disabled(service.status == .conflict || service.status == .stopping)
             }
 
-            Button(L("service.open")) { open(service) }
-                .disabled(service.status != .running)
+            if isHTTPService(service) {
+                Button(L("service.open")) { open(service) }
+                    .disabled(service.status != .running)
+            }
 
             Button(L("service.edit")) { beginEdit(service) }
                 .disabled(service.isTransitioning)
@@ -219,15 +252,71 @@ struct ManagedServiceDetailView: View {
         }
     }
 
-    /// Quick Tunnel state for the service's port: absent, starting, active or
-    /// error, with Retry/Stop where they apply. Without cloudflared installed
-    /// the user gets guidance instead of an apparently valid Start button
-    /// (design notes, section 15).
+    /// Network Access section (design section 7.2): Local row always, the
+    /// Temporary public (unchanged Quick Tunnel runtime) and Stable public
+    /// deep-link rows only for HTTP services — Quick Tunnel proxies an HTTP
+    /// endpoint, so non-HTTP presets (SSH forwards) do not offer it.
     @ViewBuilder
-    private func tunnelSection(_ service: ManagedServiceState) -> some View {
+    private func exposureSection(_ service: ManagedServiceState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L("service.detail.tunnel"))
+            Text(L("service.exposure.title"))
                 .font(.headline)
+
+            localRow(service)
+
+            if isHTTPService(service) {
+                temporaryPublicRow(service)
+                stablePublicRow()
+            }
+        }
+    }
+
+    /// Preset capability check: HTTP services expose Open and Quick Tunnel
+    /// actions; custom services (no preset ID) and unknown preset IDs keep
+    /// the existing behavior for compatibility.
+    private func isHTTPService(_ service: ManagedServiceState) -> Bool {
+        guard let presetID = service.config.presetID else { return true }
+        return ManagedServicePresets.preset(withID: presetID)?.isHTTPService ?? true
+    }
+
+    /// Local row: formalizes what Open already does, with Copy added.
+    @ViewBuilder
+    private func localRow(_ service: ManagedServiceState) -> some View {
+        HStack(spacing: 8) {
+            Text(L("service.exposure.local"))
+                .font(.caption)
+            Spacer()
+            if service.status == .running, let url = service.config.openURL {
+                Text(url.absoluteString)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .foregroundStyle(.secondary)
+                Button(L("service.tunnel.copy")) {
+                    ClipboardService.copy(url.absoluteString)
+                }
+                Button(L("service.tunnel.open")) {
+                    open(service)
+                }
+            } else {
+                Text(L("service.exposure.localIdle"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Temporary public: the Quick Tunnel runtime is untouched; the section
+    /// slot gains an intent-based label and helper copy. Without cloudflared
+    /// installed the user gets guidance instead of an apparently valid Start
+    /// button (design notes, section 15).
+    @ViewBuilder
+    private func temporaryPublicRow(_ service: ManagedServiceState) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L("service.exposure.temporaryPublic"))
+                .font(.caption)
+            Text(L("service.exposure.temporaryPublicHelper"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             if !appState.tunnelManager.isCloudflaredInstalled {
                 Text(L("service.tunnel.unavailable"))
@@ -237,7 +326,7 @@ struct ManagedServiceDetailView: View {
                 tunnelStateView(tunnel, service: service)
             } else if service.status == .running {
                 Button(L("service.tunnel.start")) {
-                    appState.tunnelManager.startTunnel(for: service.port)
+                    startTunnelWithExposureGate(service)
                 }
             } else {
                 Text(L("service.tunnel.stopped"))
@@ -245,6 +334,38 @@ struct ManagedServiceDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Exposure double-warning gate (design section 10.2): writable Dufs and
+    /// public Jupyter confirm before their Quick Tunnel starts; everything
+    /// else starts exactly as today.
+    private func startTunnelWithExposureGate(_ service: ManagedServiceState) {
+        if let messageKey = ManagedServiceExposureWarning.messageKey(for: service.config) {
+            pendingExposureWarning = messageKey
+        } else {
+            appState.tunnelManager.startTunnel(for: service.port)
+        }
+    }
+
+    private var exposureConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { pendingExposureWarning != nil },
+            set: { presented in
+                if !presented { pendingExposureWarning = nil }
+            }
+        )
+    }
+
+    /// Stable public: a pure deep-link into the existing global tunnels UI.
+    /// No new runtime, no manager coupling (design section 7.2).
+    private func stablePublicRow() -> some View {
+        Button {
+            appState.selectedSidebarItem = .cloudflareTunnels
+        } label: {
+            Text(L("service.exposure.stablePublic"))
+                .font(.caption)
+        }
+        .buttonStyle(.link)
     }
 
     @ViewBuilder

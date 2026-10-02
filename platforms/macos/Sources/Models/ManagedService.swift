@@ -36,13 +36,22 @@ struct ManagedServiceConfig: Identifiable, Codable, Equatable, Hashable, Sendabl
     /// Foreground shell command launched for the service's lifetime.
     var startCommand: String
 
+    /// Preset that produced this profile, if any (design: presets-exposure, section 4.1).
+    ///
+    /// Purely presentational/editing metadata: absent on custom profiles, never
+    /// read by the manager lifecycle, and decoding tolerates its absence on
+    /// every profile persisted before presets existed. Unknown preset IDs
+    /// degrade to custom editing.
+    var presetID: String?
+
     init(
         id: UUID = UUID(),
         name: String = "",
         port: Int = 3000,
         host: String = "localhost",
         workingDirectory: String = "",
-        startCommand: String = ""
+        startCommand: String = "",
+        presetID: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -50,6 +59,7 @@ struct ManagedServiceConfig: Identifiable, Codable, Equatable, Hashable, Sendabl
         self.host = host
         self.workingDirectory = workingDirectory
         self.startCommand = startCommand
+        self.presetID = presetID
     }
 
     /// Host normalized for browser opening.

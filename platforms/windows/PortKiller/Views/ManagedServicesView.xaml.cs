@@ -96,15 +96,30 @@ public partial class ManagedServicesView : UserControl
             return;
         }
 
-        var message = state.Status switch
+        // Semantic delete copy (design section 8.1): state -> message + destructive
+        // button text, presented as a native task dialog so the button label can
+        // carry the semantics (Stop & Delete / Delete / Delete Configuration Only).
+        var copy = PortKiller.Services.ManagedServiceDeleteCopy.For(new PortKiller.Services.ManagedServiceDeleteContext
         {
-            ManagedServiceStatus.Running => $"Delete \"{state.Name}\"? The owned service is stopped first.",
-            ManagedServiceStatus.Conflict => $"Delete \"{state.Name}\"? The process using port {state.Config.Port} is left running.",
-            _ => $"Delete \"{state.Name}\"?",
+            Name = state.Name,
+            Port = state.Config.Port,
+            IsOwnedRunning = state.Status == ManagedServiceStatus.Running && state.IsOwned,
+            IsConflict = state.Status == ManagedServiceStatus.Conflict,
+            HasQuickTunnel = vm.HasServiceTunnel,
+        });
+
+        var confirmButton = new System.Windows.Forms.TaskDialogButton(copy.ButtonText);
+        var page = new System.Windows.Forms.TaskDialogPage
+        {
+            Caption = "Delete service",
+            Text = copy.Message,
+            Icon = System.Windows.Forms.TaskDialogIcon.Warning,
+            Buttons = { confirmButton, System.Windows.Forms.TaskDialogButton.Cancel },
         };
 
-        var confirm = MessageBox.Show(message, "Delete service", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
-        if (confirm != MessageBoxResult.OK) return;
+        var owner = new System.Windows.Interop.WindowInteropHelper(Window.GetWindow(this)).Handle;
+        var result = System.Windows.Forms.TaskDialog.ShowDialog(owner, page);
+        if (result != confirmButton) return;
         await vm.DeleteCommand.ExecuteAsync(null);
     }
 
@@ -116,7 +131,21 @@ public partial class ManagedServicesView : UserControl
 
     private async void Share_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel is not { } vm) return;
+        if (ViewModel is not { } vm || vm.SelectedService is not { } state) return;
+
+        // Exposure double-warning gate (design section 10.2): writable Dufs
+        // and public Jupyter confirm before their Quick Tunnel starts;
+        // everything else shares exactly as today.
+        var warning = PortKiller.Services.ManagedServiceExposureWarning.MessageFor(state.Config);
+        if (warning is not null)
+        {
+            var confirm = MessageBox.Show(
+                PortKiller.Services.PresetStrings.Lookup(warning),
+                PortKiller.Services.PresetStrings.Lookup("exposure.confirm.title"),
+                MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+            if (confirm != MessageBoxResult.OK) return;
+        }
+
         await vm.ShareServiceCommand.ExecuteAsync(null);
     }
 
