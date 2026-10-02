@@ -48,6 +48,18 @@ public partial class ManagedServicesViewModel : ObservableObject
 
     public bool HasConflict => SelectedService?.Conflict is not null;
 
+    /// <summary>Returns another saved profile reserving this port, if any.</summary>
+    public ManagedServiceConfig? FindOtherProfileUsingPort(int port, Guid? editingId) =>
+        _manager.Configs.FirstOrDefault(config => config.Port == port && config.Id != editingId);
+
+    /// <summary>Read-only runtime port inspection for the editor.</summary>
+    public Task<IReadOnlyList<PortInfo>> InspectPortForEditorAsync(
+        int port,
+        Guid? editingId,
+        CancellationToken cancellationToken = default) =>
+        _manager.InspectPortForEditorAsync(port, editingId, cancellationToken);
+
+
     // MARK: - Quick Tunnel projection
 
     public CloudflareTunnel? ServiceTunnel => SelectedService is { } state

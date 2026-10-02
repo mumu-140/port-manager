@@ -31,7 +31,23 @@
                 <TextBox x:Name="NameBox" Margin="0,2,0,10" Padding="6"/>
 
                 <TextBlock Text="Port" Foreground="#A0A0A0" FontSize="12"/>
-                <TextBox x:Name="PortBox" Margin="0,2,0,10" Padding="6"/>
+                <Grid Margin="0,2,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="PortBox" Grid.Column="0" Padding="6" TextChanged="PortBox_TextChanged"/>
+                    <TextBlock x:Name="PortCheckSpinner" Grid.Column="1" Text="⟳"
+                               Foreground="#A0A0A0" FontSize="15" Margin="8,0,0,0"
+                               VerticalAlignment="Center" Visibility="Collapsed"
+                               RenderTransformOrigin="0.5,0.5">
+                        <TextBlock.RenderTransform>
+                            <RotateTransform x:Name="PortCheckSpinnerRotate"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </Grid>
+                <TextBlock x:Name="PortCheckText" Foreground="#909090" FontSize="11"
+                           Margin="0,0,0,10" TextWrapping="Wrap"/>
 
                 <!-- Preset dynamic fields -->
                 <StackPanel x:Name="PresetPanel" Visibility="Collapsed"/>

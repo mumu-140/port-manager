@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Animation;
 using PortKiller.Models;
 using PortKiller.Services;
 using PortKiller.ViewModels;
@@ -25,6 +26,7 @@ public partial class ManagedServiceEditorWindow : Window
     private string? _docsUrl;
     private ManagedServicePreset? PreviousPreset { get; set; }
     private Dictionary<string, string> _fieldValues = new();
+    private CancellationTokenSource? _portCheckCts;
 
     public ManagedServiceEditorWindow(ManagedServicesViewModel viewModel, ManagedServiceConfig? existing, ManagedServicePreset? openingPreset = null)
     {
@@ -322,6 +324,106 @@ public partial class ManagedServiceEditorWindow : Window
         }
     }
 
+    // MARK: Live port availability
+
+    private async void PortBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _portCheckCts?.Cancel();
+        _portCheckCts?.Dispose();
+
+        StopPortCheckSpinner();
+        PortCheckText.Text = string.Empty;
+
+        if (!int.TryParse(PortBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var port)
+            || port is < 1 or > 65535)
+        {
+            _portCheckCts = null;
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _portCheckCts = cts;
+
+        try
+        {
+            await Task.Delay(400, cts.Token);
+            cts.Token.ThrowIfCancellationRequested();
+
+            StartPortCheckSpinner();
+            PortCheckText.Foreground = System.Windows.Media.Brushes.Gray;
+            PortCheckText.Text = $"Checking port {port}…";
+
+            Guid? editingId = _isNew ? null : _config.Id;
+            if (_viewModel.FindOtherProfileUsingPort(port, editingId) is { } reserved)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                PortCheckText.Foreground = System.Windows.Media.Brushes.Orange;
+                PortCheckText.Text = $"Port {port} is already assigned to “{reserved.Name}”.";
+                return;
+            }
+
+            var listeners = await _viewModel.InspectPortForEditorAsync(port, editingId, cts.Token);
+            cts.Token.ThrowIfCancellationRequested();
+
+            if (listeners.Count == 0)
+            {
+                PortCheckText.Foreground = System.Windows.Media.Brushes.LightGreen;
+                PortCheckText.Text = $"✓ Port {port} is available.";
+                return;
+            }
+
+            var first = listeners[0];
+            var processName = string.IsNullOrWhiteSpace(first.ProcessName) ? "process" : first.ProcessName;
+            var extra = listeners.Count - 1;
+            PortCheckText.Foreground = System.Windows.Media.Brushes.Orange;
+            PortCheckText.Text = extra > 0
+                ? $"⚠ Port {port} is in use by {processName} (PID {first.Pid}) and {extra} other listener(s)."
+                : $"⚠ Port {port} is in use by {processName} (PID {first.Pid}).";
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by newer input; never let a stale result update the UI.
+        }
+        catch
+        {
+            if (!cts.IsCancellationRequested)
+            {
+                PortCheckText.Foreground = System.Windows.Media.Brushes.Gray;
+                PortCheckText.Text = $"Could not confirm whether port {port} is available.";
+            }
+        }
+        finally
+        {
+            if (ReferenceEquals(_portCheckCts, cts))
+            {
+                StopPortCheckSpinner();
+            }
+        }
+    }
+
+    private void StartPortCheckSpinner()
+    {
+        PortCheckSpinner.Visibility = Visibility.Visible;
+        var animation = new DoubleAnimation
+        {
+            From = 0,
+            To = 360,
+            Duration = TimeSpan.FromMilliseconds(700),
+            RepeatBehavior = RepeatBehavior.Forever,
+        };
+        PortCheckSpinnerRotate.BeginAnimation(
+            System.Windows.Media.RotateTransform.AngleProperty,
+            animation);
+    }
+
+    private void StopPortCheckSpinner()
+    {
+        PortCheckSpinnerRotate.BeginAnimation(
+            System.Windows.Media.RotateTransform.AngleProperty,
+            null);
+        PortCheckSpinner.Visibility = Visibility.Collapsed;
+    }
+
     // MARK: Save
 
     private ManagedServiceConfig GeneratePresetConfig(ManagedServicePreset preset) =>
@@ -410,6 +512,15 @@ public partial class ManagedServiceEditorWindow : Window
             }
         }
         return null;
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _portCheckCts?.Cancel();
+        _portCheckCts?.Dispose();
+        _portCheckCts = null;
+        StopPortCheckSpinner();
+        base.OnClosed(e);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

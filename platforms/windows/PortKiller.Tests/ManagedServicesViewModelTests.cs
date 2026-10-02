@@ -155,4 +155,56 @@ public class ManagedServicesViewModelTests
         Assert.False(vm.CanDelete);
         Assert.False(vm.CanEdit);
     }
+    [Fact]
+    public async Task LivePortCheckFindsExternalOccupant()
+    {
+        var ports = new FakePortInspector();
+        var manager = Manager(new FakeStorage(), new FakeProcessController(), ports);
+        var vm = new ManagedServicesViewModel(manager, new FakeTunnelHost());
+        ports.Occupy(38902, 4242);
+
+        var listeners = await vm.InspectPortForEditorAsync(38902, editingId: null);
+
+        var listener = Assert.Single(listeners);
+        Assert.Equal(4242, listener.Pid);
+    }
+
+    [Fact]
+    public async Task LivePortCheckFiltersEditedServicesOwnListener()
+    {
+        var storage = new FakeStorage();
+        var ports = new FakePortInspector();
+        var processes = new FakeProcessController();
+        var manager = Manager(storage, processes, ports);
+        var config = Config(port: 38902);
+        Assert.Null(manager.Add(config));
+        var vm = new ManagedServicesViewModel(manager, new FakeTunnelHost());
+        vm.Load();
+
+        ports.OccupyAfter(38902, calls: 1, pid: 7777);
+        Assert.True(await manager.StartAsync(config.Id));
+
+        var listeners = await vm.InspectPortForEditorAsync(38902, config.Id);
+
+        Assert.Empty(listeners);
+    }
+
+    [Fact]
+    public void LivePortCheckFindsAnotherSavedProfileReservation()
+    {
+        var manager = Manager(new FakeStorage(), new FakeProcessController(), new FakePortInspector());
+        var first = Config("proxy-a", 38902);
+        var second = Config("proxy-b", 38903);
+        Assert.Null(manager.Add(first));
+        Assert.Null(manager.Add(second));
+        var vm = new ManagedServicesViewModel(manager, new FakeTunnelHost());
+        vm.Load();
+
+        var reserved = vm.FindOtherProfileUsingPort(38902, second.Id);
+
+        Assert.NotNull(reserved);
+        Assert.Equal(first.Id, reserved!.Id);
+        Assert.Null(vm.FindOtherProfileUsingPort(38902, first.Id));
+    }
+
 }

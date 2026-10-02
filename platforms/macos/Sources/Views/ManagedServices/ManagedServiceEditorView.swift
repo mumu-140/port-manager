@@ -26,6 +26,14 @@ enum ManagedServiceEditorTarget: Identifiable {
     }
 }
 
+private enum ManagedServicePortCheckState: Equatable {
+    case idle
+    case checking
+    case available(port: Int)
+    case reserved(port: Int, serviceName: String)
+    case occupied(port: Int, processName: String, pid: Int, additionalListeners: Int)
+}
+
 /// Add/edit sheet for a local service profile.
 ///
 /// Top of the form is a type picker: Custom Service (the original form,
@@ -46,6 +54,7 @@ struct ManagedServiceEditorView: View {
 
     @State private var model = ManagedServiceEditorViewModel()
     @State private var dependencyStates: [String: DependencyProbeState] = [:]
+    @State private var portCheckState: ManagedServicePortCheckState = .idle
 
     var body: some View {
         @Bindable var model = model
@@ -114,6 +123,9 @@ struct ManagedServiceEditorView: View {
         .onChange(of: model.presetID) {
             refreshDependencyStates()
         }
+        .task(id: model.portText) {
+            await refreshPortAvailability()
+        }
     }
 
     // MARK: - Type picker
@@ -145,7 +157,7 @@ struct ManagedServiceEditorView: View {
         @Bindable var model = model
         TextField(L("service.field.name"), text: $model.name)
 
-        TextField(L("service.field.port"), text: $model.portText)
+        portField
 
         TextField(L("service.field.host"), text: $model.host)
 
@@ -218,7 +230,7 @@ struct ManagedServiceEditorView: View {
     @ViewBuilder private func presetFields(for preset: ManagedServicePreset) -> some View {
         @Bindable var model = model
         TextField(L("service.field.name"), text: $model.name)
-        TextField(L("service.field.port"), text: $model.portText)
+        portField
 
         ForEach(preset.fields.filter { !$0.isAdvanced }, id: \.id) { field in
             presetFieldEditor(field: field, preset: preset)
@@ -272,6 +284,94 @@ struct ManagedServiceEditorView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    // MARK: - Live port availability
+
+    @ViewBuilder private var portField: some View {
+        @Bindable var model = model
+        LabeledContent(L("service.field.port")) {
+            HStack(spacing: 8) {
+                TextField("", text: $model.portText)
+                    .multilineTextAlignment(.trailing)
+                if case .checking = portCheckState {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+        }
+
+        switch portCheckState {
+        case .idle:
+            EmptyView()
+        case .checking:
+            Text(L("service.portCheck.checking"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .available(let port):
+            Label(L("service.portCheck.available", port), systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(Theme.Colors.statusSuccess)
+        case .reserved(let port, let serviceName):
+            Label(
+                L("service.portCheck.reserved", port, serviceName),
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.orange)
+        case .occupied(let port, let processName, let pid, let additionalListeners):
+            let key = additionalListeners > 0
+                ? "service.portCheck.occupiedMultiple"
+                : "service.portCheck.occupied"
+            let text = additionalListeners > 0
+                ? L(key, port, processName, pid, additionalListeners)
+                : L(key, port, processName, pid)
+            Label(text, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+    }
+
+    private func refreshPortAvailability() async {
+        portCheckState = .idle
+
+        let text = model.portText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let port = Int(text), (1...65_535).contains(port) else { return }
+
+        do {
+            try await Task.sleep(for: .milliseconds(400))
+        } catch {
+            return
+        }
+        guard !Task.isCancelled else { return }
+
+        portCheckState = .checking
+
+        if let reserved = appState.managedServiceManager.configs.first(where: {
+            $0.port == port && $0.id != model.editingID
+        }) {
+            guard !Task.isCancelled else { return }
+            portCheckState = .reserved(port: port, serviceName: reserved.name)
+            return
+        }
+
+        let listeners = await appState.managedServiceManager.inspectPortForEditor(
+            port,
+            editingID: model.editingID
+        )
+        guard !Task.isCancelled else { return }
+
+        guard let first = listeners.first else {
+            portCheckState = .available(port: port)
+            return
+        }
+
+        portCheckState = .occupied(
+            port: port,
+            processName: first.processName,
+            pid: first.pid,
+            additionalListeners: max(0, listeners.count - 1)
+        )
     }
 
     // MARK: - Bindings

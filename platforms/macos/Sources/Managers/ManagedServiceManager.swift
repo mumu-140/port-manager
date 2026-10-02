@@ -82,6 +82,28 @@ final class ManagedServiceManager {
     /// Number of services this session currently owns and runs.
     var runningCount: Int { services.filter { $0.status == .running }.count }
 
+    /// Read-only port inspection used by the editor's live availability hint.
+    ///
+    /// This intentionally reuses the same scanner as lifecycle preflight. When
+    /// editing an owned service on its current port, the service's known
+    /// listener PIDs are filtered so the editor never reports its own runtime
+    /// as an external conflict.
+    func inspectPortForEditor(_ port: Int, editingID: UUID?) async -> [PortInfo] {
+        guard (1...65_535).contains(port) else { return [] }
+
+        var listeners = await scanner.scanPorts().filter { $0.port == port }
+        guard let editingID,
+              let state = service(id: editingID),
+              state.port == port,
+              state.isOwned else {
+            return listeners
+        }
+
+        let ownedListenerPIDs = Set(state.listenerPIDs)
+        listeners.removeAll { ownedListenerPIDs.contains($0.pid) }
+        return listeners
+    }
+
     /// Look up a service by identifier.
     func service(id: UUID) -> ManagedServiceState? {
         services.first { $0.id == id }

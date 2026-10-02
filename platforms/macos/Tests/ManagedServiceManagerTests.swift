@@ -320,6 +320,33 @@ struct ManagedServiceManagerTests {
         #expect(launches == 0)
     }
 
+    @Test func editorPortInspectionFindsExternalOccupant() async {
+        let sut = await makeSUT()
+        await sut.world.setPreflight([occupant(pid: 7777)])
+
+        let listeners = await sut.manager.inspectPortForEditor(38902, editingID: nil)
+
+        #expect(listeners.count == 1)
+        #expect(listeners.first?.pid == 7777)
+    }
+
+    @Test func editorPortInspectionFiltersOwnedListenerButKeepsExternalOccupant() async {
+        let sut = await makeSUT()
+        #expect(sut.manager.add(makeConfig()) == nil)
+        await sut.processes.configure(serviceID: serviceID, port: 38902)
+        await sut.manager.start(id: serviceID)
+        #expect(sut.manager.service(id: serviceID)?.listenerPIDs == [4242])
+
+        var listeners = await sut.manager.inspectPortForEditor(38902, editingID: serviceID)
+        #expect(listeners.isEmpty)
+
+        await sut.world.addListener(occupant(pid: 7777))
+        listeners = await sut.manager.inspectPortForEditor(38902, editingID: serviceID)
+
+        #expect(listeners.count == 1)
+        #expect(listeners.first?.pid == 7777)
+    }
+
     @Test func launchFailureMarksFailed() async {
         let sut = await makeSUT()
         #expect(sut.manager.add(makeConfig()) == nil)

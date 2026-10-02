@@ -82,6 +82,13 @@ enum ManagedServiceStrings {
         "service.edit.stopAndEdit": (en: "Stop & Edit", zh: "停止并编辑"),
         "service.editor.validationFailed": (en: "The service configuration is invalid.", zh: "服务配置无效。"),
 
+        // Live port availability (editor-only, read-only)
+        "service.portCheck.checking": (en: "Checking port…", zh: "正在检测端口…"),
+        "service.portCheck.available": (en: "Port %ld is available.", zh: "端口 %ld 可用。"),
+        "service.portCheck.reserved": (en: "Port %ld is already assigned to “%@”.", zh: "端口 %ld 已分配给“%@”。"),
+        "service.portCheck.occupied": (en: "Port %ld is in use by %@ (PID %ld).", zh: "端口 %ld 已被 %@（PID %ld）占用。"),
+        "service.portCheck.occupiedMultiple": (en: "Port %ld is in use by %@ (PID %ld) and %ld other listener(s).", zh: "端口 %ld 已被 %@（PID %ld）等 %ld 个其他监听进程占用。"),
+
         // MARK: Detail
         "service.detail.workingDirectory": (en: "Working Directory", zh: "工作目录"),
         "service.detail.command": (en: "Start Command", zh: "启动命令"),
