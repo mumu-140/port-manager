@@ -73,8 +73,9 @@ public sealed class PathDependencyProbeTests
             "C:\\Git");
         var (state, path) = probe.Probe(DependencyRequirement.Ssh);
         Assert.Equal(DependencyProbeState.Available, state);
-        // System32 first (research rule), never the Git-bundled one.
-        Assert.Equal("C:\\Windows\\System32\\ssh.exe", path);
+        // The requirement's own known path wins; do not pin the runner's
+        // Environment.SystemDirectory casing here.
+        Assert.Equal(DependencyRequirement.Ssh.KnownPaths[0], path);
     }
 
     // Caching + recheck
