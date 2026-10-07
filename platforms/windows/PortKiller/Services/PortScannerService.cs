@@ -18,6 +18,8 @@ namespace PortKiller.Services;
 [SupportedOSPlatform("windows")]
 public class PortScannerService
 {
+    private readonly ProcessCommandLineProvider _commandLines = new();
+
     // Win32 API imports for TCP table
     [DllImport("iphlpapi.dll", SetLastError = true)]
     private static extern uint GetExtendedTcpTable(
@@ -356,27 +358,9 @@ public class PortScannerService
     }
 
     /// <summary>
-    /// Gets the command line of a process using WMI
+    /// Gets the command line of a process from the shared WMI snapshot.
     /// </summary>
-    private string? GetProcessCommandLine(int pid)
-    {
-        try
-        {
-            using var searcher = new System.Management.ManagementObjectSearcher(
-                $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {pid}");
-            using var objects = searcher.Get();
-            
-            foreach (System.Management.ManagementObject obj in objects)
-            {
-                return obj["CommandLine"]?.ToString();
-            }
-        }
-        catch
-        {
-            // Ignore - we'll fallback to process name
-        }
-        return null;
-    }
+    private string? GetProcessCommandLine(int pid) => _commandLines.GetCommandLine(pid);
 
     /// <summary>
     /// Gets the owner (username) of a process

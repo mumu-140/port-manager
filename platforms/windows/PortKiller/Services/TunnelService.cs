@@ -10,6 +10,7 @@ namespace PortKiller.Services;
 /// </summary>
 public class TunnelService
 {
+    private readonly ProcessCommandLineProvider _commandLines = new();
     private readonly Dictionary<Guid, Process> _processes = new();
     private readonly Dictionary<Guid, Action<string>> _urlHandlers = new();
     private readonly Dictionary<Guid, Action<string>> _errorHandlers = new();
@@ -287,24 +288,7 @@ public class TunnelService
     }
 
     /// <summary>
-    /// Gets the command line of a process (for cleanup verification)
+    /// Gets the command line of a process from the shared WMI snapshot.
     /// </summary>
-    private string? GetProcessCommandLine(int processId)
-    {
-        try
-        {
-            using var searcher = new System.Management.ManagementObjectSearcher(
-                $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {processId}");
-            
-            foreach (System.Management.ManagementObject obj in searcher.Get())
-            {
-                return obj["CommandLine"]?.ToString();
-            }
-        }
-        catch
-        {
-            // Ignore
-        }
-        return null;
-    }
+    private string? GetProcessCommandLine(int processId) => _commandLines.GetCommandLine(processId);
 }
