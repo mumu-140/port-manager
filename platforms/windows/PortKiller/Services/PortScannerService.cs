@@ -20,6 +20,13 @@ public class PortScannerService
 {
     private readonly ProcessCommandLineProvider _commandLines = new();
 
+    /// <summary>
+    /// Reads a port number from two big-endian bytes without allocating.
+    /// Matches the previous BitConverter-based parsing exactly.
+    /// </summary>
+    internal static ushort ParseBigEndianPort(byte[] networkOrderBytes) =>
+        (ushort)((networkOrderBytes[0] << 8) | networkOrderBytes[1]);
+
     // Win32 API imports for TCP table
     [DllImport("iphlpapi.dll", SetLastError = true)]
     private static extern uint GetExtendedTcpTable(
@@ -55,7 +62,7 @@ public class PortScannerService
         public byte[] remotePort;
         public int owningPid;
 
-        public ushort LocalPort => BitConverter.ToUInt16(new byte[2] { localPort[1], localPort[0] }, 0);
+        public ushort LocalPort => ParseBigEndianPort(localPort);
         public string LocalAddress => new System.Net.IPAddress(localAddr).ToString();
     }
 
@@ -84,7 +91,7 @@ public class PortScannerService
         public uint state;
         public int owningPid;
 
-        public ushort LocalPort => BitConverter.ToUInt16(new byte[2] { localPort[1], localPort[0] }, 0);
+        public ushort LocalPort => ParseBigEndianPort(localPort);
         public string LocalAddress => new System.Net.IPAddress(localAddr).ToString();
     }
 
@@ -98,7 +105,6 @@ public class PortScannerService
 
     private const int AF_INET = 2;  // IPv4
     private const int AF_INET6 = 23; // IPv6
-    private const uint MIB_TCP_STATE_LISTEN = 2;
 
     /// <summary>
     /// Scans all listening TCP ports using Windows API.
@@ -113,18 +119,16 @@ public class PortScannerService
                 var ports = new List<PortInfo>();
                 var processCache = new Dictionary<int, (string name, string command, string user)>();
 
-                // Scan IPv4 ports
-                var tcpRows = GetAllTcpConnections();
-                var listeningRows = tcpRows.Where(row => row.state == MIB_TCP_STATE_LISTEN).ToList();
+                // The OS already filtered to listeners (TCP_TABLE_OWNER_PID_LISTENER):
+                // project IPv4 and IPv6 rows to one shape and scan them in a single pass.
+                var rows = new List<(int Pid, ushort Port, string Address)>();
+                rows.AddRange(GetAllTcpConnections().Select(row => (row.owningPid, row.LocalPort, row.LocalAddress)));
+                rows.AddRange(GetAllTcp6Connections().Select(row => (row.owningPid, row.LocalPort, row.LocalAddress)));
 
-                foreach (var row in listeningRows)
+                foreach (var (pid, port, address) in rows)
                 {
                     try
                     {
-                        var pid = row.owningPid;
-                        var port = row.LocalPort;
-                        var address = row.LocalAddress;
-
                         // Get process info (with caching)
                         if (!processCache.TryGetValue(pid, out var processInfo))
                         {
@@ -153,51 +157,8 @@ public class PortScannerService
                     }
                 }
 
-                // Scan IPv6 ports
-                var tcp6Rows = GetAllTcp6Connections();
-                var listening6Rows = tcp6Rows.Where(row => row.state == MIB_TCP_STATE_LISTEN).ToList();
-
-                foreach (var row in listening6Rows)
-                {
-                    try
-                    {
-                        var pid = row.owningPid;
-                        var port = row.LocalPort;
-                        var address = row.LocalAddress;
-
-                        // Get process info (with caching)
-                        if (!processCache.TryGetValue(pid, out var processInfo))
-                        {
-                            processInfo = GetProcessInfo(pid);
-                            processCache[pid] = processInfo;
-                        }
-
-                        var portInfo = PortInfo.Active(
-                            port: port,
-                            pid: pid,
-                            processName: processInfo.name,
-                            address: address,
-                            user: processInfo.user,
-                            command: processInfo.command);
-                        
-                        portInfo.IsKilling = false;
-                        portInfo.IsConfirmingKill = false;
-
-                        ports.Add(portInfo);
-                    }
-                    catch
-                    {
-                        // Skip ports we can't get info for
-                        continue;
-                    }
-                }
-
-                // Remove duplicates (same port + pid)
-                return ports
-                    .GroupBy(p => new { p.Port, p.Pid })
-                    .Select(g => g.First())
-                    .OrderBy(p => p.Port)
-                    .ToList();
+                // Remove duplicates (same port + pid), keeping the first occurrence.
+                return DedupeAndSortPorts(ports);
             }
             catch (Exception ex)
             {
@@ -208,7 +169,27 @@ public class PortScannerService
     }
 
     /// <summary>
-    /// Gets all TCP connections using Win32 API
+    /// Removes duplicate (port, pid) entries, keeping the first occurrence, then sorts by port.
+    /// </summary>
+    internal static List<PortInfo> DedupeAndSortPorts(List<PortInfo> ports)
+    {
+        var seen = new HashSet<(int Port, int Pid)>();
+        var unique = new List<PortInfo>(ports.Count);
+
+        foreach (var port in ports)
+        {
+            if (seen.Add((port.Port, port.Pid)))
+            {
+                unique.Add(port);
+            }
+        }
+
+        // Stable sort: entries sharing a port keep their scan order, as before.
+        return unique.OrderBy(p => p.Port).ToList();
+    }
+
+    /// <summary>
+    /// Gets listening TCP ports using Win32 API
     /// </summary>
     private List<MIB_TCPROW_OWNER_PID> GetAllTcpConnections()
     {
@@ -221,8 +202,11 @@ public class PortScannerService
             ref bufferSize,
             true,
             AF_INET,
-            TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL,
+            TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_LISTENER,
             0);
+
+        if (bufferSize == 0)
+            return tcpRows;
 
         IntPtr tcpTablePtr = Marshal.AllocHGlobal(bufferSize);
 
@@ -234,7 +218,7 @@ public class PortScannerService
                 ref bufferSize,
                 true,
                 AF_INET,
-                TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL,
+                TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_LISTENER,
                 0);
 
             if (result != 0)
@@ -259,7 +243,7 @@ public class PortScannerService
     }
 
     /// <summary>
-    /// Gets all IPv6 TCP connections using Win32 API
+    /// Gets listening IPv6 TCP ports using Win32 API
     /// </summary>
     private List<MIB_TCP6ROW_OWNER_PID> GetAllTcp6Connections()
     {
@@ -272,7 +256,7 @@ public class PortScannerService
             ref bufferSize,
             true,
             AF_INET6,
-            TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL,
+            TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_LISTENER,
             0);
 
         if (bufferSize == 0)
@@ -288,7 +272,7 @@ public class PortScannerService
                 ref bufferSize,
                 true,
                 AF_INET6,
-                TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL,
+                TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_LISTENER,
                 0);
 
             if (result != 0)
