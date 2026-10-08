@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using PortKiller.Models;
+using PortKiller.Services;
 using PortKiller.ViewModels;
 using PortKiller.Helpers;
 
