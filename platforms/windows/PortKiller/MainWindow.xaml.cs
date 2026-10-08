@@ -226,30 +226,8 @@ public partial class MainWindow : Window
                 _viewModel.SelectedSidebarItem = sidebarItem;
                 HeaderText.Text = sidebarItem.GetTitle();
                 ApplySidebarSearch();
-                
-                // Exactly one top-level panel is visible at a time.
-                if (sidebarItem == SidebarItem.CloudflareTunnels)
-                {
-                    PortsPanel.Visibility = Visibility.Collapsed;
-                    DetailPanel.Visibility = Visibility.Collapsed;
-                    ManagedServicesPanel.Visibility = Visibility.Collapsed;
-                    TunnelsPanel.Visibility = Visibility.Visible;
-                    UpdateTunnelsUI();
-                }
-                else if (sidebarItem == SidebarItem.ManagedServices)
-                {
-                    PortsPanel.Visibility = Visibility.Collapsed;
-                    DetailPanel.Visibility = Visibility.Collapsed;
-                    TunnelsPanel.Visibility = Visibility.Collapsed;
-                    ManagedServicesPanel.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    TunnelsPanel.Visibility = Visibility.Collapsed;
-                    ManagedServicesPanel.Visibility = Visibility.Collapsed;
-                    PortsPanel.Visibility = Visibility.Visible;
-                }
-                
+                ShowPanelForSidebarItem(sidebarItem);
+
                 // Highlight selected button (optional enhancement)
                 foreach (var child in ((button.Parent as Panel)?.Children ?? new UIElementCollection(null, null)))
                 {
@@ -260,6 +238,45 @@ public partial class MainWindow : Window
                 }
                 button.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(25, 52, 152, 219));
             }
+        }
+    }
+
+    /// <summary>
+    /// Shows exactly one top-level panel for the given sidebar item.
+    /// </summary>
+    private void ShowPanelForSidebarItem(SidebarItem sidebarItem)
+    {
+        if (sidebarItem == SidebarItem.CloudflareTunnels)
+        {
+            PortsPanel.Visibility = Visibility.Collapsed;
+            DetailPanel.Visibility = Visibility.Collapsed;
+            ManagedServicesPanel.Visibility = Visibility.Collapsed;
+            SettingsPanel.Visibility = Visibility.Collapsed;
+            TunnelsPanel.Visibility = Visibility.Visible;
+            UpdateTunnelsUI();
+        }
+        else if (sidebarItem == SidebarItem.ManagedServices)
+        {
+            PortsPanel.Visibility = Visibility.Collapsed;
+            DetailPanel.Visibility = Visibility.Collapsed;
+            TunnelsPanel.Visibility = Visibility.Collapsed;
+            SettingsPanel.Visibility = Visibility.Collapsed;
+            ManagedServicesPanel.Visibility = Visibility.Visible;
+        }
+        else if (sidebarItem == SidebarItem.Settings)
+        {
+            PortsPanel.Visibility = Visibility.Collapsed;
+            DetailPanel.Visibility = Visibility.Collapsed;
+            ManagedServicesPanel.Visibility = Visibility.Collapsed;
+            TunnelsPanel.Visibility = Visibility.Collapsed;
+            SettingsPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TunnelsPanel.Visibility = Visibility.Collapsed;
+            ManagedServicesPanel.Visibility = Visibility.Collapsed;
+            SettingsPanel.Visibility = Visibility.Collapsed;
+            PortsPanel.Visibility = Visibility.Visible;
         }
     }
 
@@ -542,7 +559,8 @@ public partial class MainWindow : Window
     private void TraySettings_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.SelectedSidebarItem = SidebarItem.Settings;
-        HeaderText.Text = "Settings";
+        HeaderText.Text = SidebarItem.Settings.GetTitle();
+        ShowPanelForSidebarItem(SidebarItem.Settings);
         Show();
         WindowState = WindowState.Normal;
         Activate();

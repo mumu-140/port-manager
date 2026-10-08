@@ -128,6 +128,46 @@ public class SettingsService
         SaveSettingsData(data);
     }
 
+    // Windows startup registration (HKCU Run key). Best-effort: never throws.
+    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+    public bool IsStartupRegistered()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
+            return key?.GetValue(AppName) != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public void SetStartupRegistered(bool enabled)
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
+            if (key == null) return;
+            if (enabled)
+            {
+                var exePath = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(exePath))
+                    key.SetValue(AppName, $"\"{exePath}\"");
+            }
+            else
+            {
+                key.DeleteValue(AppName, throwOnMissingValue: false);
+            }
+        }
+        catch
+        {
+            // Startup registration is best-effort; a missing key or denied
+            // access must not break the settings flow.
+        }
+    }
+
     // Show Notifications
     public bool GetShowNotifications()
     {

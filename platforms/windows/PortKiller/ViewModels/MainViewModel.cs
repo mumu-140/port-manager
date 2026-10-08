@@ -60,6 +60,9 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
     [ObservableProperty]
     private bool _showNotifications = true;
 
+    [ObservableProperty]
+    private bool _autoStart;
+
     public MainViewModel(
         PortScannerService scanner,
         ProcessKillerService killer,
@@ -88,6 +91,22 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
         UpdateFilteredPorts();
     }
 
+    partial void OnAutoStartChanged(bool value)
+    {
+        _settings.SaveAutoStart(value);
+        _settings.SetStartupRegistered(value);
+    }
+
+    partial void OnRefreshIntervalChanged(int value)
+    {
+        _settings.SaveRefreshInterval(value);
+    }
+
+    partial void OnShowNotificationsChanged(bool value)
+    {
+        _settings.SaveShowNotifications(value);
+    }
+
     // Initialization
     public async Task InitializeAsync()
     {
@@ -103,6 +122,9 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
         WatchedPorts = _settings.GetWatchedPorts();
         RefreshInterval = _settings.GetRefreshInterval();
         ShowNotifications = _settings.GetShowNotifications();
+        // The registry is the source of truth for the toggle; a stored value
+        // that drifted (e.g. removed externally) is corrected on change.
+        AutoStart = _settings.IsStartupRegistered();
     }
 
     private void SaveSettings()
