@@ -40,6 +40,10 @@ public class SettingsService
         public bool ShowNotifications { get; set; } = true;
         public string CloudflaredProtocol { get; set; } = "http2";
         public List<ManagedServiceConfig>? ManagedServices { get; set; }
+        public string Language { get; set; } = "System";
+        public string Theme { get; set; } = "System";
+        public bool HideSystemProcesses { get; set; }
+        public bool SkipKillConfirmation { get; set; }
     }
 
     private SettingsData LoadSettingsData()
@@ -114,6 +118,62 @@ public class SettingsService
         SaveSettingsData(data);
     }
 
+    // Language (stored as enum name: System / English / SimplifiedChinese)
+    public string GetLanguage()
+    {
+        var data = LoadSettingsData();
+        return string.IsNullOrEmpty(data.Language) ? "System" : data.Language;
+    }
+
+    public void SaveLanguage(string language)
+    {
+        var data = LoadSettingsData();
+        data.Language = language;
+        SaveSettingsData(data);
+    }
+
+    // Theme (stored as enum name: System / Light / Dark). Defaults to Light.
+    public string GetTheme()
+    {
+        var data = LoadSettingsData();
+        return string.IsNullOrEmpty(data.Theme) ? "Light" : data.Theme;
+    }
+
+    public void SaveTheme(string theme)
+    {
+        var data = LoadSettingsData();
+        data.Theme = theme;
+        SaveSettingsData(data);
+    }
+
+    // Hide System Processes
+    public bool GetHideSystemProcesses()
+    {
+        var data = LoadSettingsData();
+        return data.HideSystemProcesses;
+    }
+
+    public void SaveHideSystemProcesses(bool hide)
+    {
+        var data = LoadSettingsData();
+        data.HideSystemProcesses = hide;
+        SaveSettingsData(data);
+    }
+
+    // Skip Kill Confirmation
+    public bool GetSkipKillConfirmation()
+    {
+        var data = LoadSettingsData();
+        return data.SkipKillConfirmation;
+    }
+
+    public void SaveSkipKillConfirmation(bool skip)
+    {
+        var data = LoadSettingsData();
+        data.SkipKillConfirmation = skip;
+        SaveSettingsData(data);
+    }
+
     // Auto Start
     public bool GetAutoStart()
     {
@@ -126,6 +186,46 @@ public class SettingsService
         var data = LoadSettingsData();
         data.AutoStart = autoStart;
         SaveSettingsData(data);
+    }
+
+    // Windows startup registration (HKCU Run key). Best-effort: never throws.
+    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+    public bool IsStartupRegistered()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
+            return key?.GetValue(AppName) != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public void SetStartupRegistered(bool enabled)
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
+            if (key == null) return;
+            if (enabled)
+            {
+                var exePath = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(exePath))
+                    key.SetValue(AppName, $"\"{exePath}\"");
+            }
+            else
+            {
+                key.DeleteValue(AppName, throwOnMissingValue: false);
+            }
+        }
+        catch
+        {
+            // Startup registration is best-effort; a missing key or denied
+            // access must not break the settings flow.
+        }
     }
 
     // Show Notifications

@@ -4,7 +4,12 @@
              xmlns:local="using:PortKiller"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- Built-in converters -->
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="DesignTokens.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <!-- Built-in converters -->
+            <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

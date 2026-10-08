@@ -1,6 +1,7 @@
 <Window x:Class="PortKiller.CloudflareTunnelsView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:PortKiller.Helpers"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:helpers="clr-namespace:PortKiller.Helpers"
@@ -87,12 +88,12 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="☁" FontSize="24" Margin="0,0,12,0" Foreground="#F4AB3A"/>
-                    <TextBlock Text="Cloudflare Tunnels" FontSize="20" FontWeight="SemiBold" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc tunnels.title}" FontSize="20" FontWeight="SemiBold" Foreground="#E0E0E0" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <TextBlock Text="Protocol" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="{loc:Loc tunnels.protocol}" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <ComboBox Width="90"
                                   ItemsSource="{Binding ProtocolOptions}"
                                   SelectedValuePath="Value"
@@ -103,12 +104,12 @@
                                   BorderThickness="0"
                                   Padding="6,2"/>
                     </StackPanel>
-                    <Button Content="Stop All" 
+                    <Button Content="{loc:Loc tunnels.stopAll}" 
                             Click="StopAllButton_Click"
                             Style="{StaticResource DangerButton}"
                             Visibility="{Binding Tunnels.Count, Converter={StaticResource BoolToVisibilityConverter}}"
                             Margin="0,0,8,0"/>
-                    <Button Content="Refresh" 
+                    <Button Content="{loc:Loc tunnels.refresh}" 
                             Click="RefreshButton_Click"
                             Style="{StaticResource ModernButton}"/>
                 </StackPanel>
@@ -129,7 +130,7 @@
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="⚠" FontSize="20" Margin="0,0,12,0" Foreground="#f39c12"/>
-                        <TextBlock Text="cloudflared Not Installed" FontSize="16" FontWeight="Bold" Foreground="#f39c12" VerticalAlignment="Center"/>
+                        <TextBlock Text="{loc:Loc tunnels.notInstalled}" FontSize="16" FontWeight="Bold" Foreground="#f39c12" VerticalAlignment="Center"/>
                     </StackPanel>
                     <TextBlock TextWrapping="Wrap" Foreground="#E0E0E0" Margin="32,0,0,8">
                         To use Cloudflare Tunnels, you need to install cloudflared:
@@ -238,7 +239,7 @@
                                             </Grid>
 
                                             <!-- Copy Button -->
-                                            <Button ToolTip="Copy URL"
+                                            <Button ToolTip="{loc:Loc tunnels.tooltip.copy}"
                                                     Click="CopyButton_Click"
                                                     Tag="{Binding}"
                                                     Style="{StaticResource IconButton}"
@@ -248,7 +249,7 @@
                                             </Button>
 
                                             <!-- Open in Browser Button -->
-                                            <Button ToolTip="Open in Browser"
+                                            <Button ToolTip="{loc:Loc tunnels.tooltip.open}"
                                                     Click="OpenButton_Click"
                                                     Tag="{Binding}"
                                                     Style="{StaticResource IconButton}"
@@ -258,7 +259,7 @@
                                             </Button>
 
                                             <!-- Stop Button -->
-                                            <Button ToolTip="Stop Tunnel"
+                                            <Button ToolTip="{loc:Loc tunnels.tooltip.stop}"
                                                     Click="StopButton_Click"
                                                     Tag="{Binding}"
                                                     Style="{StaticResource IconButton}"
@@ -280,8 +281,8 @@
                         VerticalAlignment="Center"
                         Visibility="Collapsed">
                 <TextBlock Text="☁" FontSize="64" HorizontalAlignment="Center" Margin="0,0,0,16" Opacity="0.3" Foreground="#F4AB3A"/>
-                <TextBlock Text="No Active Tunnels" FontSize="20" Foreground="#A0A0A0" HorizontalAlignment="Center" FontWeight="SemiBold"/>
-                <TextBlock Text="Start a tunnel from the port list to create a public URL" 
+                <TextBlock Text="{loc:Loc tunnels.empty.title}" FontSize="20" Foreground="#A0A0A0" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+                <TextBlock Text="{loc:Loc tunnels.empty.subtitle}" 
                            FontSize="13" 
                            Foreground="#808080" 
                            HorizontalAlignment="Center" 
@@ -293,7 +294,7 @@
                            HorizontalAlignment="Center" 
                            TextAlignment="Center"
                            MaxWidth="400">
-                    💡 Tip: Cloudflare Tunnels make your localhost ports accessible from anywhere on the internet with automatic HTTPS
+                    {loc:Loc tunnels.empty.tip}
                 </TextBlock>
             </StackPanel>
         </Grid>
@@ -315,7 +316,7 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" 
                             Visibility="{Binding IsCloudflaredInstalled, Converter={StaticResource BoolToVisibilityConverter}}">
                     <TextBlock Text="✓" FontSize="14" Foreground="#2ecc71" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="cloudflared installed" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
+                    <TextBlock Text="{loc:Loc tunnels.installed}" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>

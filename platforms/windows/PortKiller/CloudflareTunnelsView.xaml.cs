@@ -47,10 +47,11 @@ public partial class CloudflareTunnelsView : Window
 
     private async void StopAllButton_Click(object sender, RoutedEventArgs e)
     {
+        var loc = Services.LocalizationService.Instance;
         var dialog = new ConfirmDialog(
-            $"Are you sure you want to stop all {_viewModel.Tunnels.Count} tunnel(s)?",
-            "All public URLs will be terminated immediately.\n\nThis action cannot be undone.",
-            "Stop All Tunnels")
+            loc.Format("tunnels.stopAll.confirmMessage", _viewModel.Tunnels.Count),
+            loc["tunnels.stopAll.confirmDetails"],
+            loc["tunnels.stopAll.confirmTitle"])
         {
             Owner = this
         };

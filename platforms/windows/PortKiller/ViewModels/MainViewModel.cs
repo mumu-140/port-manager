@@ -60,6 +60,21 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
     [ObservableProperty]
     private bool _showNotifications = true;
 
+    [ObservableProperty]
+    private bool _autoStart;
+
+    [ObservableProperty]
+    private Models.AppLanguage _language = Models.AppLanguage.System;
+
+    [ObservableProperty]
+    private Models.AppTheme _theme = Models.AppTheme.System;
+
+    [ObservableProperty]
+    private bool _hideSystemProcesses;
+
+    [ObservableProperty]
+    private bool _skipKillConfirmation;
+
     public MainViewModel(
         PortScannerService scanner,
         ProcessKillerService killer,
@@ -88,6 +103,45 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
         UpdateFilteredPorts();
     }
 
+    partial void OnAutoStartChanged(bool value)
+    {
+        _settings.SaveAutoStart(value);
+        _settings.SetStartupRegistered(value);
+    }
+
+    partial void OnRefreshIntervalChanged(int value)
+    {
+        _settings.SaveRefreshInterval(value);
+    }
+
+    partial void OnShowNotificationsChanged(bool value)
+    {
+        _settings.SaveShowNotifications(value);
+    }
+
+    partial void OnLanguageChanged(Models.AppLanguage value)
+    {
+        _settings.SaveLanguage(value.ToString());
+        Services.LocalizationService.Instance.SetLanguage(value);
+    }
+
+    partial void OnThemeChanged(Models.AppTheme value)
+    {
+        _settings.SaveTheme(value.ToString());
+        Services.ThemeService.ApplyTheme(value);
+    }
+
+    partial void OnHideSystemProcessesChanged(bool value)
+    {
+        _settings.SaveHideSystemProcesses(value);
+        UpdateFilteredPorts();
+    }
+
+    partial void OnSkipKillConfirmationChanged(bool value)
+    {
+        _settings.SaveSkipKillConfirmation(value);
+    }
+
     // Initialization
     public async Task InitializeAsync()
     {
@@ -103,6 +157,15 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
         WatchedPorts = _settings.GetWatchedPorts();
         RefreshInterval = _settings.GetRefreshInterval();
         ShowNotifications = _settings.GetShowNotifications();
+        // The registry is the source of truth for the toggle; a stored value
+        // that drifted (e.g. removed externally) is corrected on change.
+        AutoStart = _settings.IsStartupRegistered();
+        if (Enum.TryParse<Models.AppLanguage>(_settings.GetLanguage(), out var language))
+            Language = language;
+        if (Enum.TryParse<Models.AppTheme>(_settings.GetTheme(), out var theme))
+            Theme = theme;
+        HideSystemProcesses = _settings.GetHideSystemProcesses();
+        SkipKillConfirmation = _settings.GetSkipKillConfirmation();
     }
 
     private void SaveSettings()
@@ -335,6 +398,12 @@ public partial class MainViewModel : ObservableObject, IPortScanCoordinator
         if (Filter.IsActive)
         {
             result = result.Where(p => Filter.Matches(p, Favorites, WatchedPorts)).ToList();
+        }
+
+        // Hide system processes (e.g. System, Registry, services) when enabled.
+        if (HideSystemProcesses)
+        {
+            result = result.Where(p => p.ProcessType != ProcessType.System).ToList();
         }
 
         return result.OrderBy(p => p.Port).ToList();

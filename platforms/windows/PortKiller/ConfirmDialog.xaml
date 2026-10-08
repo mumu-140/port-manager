@@ -1,6 +1,7 @@
 <Window x:Class="PortKiller.ConfirmDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:PortKiller.Helpers"
         Title="Confirm"
         Width="360" Height="200"
         WindowStyle="None"
@@ -85,14 +86,14 @@
                 </Grid.ColumnDefinitions>
 
                 <Button Grid.Column="0" 
-                        Content="No" 
+                        Content="{loc:Loc common.no}" 
                         Click="NoButton_Click"
                         Style="{StaticResource DialogButton}"
                         Foreground="{StaticResource TextPrimary}"
                         Background="#30FFFFFF"/>
 
                 <Button Grid.Column="2" 
-                        Content="Yes" 
+                        Content="{loc:Loc common.yes}" 
                         Click="YesButton_Click"
                         Style="{StaticResource DialogButton}"
                         Foreground="White"
