@@ -24,7 +24,7 @@
     <CornerRadius x:Key="RadiusM">8</CornerRadius>
     <CornerRadius x:Key="RadiusL">12</CornerRadius>
 
-    <!-- Brushes live in Themes/Dark.xaml and Themes/Light.xaml and are
+    <!-- Brushes are built in code by ThemeService and swapped live;
          referenced with DynamicResource so the theme can switch at runtime. -->
 
     <!-- Typography: named roles mirroring macOS TextRole -->
@@ -280,65 +280,17 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Simple ComboBox: default WPF template (reliable dropdown) with theme colors.
+         No custom ControlTemplate: the default Popup is always topmost and opens correctly. -->
     <Style x:Key="DarkComboBox" TargetType="ComboBox">
         <Setter Property="Background" Value="{DynamicResource BrushField}"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderHover}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Padding" Value="8,6"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItem}"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ComboBox">
-                    <Grid>
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ContentPresenter Grid.Column="0"
-                                    Content="{TemplateBinding SelectionBoxItem}"
-                                    VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           VerticalAlignment="Center" Margin="8,0,0,0"/>
-                            </Grid>
-                        </Border>
-                        <!-- Transparent full-size toggle: clicking anywhere opens the dropdown -->
-                        <ToggleButton Background="Transparent" Focusable="False" ClickMode="Press"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border Background="Transparent"/>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
-                        <Popup IsOpen="{TemplateBinding IsDropDownOpen}"
-                               Placement="Bottom"
-                               StaysOpen="False"
-                               AllowsTransparency="True"
-                               Focusable="False">
-                            <Border Background="{DynamicResource BrushCard}"
-                                    BorderBrush="{DynamicResource BrushBorderHover}"
-                                    BorderThickness="1" CornerRadius="8" Padding="4"
-                                    MinWidth="{TemplateBinding ActualWidth}">
-                                <ScrollViewer>
-                                    <ItemsPresenter/>
-                                </ScrollViewer>
-                            </Border>
-                        </Popup>
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
     </Style>
 
 </ResourceDictionary>

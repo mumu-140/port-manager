@@ -132,11 +132,11 @@ public class SettingsService
         SaveSettingsData(data);
     }
 
-    // Theme (stored as enum name: System / Light / Dark)
+    // Theme (stored as enum name: System / Light / Dark). Defaults to Light.
     public string GetTheme()
     {
         var data = LoadSettingsData();
-        return string.IsNullOrEmpty(data.Theme) ? "System" : data.Theme;
+        return string.IsNullOrEmpty(data.Theme) ? "Light" : data.Theme;
     }
 
     public void SaveTheme(string theme)
