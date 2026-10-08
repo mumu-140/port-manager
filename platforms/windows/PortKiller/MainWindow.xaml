@@ -535,7 +535,7 @@
                             <!-- Status Bar - Solid Grey -->
                             <Border Grid.Row="2" BorderThickness="0,1,0,0" Padding="24,10" Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}">
                                 <Grid>
-                                    <TextBlock x:Name="StatusText" Text="Ready" Style="{StaticResource TextCaption}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="StatusText" Text="{loc:Loc status.ready}" Style="{StaticResource TextCaption}" VerticalAlignment="Center"/>
                                     <Border Style="{StaticResource Badge}" Background="{DynamicResource BrushSuccessTint}" HorizontalAlignment="Right">
                                         <StackPanel Orientation="Horizontal">
                                             <Ellipse Width="6" Height="6" Fill="{DynamicResource BrushSuccess}" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -713,7 +713,7 @@
                                     <Button Click="RefreshTunnels_Click" Style="{StaticResource ModernButton}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE72C;" Style="{StaticResource IconGlyph}" FontSize="13" Margin="0,0,6,0"/>
-                                            <TextBlock Text="Refresh" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{loc:Loc tunnels.refresh}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -880,7 +880,7 @@
                                        HorizontalAlignment="Center" 
                                        TextAlignment="Center"
                                        MaxWidth="400">
-                                Tip: Cloudflare Tunnels make your localhost ports accessible from anywhere on the internet with automatic HTTPS
+                                {loc:Loc tunnels.empty.tip}
                             </TextBlock>
                         </StackPanel>
 
@@ -893,7 +893,7 @@
                                 </StackPanel>
                                 <StackPanel x:Name="CloudflaredInstalledIndicator" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed">
                                     <TextBlock Text="✓" FontSize="14" Foreground="{DynamicResource BrushSuccess}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="cloudflared installed" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{loc:Loc tunnels.installed}" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
