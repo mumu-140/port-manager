@@ -281,10 +281,11 @@
     </Style>
 
     <!-- Simple ComboBox: default WPF template (reliable dropdown) with theme colors.
-         No custom ControlTemplate: the default Popup is always topmost and opens correctly. -->
+         No custom ControlTemplate: the default Popup is always topmost and opens correctly.
+         Foreground is intentionally NOT themed: the default template draws its own
+         white background, so text must stay dark for readability in both themes. -->
     <Style x:Key="DarkComboBox" TargetType="ComboBox">
         <Setter Property="Background" Value="{DynamicResource BrushField}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="8,6"/>

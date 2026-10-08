@@ -109,7 +109,7 @@
                             Style="{StaticResource DangerButton}"
                             Visibility="{Binding Tunnels.Count, Converter={StaticResource BoolToVisibilityConverter}}"
                             Margin="0,0,8,0"/>
-                    <Button Content="Refresh" 
+                    <Button Content="{loc:Loc tunnels.refresh}" 
                             Click="RefreshButton_Click"
                             Style="{StaticResource ModernButton}"/>
                 </StackPanel>
@@ -294,7 +294,7 @@
                            HorizontalAlignment="Center" 
                            TextAlignment="Center"
                            MaxWidth="400">
-                    💡 Tip: Cloudflare Tunnels make your localhost ports accessible from anywhere on the internet with automatic HTTPS
+                    {loc:Loc tunnels.empty.tip}
                 </TextBlock>
             </StackPanel>
         </Grid>

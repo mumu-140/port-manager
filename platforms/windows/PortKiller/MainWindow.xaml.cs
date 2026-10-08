@@ -151,9 +151,10 @@ public partial class MainWindow : Window
         EmptyState.Visibility = _viewModel.FilteredPorts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         // Update status
+        var loc = LocalizationService.Instance;
         StatusText.Text = _viewModel.IsScanning
-            ? "Scanning ports..."
-            : $"{_viewModel.FilteredPorts.Count} port(s) listening";
+            ? loc["ports.status.scanning"]
+            : loc.Format("ports.status.listening", _viewModel.FilteredPorts.Count);
     }
 
     // Window Controls
@@ -214,7 +215,7 @@ public partial class MainWindow : Window
         try
         {
             var isServices = _viewModel.SelectedSidebarItem == SidebarItem.ManagedServices;
-            SearchPlaceholder.Text = isServices ? "Search services..." : "Search ports, processes...";
+            SearchPlaceholder.Text = isServices ? LocalizationService.Instance["services.search.placeholder"] : LocalizationService.Instance["ports.search.placeholder"];
             SearchBox.Text = isServices
                 ? _managedServicesViewModel.SearchText
                 : _viewModel.Filter.SearchText;
@@ -397,10 +398,24 @@ public partial class MainWindow : Window
     // Window loaded event - enable blur for sidebar only
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        ApplyWindowBlur();
+        // Re-apply blur tint when theme changes.
+        _viewModel.PropertyChanged += (s, args) =>
+        {
+            if (args.PropertyName == nameof(_viewModel.Theme))
+                ApplyWindowBlur();
+        };
+    }
+
+    private void ApplyWindowBlur()
+    {
         try
         {
-            // Enable acrylic blur effect for the entire window (sidebar will show blur through transparency)
-            WindowBlurHelper.EnableAcrylicBlur(this, blurOpacity: 180, blurColor: 0x1A1A1A);
+            // Enable acrylic blur effect for the entire window (sidebar will show blur through transparency).
+            // Tint follows the theme: dark tint for dark theme, light tint for light theme.
+            var theme = ThemeService.ResolveTheme(_viewModel.Theme);
+            uint blurColor = theme == Models.AppTheme.Dark ? 0x1A1A1Au : 0xF3F3F3u;
+            WindowBlurHelper.EnableAcrylicBlur(this, blurOpacity: 180, blurColor: blurColor);
         }
         catch (Exception ex)
         {

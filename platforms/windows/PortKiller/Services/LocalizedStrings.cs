@@ -219,6 +219,10 @@ internal static class LocalizedStrings
         ["tunnels.tooltip.open"] = "Open in Browser",
         ["tunnels.tooltip.stop"] = "Stop Tunnel",
         ["tunnels.viewDocs"] = "View installation docs...",
+        ["ports.status.listening"] = "{0} port(s) listening",
+        ["status.ready"] = "Ready",
+        ["tunnels.empty.tip"] = "Tip: Cloudflare Tunnels make your localhost ports accessible from anywhere on the internet with automatic HTTPS",
+        ["tunnels.refresh"] = "Refresh",
     };
 
     internal static readonly System.Collections.Generic.Dictionary<string, string> ZhCn = new()
@@ -291,11 +295,10 @@ internal static class LocalizedStrings
         ["ports.killAll.confirmTitle"] = "终止所有进程",
         ["ports.noActivePorts"] = "没有活动端口",
         ["ports.removeFavorite"] = "取消收藏",
-        ["ports.removeFavorite"] = "取消收藏",
         ["ports.search.placeholder"] = "搜索端口、进程...",
         ["ports.status.ready"] = "就绪",
+        ["ports.status.listening"] = "{0} 个端口在监听",
         ["ports.status.scanning"] = "扫描中...",
-        ["ports.unwatch"] = "取消关注",
         ["ports.unwatch"] = "取消关注",
         ["ports.watch"] = "关注端口",
         ["preset.advanced"] = "高级选项",
@@ -432,5 +435,8 @@ internal static class LocalizedStrings
         ["tunnels.tooltip.open"] = "在浏览器中打开",
         ["tunnels.tooltip.stop"] = "停止隧道",
         ["tunnels.viewDocs"] = "查看安装文档...",
+        ["status.ready"] = "就绪",
+        ["tunnels.empty.tip"] = "提示：Cloudflare 隧道可让你的本地端口通过公网访问，并自动启用 HTTPS",
+        ["tunnels.refresh"] = "刷新",
     };
 }
