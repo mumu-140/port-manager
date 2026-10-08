@@ -75,4 +75,94 @@ public class ProcessCommandLineProviderTests
         Assert.NotEmpty(second);
         Assert.NotSame(first, second);
     }
+
+    [Fact]
+    public void SnapshotGivesUpWhenTheWmiReadNeverAnswers()
+    {
+        using var release = new ManualResetEventSlim(false);
+        var provider = new ProcessCommandLineProvider(
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMilliseconds(150),
+            () =>
+            {
+                release.Wait(TimeSpan.FromSeconds(30));
+                return new Dictionary<int, string?> { [Environment.ProcessId] = "wedged" };
+            },
+            _ => null);
+
+        var startedAt = Environment.TickCount64;
+        var snapshot = provider.Snapshot();
+        var elapsed = Environment.TickCount64 - startedAt;
+
+        Assert.Empty(snapshot);
+        Assert.True(elapsed < 5_000, $"the caller must not wait for a wedged read (waited {elapsed} ms)");
+        release.Set();
+    }
+
+    [Fact]
+    public void AWedgedReadIsNotRetriedForEveryRequest()
+    {
+        var reads = 0;
+        using var release = new ManualResetEventSlim(false);
+        var provider = new ProcessCommandLineProvider(
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMilliseconds(150),
+            () =>
+            {
+                Interlocked.Increment(ref reads);
+                release.Wait(TimeSpan.FromSeconds(30));
+                return new Dictionary<int, string?>();
+            },
+            _ =>
+            {
+                Interlocked.Increment(ref reads);
+                return null;
+            });
+
+        Assert.Empty(provider.Snapshot());
+        Assert.Empty(provider.Snapshot());
+        Assert.Null(provider.GetCommandLine(Environment.ProcessId));
+
+        Assert.Equal(1, Volatile.Read(ref reads));
+        release.Set();
+    }
+
+    [Fact]
+    public void CommandLinesResumeAfterAWedgedReadFinishes()
+    {
+        var reads = 0;
+        using var release = new ManualResetEventSlim(false);
+        var provider = new ProcessCommandLineProvider(
+            TimeSpan.Zero,
+            TimeSpan.FromMilliseconds(150),
+            () =>
+            {
+                if (Interlocked.Increment(ref reads) == 1)
+                {
+                    release.Wait(TimeSpan.FromSeconds(30));
+                }
+
+                return new Dictionary<int, string?> { [Environment.ProcessId] = "cmd.exe" };
+            },
+            _ => null);
+
+        Assert.Empty(provider.Snapshot());
+
+        release.Set();
+        var deadline = Environment.TickCount64 + 5_000;
+        IReadOnlyDictionary<int, string?> snapshot = new Dictionary<int, string?>();
+        while (Environment.TickCount64 < deadline)
+        {
+            snapshot = provider.Snapshot();
+            if (snapshot.Count > 0)
+            {
+                break;
+            }
+
+            Thread.Sleep(25);
+        }
+
+        Assert.NotEmpty(snapshot);
+        Assert.True(provider.LastSnapshotCount > 0);
+    }
 }
