@@ -1,7 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Globalization;
-using System.Resources;
 using PortKiller.Models;
 
 namespace PortKiller.Services;
@@ -10,16 +8,16 @@ namespace PortKiller.Services;
 /// Runtime localization. XAML binds through the Loc markup extension
 /// (<c>{loc:Loc settings.title}</c>); C# uses <c>Instance["key"]</c>.
 /// Changing the language raises <see cref="INotifyPropertyChanged"/> for the
-/// indexer so every bound string refreshes live.
+/// indexer so every bound string refreshes live. Strings live in compiled
+/// dictionaries (<see cref="LocalizedStrings"/>) so lookup can never fail
+/// due to satellite-assembly/publish issues.
 /// </summary>
 public sealed class LocalizationService : INotifyPropertyChanged
 {
     public static LocalizationService Instance { get; } = new();
 
-    private readonly ResourceManager _resources =
-        new("PortKiller.Resources.Strings", typeof(LocalizationService).Assembly);
-
-    private CultureInfo _culture = ResolveCulture(AppLanguage.System);
+    private System.Collections.Generic.Dictionary<string, string> _strings =
+        LocalizedStrings.En;
 
     private LocalizationService() { }
 
@@ -30,14 +28,12 @@ public sealed class LocalizationService : INotifyPropertyChanged
     {
         get
         {
-            try
-            {
-                return _resources.GetString(key, _culture) ?? $"!{key}!";
-            }
-            catch
-            {
-                return $"!{key}!";
-            }
+            if (_strings.TryGetValue(key, out var value))
+                return value;
+            // Fall back to English before giving up.
+            if (LocalizedStrings.En.TryGetValue(key, out var en))
+                return en;
+            return $"!{key}!";
         }
     }
 
@@ -45,7 +41,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
     {
         try
         {
-            return string.Format(_culture, this[key], args);
+            return string.Format(this[key], args);
         }
         catch
         {
@@ -55,20 +51,26 @@ public sealed class LocalizationService : INotifyPropertyChanged
 
     public void SetLanguage(AppLanguage language)
     {
-        _culture = ResolveCulture(language);
+        _strings = language switch
+        {
+            AppLanguage.SimplifiedChinese => LocalizedStrings.ZhCn,
+            AppLanguage.English => LocalizedStrings.En,
+            _ => IsChineseCulture() ? LocalizedStrings.ZhCn : LocalizedStrings.En,
+        };
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
     }
 
-    public static CultureInfo ResolveCulture(AppLanguage language)
+    private static bool IsChineseCulture()
     {
-        return language switch
+        try
         {
-            AppLanguage.SimplifiedChinese => new CultureInfo("zh-CN"),
-            AppLanguage.English => new CultureInfo("en"),
-            _ => CultureInfo.CurrentUICulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
-                ? new CultureInfo("zh-CN")
-                : new CultureInfo("en"),
-        };
+            return System.Globalization.CultureInfo.CurrentUICulture.Name
+                .StartsWith("zh", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public static string GetDisplayName(AppLanguage language, LocalizationService? loc = null)

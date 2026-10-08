@@ -16,6 +16,20 @@ public static class ThemeService
 
     public static void ApplyTheme(AppTheme theme)
     {
+        try
+        {
+            ApplyThemeCore(theme);
+        }
+        catch (Exception ex)
+        {
+            // A theme load failure must never crash startup; the app
+            // remains usable with whatever resources are already loaded.
+            System.Diagnostics.Debug.WriteLine($"ThemeService: failed to apply {theme}: {ex.Message}");
+        }
+    }
+
+    private static void ApplyThemeCore(AppTheme theme)
+    {
         var resolved = ResolveTheme(theme);
         var source = new Uri($"pack://application,,,/Themes/{resolved}.xaml", UriKind.Absolute);
 
