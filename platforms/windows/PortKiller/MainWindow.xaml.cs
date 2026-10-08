@@ -30,6 +30,7 @@ public partial class MainWindow : Window
         _managedServicesViewModel = App.Services.GetRequiredService<ManagedServicesViewModel>();
         ManagedServicesViewControl.DataContext = _managedServicesViewModel;
         _managedServicesViewModel.Load();
+        SettingsViewControl.DataContext = _viewModel;
         InitializeAsync();
         
         // Setup keyboard shortcuts
@@ -44,6 +45,12 @@ public partial class MainWindow : Window
             Show();
             Activate();
             WindowState = WindowState.Normal;
+        };
+
+        // Refresh the header text when the language changes.
+        Services.LocalizationService.Instance.PropertyChanged += (_, _) =>
+        {
+            HeaderText.Text = _viewModel.SelectedSidebarItem.GetTitle();
         };
     }
 
@@ -65,27 +72,28 @@ public partial class MainWindow : Window
             Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(224, 224, 224))
         };
 
-        var openItem = new MenuItem { Header = "🪟  Open Main Window", FontWeight = FontWeights.SemiBold };
+        var loc = Services.LocalizationService.Instance;
+        var openItem = new MenuItem { Header = "🪟  " + loc["tray.open"], FontWeight = FontWeights.SemiBold };
         openItem.Click += TrayOpenMain_Click;
         contextMenu.Items.Add(openItem);
-        
+
         contextMenu.Items.Add(new Separator());
 
-        var refreshItem = new MenuItem { Header = "○  Refresh", InputGestureText = "Ctrl+R" };
+        var refreshItem = new MenuItem { Header = "○  " + loc["tray.refresh"], InputGestureText = "Ctrl+R" };
         refreshItem.Click += TrayRefresh_Click;
         contextMenu.Items.Add(refreshItem);
 
-        var killAllItem = new MenuItem { Header = "✕  Kill All", InputGestureText = "Ctrl+K" };
+        var killAllItem = new MenuItem { Header = "✕  " + loc["tray.killAll"], InputGestureText = "Ctrl+K" };
         killAllItem.Click += TrayKillAll_Click;
         contextMenu.Items.Add(killAllItem);
 
         contextMenu.Items.Add(new Separator());
 
-        var settingsItem = new MenuItem { Header = "⚙  Settings" };
+        var settingsItem = new MenuItem { Header = "⚙  " + loc["tray.settings"] };
         settingsItem.Click += TraySettings_Click;
         contextMenu.Items.Add(settingsItem);
 
-        var quitItem = new MenuItem { Header = "×  Quit", InputGestureText = "Ctrl+Q" };
+        var quitItem = new MenuItem { Header = "×  " + loc["tray.quit"], InputGestureText = "Ctrl+Q" };
         quitItem.Click += TrayQuit_Click;
         contextMenu.Items.Add(quitItem);
 
@@ -301,34 +309,39 @@ public partial class MainWindow : Window
         DetailCommand.Text = port.Command;
 
         // Update favorite button
+        var loc = Services.LocalizationService.Instance;
         FavoriteButton.Content = _viewModel.IsFavorite(port.Port)
-            ? "⭐ Remove from Favorites"
-            : "⭐ Add to Favorites";
+            ? "⭐ " + loc["ports.removeFavorite"]
+            : "⭐ " + loc["ports.addFavorite"];
 
         // Update watch button
         WatchButton.Content = _viewModel.IsWatched(port.Port)
-            ? "👁 Unwatch Port"
-            : "👁 Watch Port";
+            ? "👁 " + loc["ports.unwatch"]
+            : "👁 " + loc["ports.watch"];
     }
 
     private async void KillButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is PortInfo port)
         {
-            var dialog = new ConfirmDialog(
-                $"Are you sure you want to kill the process on port {port.Port}?",
-                $"Process: {port.ProcessName}\nPID: {port.Pid}\n\nThis action cannot be undone.",
-                "Kill Process")
+            if (!_viewModel.SkipKillConfirmation)
             {
-                Owner = this
-            };
-            
-            dialog.ShowDialog();
+                var loc = Services.LocalizationService.Instance;
+                var dialog = new ConfirmDialog(
+                    loc.Format("ports.kill.confirmMessage", port.Port),
+                    loc.Format("ports.kill.confirmDetails", port.ProcessName, port.Pid),
+                    loc["ports.kill.confirmTitle"])
+                {
+                    Owner = this
+                };
 
-            if (dialog.Result)
-            {
-                await _viewModel.KillProcessCommand.ExecuteAsync(port);
+                dialog.ShowDialog();
+
+                if (!dialog.Result)
+                    return;
             }
+
+            await _viewModel.KillProcessCommand.ExecuteAsync(port);
         }
     }
 
@@ -424,28 +437,32 @@ public partial class MainWindow : Window
 
     private async void TrayKillAll_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new ConfirmDialog(
-            "Are you sure you want to kill ALL processes on listening ports?",
-            $"This will terminate {_viewModel.Ports.Count} process(es).\n\nThis action cannot be undone.",
-            "Kill All Processes")
+        if (!_viewModel.SkipKillConfirmation)
         {
-            Owner = this
-        };
-        
-        dialog.ShowDialog();
-
-        if (dialog.Result)
-        {
-            foreach (var port in _viewModel.Ports.ToList())
+            var loc = Services.LocalizationService.Instance;
+            var dialog = new ConfirmDialog(
+                loc["ports.killAll.confirmMessage"],
+                loc.Format("ports.killAll.confirmDetails", _viewModel.Ports.Count),
+                loc["ports.killAll.confirmTitle"])
             {
-                try
-                {
-                    await _viewModel.KillProcessCommand.ExecuteAsync(port);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to kill process on port {port.Port}: {ex.Message}");
-                }
+                Owner = this
+            };
+
+            dialog.ShowDialog();
+
+            if (!dialog.Result)
+                return;
+        }
+
+        foreach (var port in _viewModel.Ports.ToList())
+        {
+            try
+            {
+                await _viewModel.KillProcessCommand.ExecuteAsync(port);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to kill process on port {port.Port}: {ex.Message}");
             }
         }
     }
@@ -461,7 +478,7 @@ public partial class MainWindow : Window
         
         // Update status bar
         var count = _tunnelViewModel.ActiveTunnelCount;
-        TunnelStatusText.Text = $"{count} active tunnel(s)";
+        TunnelStatusText.Text = Services.LocalizationService.Instance.Format("tunnels.activeCount", count);
         TunnelStatusDot.Fill = count > 0 
             ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 204, 113))
             : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(128, 128, 128));
@@ -485,7 +502,7 @@ public partial class MainWindow : Window
             TunnelsEmptyState.Visibility = _tunnelViewModel.Tunnels.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             
             var count = _tunnelViewModel.ActiveTunnelCount;
-            TunnelStatusText.Text = $"{count} active tunnel(s)";
+            TunnelStatusText.Text = Services.LocalizationService.Instance.Format("tunnels.activeCount", count);
             TunnelStatusDot.Fill = count > 0 
                 ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 204, 113))
                 : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(128, 128, 128));
@@ -502,10 +519,11 @@ public partial class MainWindow : Window
 
     private async void StopAllTunnels_Click(object sender, RoutedEventArgs e)
     {
+        var loc = Services.LocalizationService.Instance;
         var dialog = new ConfirmDialog(
-            $"Are you sure you want to stop all {_tunnelViewModel.Tunnels.Count} tunnel(s)?",
-            "All public URLs will be terminated immediately.\n\nThis action cannot be undone.",
-            "Stop All Tunnels")
+            loc.Format("tunnels.stopAll.confirmMessage", _tunnelViewModel.Tunnels.Count),
+            loc["tunnels.stopAll.confirmDetails"],
+            loc["tunnels.stopAll.confirmTitle"])
         {
             Owner = this
         };

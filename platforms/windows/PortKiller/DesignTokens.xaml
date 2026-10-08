@@ -312,6 +312,15 @@
                                            VerticalAlignment="Center" Margin="8,0,0,0"/>
                             </Grid>
                         </Border>
+                        <!-- Transparent full-size toggle: clicking anywhere opens the dropdown -->
+                        <ToggleButton Background="Transparent" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent"/>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
                         <Popup IsOpen="{TemplateBinding IsDropDownOpen}"
                                Placement="Bottom"
                                StaysOpen="False"
