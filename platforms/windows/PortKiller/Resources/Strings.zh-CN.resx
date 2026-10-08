@@ -1,0 +1,690 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" use="required" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="common.add" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="common.cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="common.clear" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="common.close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="common.copy" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="common.delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="common.edit" xml:space="preserve">
+    <value>编辑</value>
+  </data>
+  <data name="common.no" xml:space="preserve">
+    <value>否</value>
+  </data>
+  <data name="common.ok" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="common.open" xml:space="preserve">
+    <value>打开</value>
+  </data>
+  <data name="common.refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="common.restart" xml:space="preserve">
+    <value>重启</value>
+  </data>
+  <data name="common.retry" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="common.save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="common.sec" xml:space="preserve">
+    <value>秒</value>
+  </data>
+  <data name="common.share" xml:space="preserve">
+    <value>分享</value>
+  </data>
+  <data name="common.start" xml:space="preserve">
+    <value>启动</value>
+  </data>
+  <data name="common.stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="common.yes" xml:space="preserve">
+    <value>是</value>
+  </data>
+  <data name="dependency.available" xml:space="preserve">
+    <value>已安装于 {0}。</value>
+  </data>
+  <data name="dependency.availableTitle" xml:space="preserve">
+    <value>依赖就绪</value>
+  </data>
+  <data name="dependency.dufs.notInstalled" xml:space="preserve">
+    <value>通过 scoop 安装 Dufs（scoop install dufs）或从 GitHub 下载。</value>
+  </data>
+  <data name="dependency.jupyter.notInstalled" xml:space="preserve">
+    <value>用 pip 安装 Jupyter（pip install jupyterlab）。</value>
+  </data>
+  <data name="dependency.notInstalled" xml:space="preserve">
+    <value>未安装</value>
+  </data>
+  <data name="dependency.notInstalledTitle" xml:space="preserve">
+    <value>{0} 未安装</value>
+  </data>
+  <data name="dependency.python.notInstalled" xml:space="preserve">
+    <value>从 python.org 安装 Python 或使用 winget。</value>
+  </data>
+  <data name="dependency.python.stub" xml:space="preserve">
+    <value>Microsoft Store 的 python 别名存在但未真正安装；请禁用该别名或直接安装 Python。</value>
+  </data>
+  <data name="dependency.ssh.notInstalled" xml:space="preserve">
+    <value>OpenSSH 客户端是 Windows 的一部分；请在可选功能中启用。</value>
+  </data>
+  <data name="dependency.viewInstallDocs" xml:space="preserve">
+    <value>查看安装文档...</value>
+  </data>
+  <data name="detail.address" xml:space="preserve">
+    <value>地址</value>
+  </data>
+  <data name="detail.command" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="detail.pid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="detail.process" xml:space="preserve">
+    <value>进程</value>
+  </data>
+  <data name="detail.user" xml:space="preserve">
+    <value>用户</value>
+  </data>
+  <data name="dialog.confirmAction" xml:space="preserve">
+    <value>确认操作</value>
+  </data>
+  <data name="dialog.killOnPort" xml:space="preserve">
+    <value>终止占用端口 {0} 的进程？</value>
+  </data>
+  <data name="editor.advanced" xml:space="preserve">
+    <value>高级选项</value>
+  </data>
+  <data name="editor.host" xml:space="preserve">
+    <value>主机</value>
+  </data>
+  <data name="editor.name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="editor.port" xml:space="preserve">
+    <value>端口</value>
+  </data>
+  <data name="editor.title.add" xml:space="preserve">
+    <value>添加服务</value>
+  </data>
+  <data name="editor.title.edit" xml:space="preserve">
+    <value>编辑服务</value>
+  </data>
+  <data name="editor.type" xml:space="preserve">
+    <value>类型</value>
+  </data>
+  <data name="exposure.confirm.start" xml:space="preserve">
+    <value>分享</value>
+  </data>
+  <data name="exposure.confirm.title" xml:space="preserve">
+    <value>公开分享此服务？</value>
+  </data>
+  <data name="exposure.warning.dufsPublic" xml:space="preserve">
+    <value>此共享无身份验证。公开分享后任何人都可以读取共享目录。</value>
+  </data>
+  <data name="exposure.warning.dufsWritablePublic" xml:space="preserve">
+    <value>此共享可写且无身份验证。公开分享后任何人都可以上传、修改或删除共享目录中的文件。</value>
+  </data>
+  <data name="exposure.warning.jupyterPublic" xml:space="preserve">
+    <value>公开分享 Jupyter 会让任何人通过笔记本界面在此电脑上运行代码。</value>
+  </data>
+  <data name="ports.addFavorite" xml:space="preserve">
+    <value>加入收藏</value>
+  </data>
+  <data name="ports.autoRefresh" xml:space="preserve">
+    <value>自动刷新</value>
+  </data>
+  <data name="ports.column.address" xml:space="preserve">
+    <value>地址</value>
+  </data>
+  <data name="ports.column.command" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="ports.column.pid" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="ports.column.port" xml:space="preserve">
+    <value>端口</value>
+  </data>
+  <data name="ports.column.process" xml:space="preserve">
+    <value>进程</value>
+  </data>
+  <data name="ports.column.user" xml:space="preserve">
+    <value>用户</value>
+  </data>
+  <data name="ports.details.title" xml:space="preserve">
+    <value>端口详情</value>
+  </data>
+  <data name="ports.empty.subtitle" xml:space="preserve">
+    <value>启动一些服务后会在这里显示</value>
+  </data>
+  <data name="ports.empty.title" xml:space="preserve">
+    <value>没有找到端口</value>
+  </data>
+  <data name="ports.kill" xml:space="preserve">
+    <value>终止</value>
+  </data>
+  <data name="ports.kill.confirmDetails" xml:space="preserve">
+    <value>进程：{0}
+PID：{1}
+
+此操作无法撤销。</value>
+  </data>
+  <data name="ports.kill.confirmMessage" xml:space="preserve">
+    <value>确定要终止占用端口 {0} 的进程吗？</value>
+  </data>
+  <data name="ports.kill.confirmTitle" xml:space="preserve">
+    <value>终止进程</value>
+  </data>
+  <data name="ports.killAll.confirmDetails" xml:space="preserve">
+    <value>这将终止 {0} 个进程。
+
+此操作无法撤销。</value>
+  </data>
+  <data name="ports.killAll.confirmMessage" xml:space="preserve">
+    <value>确定要终止所有监听端口上的进程吗？</value>
+  </data>
+  <data name="ports.killAll.confirmTitle" xml:space="preserve">
+    <value>终止所有进程</value>
+  </data>
+  <data name="ports.noActivePorts" xml:space="preserve">
+    <value>没有活动端口</value>
+  </data>
+  <data name="ports.removeFavorite" xml:space="preserve">
+    <value>取消收藏</value>
+  </data>
+  <data name="ports.search.placeholder" xml:space="preserve">
+    <value>搜索端口、进程...</value>
+  </data>
+  <data name="ports.status.ready" xml:space="preserve">
+    <value>就绪</value>
+  </data>
+  <data name="ports.status.scanning" xml:space="preserve">
+    <value>扫描中...</value>
+  </data>
+  <data name="ports.unwatch" xml:space="preserve">
+    <value>取消关注</value>
+  </data>
+  <data name="ports.watch" xml:space="preserve">
+    <value>关注端口</value>
+  </data>
+  <data name="preset.advanced" xml:space="preserve">
+    <value>高级选项</value>
+  </data>
+  <data name="preset.custom.title" xml:space="preserve">
+    <value>自定义服务</value>
+  </data>
+  <data name="preset.dufs-file-share.field.directory" xml:space="preserve">
+    <value>目录</value>
+  </data>
+  <data name="preset.dufs-file-share.field.mode" xml:space="preserve">
+    <value>访问模式</value>
+  </data>
+  <data name="preset.dufs-file-share.field.mode.help" xml:space="preserve">
+    <value>控制上传和删除权限。</value>
+  </data>
+  <data name="preset.dufs-file-share.mode.readOnly" xml:space="preserve">
+    <value>只读</value>
+  </data>
+  <data name="preset.dufs-file-share.mode.readWrite" xml:space="preserve">
+    <value>读写</value>
+  </data>
+  <data name="preset.dufs-file-share.mode.upload" xml:space="preserve">
+    <value>允许上传</value>
+  </data>
+  <data name="preset.dufs-file-share.summary" xml:space="preserve">
+    <value>通过 Dufs 共享目录，可控制上传。</value>
+  </data>
+  <data name="preset.dufs-file-share.title" xml:space="preserve">
+    <value>Dufs 文件共享</value>
+  </data>
+  <data name="preset.dufs-file-share.warning.noAuth" xml:space="preserve">
+    <value>此共享没有身份验证：使用此电脑的任何人都可以访问。</value>
+  </data>
+  <data name="preset.dufs-file-share.warning.writable" xml:space="preserve">
+    <value>可写共享允许他人修改共享目录。</value>
+  </data>
+  <data name="preset.error.empty" xml:space="preserve">
+    <value>{0} 为必填项。</value>
+  </data>
+  <data name="preset.error.invalidCharacters" xml:space="preserve">
+    <value>{0} 包含不允许的字符。</value>
+  </data>
+  <data name="preset.error.notAnInteger" xml:space="preserve">
+    <value>{0} 必须是数字。</value>
+  </data>
+  <data name="preset.error.outOfRange" xml:space="preserve">
+    <value>{0} 超出有效范围（TCP 端口为 1-65535）。</value>
+  </data>
+  <data name="preset.error.rootDirectory" xml:space="preserve">
+    <value>根目录不能被共享。</value>
+  </data>
+  <data name="preset.file-share.warning.homeRoot" xml:space="preserve">
+    <value>共享主目录会暴露其中的所有内容。建议选择更具体的子目录。</value>
+  </data>
+  <data name="preset.jupyter-lab.field.directory" xml:space="preserve">
+    <value>笔记本目录</value>
+  </data>
+  <data name="preset.jupyter-lab.field.directory.help" xml:space="preserve">
+    <value>笔记本的根目录。</value>
+  </data>
+  <data name="preset.jupyter-lab.summary" xml:space="preserve">
+    <value>在本地回环端口上运行 Jupyter Lab 笔记本服务器。</value>
+  </data>
+  <data name="preset.jupyter-lab.title" xml:space="preserve">
+    <value>Jupyter Lab</value>
+  </data>
+  <data name="preset.jupyter-lab.warning.public" xml:space="preserve">
+    <value>服务器绑定到 127.0.0.1；要共享到此电脑之外需要隧道。</value>
+  </data>
+  <data name="preset.jupyter-lab.warning.token" xml:space="preserve">
+    <value>Jupyter 会将访问令牌打印到服务日志；请从日志中复制。</value>
+  </data>
+  <data name="preset.picker.typeLabel" xml:space="preserve">
+    <value>类型</value>
+  </data>
+  <data name="preset.ssh-local-forward.summary" xml:space="preserve">
+    <value>通过 SSH 主机访问远程端口。</value>
+  </data>
+  <data name="preset.ssh-local-forward.title" xml:space="preserve">
+    <value>SSH 本地转发</value>
+  </data>
+  <data name="preset.ssh-socks5-proxy.summary" xml:space="preserve">
+    <value>通过 SSH 主机作为 SOCKS5 代理路由流量。</value>
+  </data>
+  <data name="preset.ssh-socks5-proxy.title" xml:space="preserve">
+    <value>SSH SOCKS5 代理</value>
+  </data>
+  <data name="preset.ssh.field.host" xml:space="preserve">
+    <value>SSH 主机</value>
+  </data>
+  <data name="preset.ssh.field.host.help" xml:space="preserve">
+    <value>OpenSSH 配置中的别名或 user@host。</value>
+  </data>
+  <data name="preset.ssh.field.keepaliveCount" xml:space="preserve">
+    <value>保活次数</value>
+  </data>
+  <data name="preset.ssh.field.keepaliveInterval" xml:space="preserve">
+    <value>保活间隔（秒）</value>
+  </data>
+  <data name="preset.ssh.field.keepaliveInterval.help" xml:space="preserve">
+    <value>连接的 ServerAliveInterval。</value>
+  </data>
+  <data name="preset.ssh.field.remoteHost" xml:space="preserve">
+    <value>远程主机</value>
+  </data>
+  <data name="preset.ssh.field.remoteHost.help" xml:space="preserve">
+    <value>从 SSH 服务器看的主机地址。</value>
+  </data>
+  <data name="preset.ssh.field.remotePort" xml:space="preserve">
+    <value>远程端口</value>
+  </data>
+  <data name="preset.static-file-share.field.directory" xml:space="preserve">
+    <value>目录</value>
+  </data>
+  <data name="preset.static-file-share.field.directory.help" xml:space="preserve">
+    <value>要共享的目录。</value>
+  </data>
+  <data name="preset.static-file-share.summary" xml:space="preserve">
+    <value>通过 Python 在 HTTP 上共享目录。</value>
+  </data>
+  <data name="preset.static-file-share.title" xml:space="preserve">
+    <value>静态文件共享</value>
+  </data>
+  <data name="preset.static-file-share.warning.listing" xml:space="preserve">
+    <value>使用此电脑的任何人都可以浏览共享目录。</value>
+  </data>
+  <data name="preset.static-file-share.warning.symlinks" xml:space="preserve">
+    <value>目录内的符号链接会被跟随。</value>
+  </data>
+  <data name="services.add" xml:space="preserve">
+    <value>添加服务</value>
+  </data>
+  <data name="services.copyUrl" xml:space="preserve">
+    <value>复制链接</value>
+  </data>
+  <data name="services.custom" xml:space="preserve">
+    <value>自定义服务</value>
+  </data>
+  <data name="services.empty.subtitle" xml:space="preserve">
+    <value>添加服务后会在这里显示</value>
+  </data>
+  <data name="services.empty.title" xml:space="preserve">
+    <value>还没有服务</value>
+  </data>
+  <data name="services.killAndStart" xml:space="preserve">
+    <value>终止占用进程并启动</value>
+  </data>
+  <data name="services.local" xml:space="preserve">
+    <value>本地</value>
+  </data>
+  <data name="services.networkAccess" xml:space="preserve">
+    <value>网络访问</value>
+  </data>
+  <data name="services.noLocalUrl" xml:space="preserve">
+    <value>启动服务后即可在本地访问。</value>
+  </data>
+  <data name="services.openInBrowser" xml:space="preserve">
+    <value>在浏览器中打开</value>
+  </data>
+  <data name="services.openTunnel" xml:space="preserve">
+    <value>打开隧道</value>
+  </data>
+  <data name="services.portConflict" xml:space="preserve">
+    <value>端口冲突</value>
+  </data>
+  <data name="services.portConflict.description" xml:space="preserve">
+    <value>配置的端口被其他进程占用。终止它需要明确确认。</value>
+  </data>
+  <data name="services.recentOutput" xml:space="preserve">
+    <value>最近输出</value>
+  </data>
+  <data name="services.search.placeholder" xml:space="preserve">
+    <value>搜索服务...</value>
+  </data>
+  <data name="services.secretsHint" xml:space="preserve">
+    <value>命令以明文存储。请使用环境变量而非直接嵌入密钥。</value>
+  </data>
+  <data name="services.share" xml:space="preserve">
+    <value>分享</value>
+  </data>
+  <data name="services.sharing" xml:space="preserve">
+    <value>分享中...</value>
+  </data>
+  <data name="services.startCommand" xml:space="preserve">
+    <value>启动命令</value>
+  </data>
+  <data name="services.status.ready" xml:space="preserve">
+    <value>就绪</value>
+  </data>
+  <data name="services.stopTunnel" xml:space="preserve">
+    <value>停止隧道</value>
+  </data>
+  <data name="services.tempPublic" xml:space="preserve">
+    <value>临时公网</value>
+  </data>
+  <data name="services.tempPublic.description" xml:space="preserve">
+    <value>使用 Cloudflare 快速隧道。地址随机，隧道或 Port Manager 停止后失效。</value>
+  </data>
+  <data name="services.title" xml:space="preserve">
+    <value>本地服务</value>
+  </data>
+  <data name="services.usePortHint" xml:space="preserve">
+    <value>如果希望命令随端口修改自动更新，请在命令中使用 {port}。</value>
+  </data>
+  <data name="services.workingDirectory" xml:space="preserve">
+    <value>工作目录</value>
+  </data>
+  <data name="settings.about.tagline" xml:space="preserve">
+    <value>查找并终止占用端口的进程</value>
+  </data>
+  <data name="settings.about.version" xml:space="preserve">
+    <value>版本 {0}</value>
+  </data>
+  <data name="settings.hideSystemProcesses" xml:space="preserve">
+    <value>隐藏系统进程</value>
+  </data>
+  <data name="settings.hideSystemProcesses.subtitle" xml:space="preserve">
+    <value>在列表中隐藏 System 等系统进程</value>
+  </data>
+  <data name="settings.language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="settings.language.english" xml:space="preserve">
+    <value>英语</value>
+  </data>
+  <data name="settings.language.simplifiedChinese" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="settings.language.subtitle" xml:space="preserve">
+    <value>界面语言</value>
+  </data>
+  <data name="settings.language.system" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="settings.notifications" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="settings.notifications.subtitle" xml:space="preserve">
+    <value>端口变化时显示通知</value>
+  </data>
+  <data name="settings.refreshInterval" xml:space="preserve">
+    <value>刷新间隔</value>
+  </data>
+  <data name="settings.refreshInterval.subtitle" xml:space="preserve">
+    <value>端口列表自动刷新的频率</value>
+  </data>
+  <data name="settings.section.about" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="settings.section.general" xml:space="preserve">
+    <value>通用</value>
+  </data>
+  <data name="settings.skipKillConfirmation" xml:space="preserve">
+    <value>跳过终止确认</value>
+  </data>
+  <data name="settings.skipKillConfirmation.subtitle" xml:space="preserve">
+    <value>终止进程时不再弹出确认</value>
+  </data>
+  <data name="settings.startWithWindows" xml:space="preserve">
+    <value>开机自启</value>
+  </data>
+  <data name="settings.startWithWindows.subtitle" xml:space="preserve">
+    <value>登录时自动启动 PortKiller</value>
+  </data>
+  <data name="settings.theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="settings.theme.dark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="settings.theme.light" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="settings.theme.subtitle" xml:space="preserve">
+    <value>应用颜色主题</value>
+  </data>
+  <data name="settings.theme.system" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="settings.title" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="sidebar.allPorts" xml:space="preserve">
+    <value>全部端口</value>
+  </data>
+  <data name="sidebar.categories" xml:space="preserve">
+    <value>分类</value>
+  </data>
+  <data name="sidebar.cloudflareTunnels" xml:space="preserve">
+    <value>Cloudflare 隧道</value>
+  </data>
+  <data name="sidebar.database" xml:space="preserve">
+    <value>数据库</value>
+  </data>
+  <data name="sidebar.development" xml:space="preserve">
+    <value>开发</value>
+  </data>
+  <data name="sidebar.favorites" xml:space="preserve">
+    <value>收藏</value>
+  </data>
+  <data name="sidebar.k8sPortForward" xml:space="preserve">
+    <value>K8s 端口转发</value>
+  </data>
+  <data name="sidebar.localServices" xml:space="preserve">
+    <value>本地服务</value>
+  </data>
+  <data name="sidebar.other" xml:space="preserve">
+    <value>其他</value>
+  </data>
+  <data name="sidebar.processTypes" xml:space="preserve">
+    <value>进程类型</value>
+  </data>
+  <data name="sidebar.services" xml:space="preserve">
+    <value>服务</value>
+  </data>
+  <data name="sidebar.settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="sidebar.settingsItem" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="sidebar.system" xml:space="preserve">
+    <value>系统</value>
+  </data>
+  <data name="sidebar.watched" xml:space="preserve">
+    <value>关注</value>
+  </data>
+  <data name="sidebar.webServer" xml:space="preserve">
+    <value>Web 服务</value>
+  </data>
+  <data name="tooltip.kill" xml:space="preserve">
+    <value>终止进程</value>
+  </data>
+  <data name="tooltip.refresh" xml:space="preserve">
+    <value>刷新 (Ctrl+R)</value>
+  </data>
+  <data name="tray.killAll" xml:space="preserve">
+    <value>全部终止</value>
+  </data>
+  <data name="tray.open" xml:space="preserve">
+    <value>打开 PortKiller</value>
+  </data>
+  <data name="tray.quit" xml:space="preserve">
+    <value>退出 PortKiller</value>
+  </data>
+  <data name="tray.refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="tray.settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="tunnels.activeCount" xml:space="preserve">
+    <value>{0} 个活动隧道</value>
+  </data>
+  <data name="tunnels.empty.subtitle" xml:space="preserve">
+    <value>从端口列表启动隧道以创建公网链接</value>
+  </data>
+  <data name="tunnels.empty.title" xml:space="preserve">
+    <value>没有活动隧道</value>
+  </data>
+  <data name="tunnels.install.instructions" xml:space="preserve">
+    <value>要使用 Cloudflare 隧道，需要先安装 cloudflared：</value>
+  </data>
+  <data name="tunnels.installed" xml:space="preserve">
+    <value>cloudflared 已安装</value>
+  </data>
+  <data name="tunnels.notInstalled" xml:space="preserve">
+    <value>cloudflared 未安装</value>
+  </data>
+  <data name="tunnels.protocol" xml:space="preserve">
+    <value>协议</value>
+  </data>
+  <data name="tunnels.shareVia" xml:space="preserve">
+    <value>通过隧道分享</value>
+  </data>
+  <data name="tunnels.stopAll" xml:space="preserve">
+    <value>全部停止</value>
+  </data>
+  <data name="tunnels.stopAll.confirmDetails" xml:space="preserve">
+    <value>所有公网链接将立即终止。
+
+此操作无法撤销。</value>
+  </data>
+  <data name="tunnels.stopAll.confirmMessage" xml:space="preserve">
+    <value>确定要停止全部 {0} 个隧道吗？</value>
+  </data>
+  <data name="tunnels.stopAll.confirmTitle" xml:space="preserve">
+    <value>停止所有隧道</value>
+  </data>
+  <data name="tunnels.title" xml:space="preserve">
+    <value>Cloudflare 隧道</value>
+  </data>
+  <data name="tunnels.tooltip.copy" xml:space="preserve">
+    <value>复制链接</value>
+  </data>
+  <data name="tunnels.tooltip.open" xml:space="preserve">
+    <value>在浏览器中打开</value>
+  </data>
+  <data name="tunnels.tooltip.stop" xml:space="preserve">
+    <value>停止隧道</value>
+  </data>
+  <data name="tunnels.viewDocs" xml:space="preserve">
+    <value>查看安装文档...</value>
+  </data>
+</root>
