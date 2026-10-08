@@ -645,6 +645,11 @@
                         <views:ManagedServicesView x:Name="ManagedServicesViewControl"/>
                     </Grid>
 
+                    <!-- Settings Panel (Hidden by Default) -->
+                    <Grid Grid.Row="1" x:Name="SettingsPanel" Background="{StaticResource BrushSurface}" Visibility="Collapsed">
+                        <views:SettingsView x:Name="SettingsViewControl"/>
+                    </Grid>
+
                     <!-- Cloudflare Tunnels Panel (Hidden by Default) -->
                     <Grid Grid.Column="0" Grid.ColumnSpan="2" x:Name="TunnelsPanel" Background="{StaticResource BrushSurface}" Visibility="Collapsed">
                         <Grid.RowDefinitions>
