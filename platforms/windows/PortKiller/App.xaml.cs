@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PortKiller.Services;
@@ -73,5 +74,22 @@ public partial class App : Application
             sp.GetRequiredService<TunnelViewModel>(),
             sp.GetRequiredService<IPortScanCoordinator>()
         ));
+    }
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        var settings = Services.GetRequiredService<SettingsService>();
+
+        // Apply saved language before any window is shown.
+        if (Enum.TryParse<Models.AppLanguage>(settings.GetLanguage(), out var language))
+            LocalizationService.Instance.SetLanguage(language);
+
+        // Apply saved theme (inserts the theme dictionary ahead of DesignTokens).
+        if (Enum.TryParse<Models.AppTheme>(settings.GetTheme(), out var theme))
+            ThemeService.ApplyTheme(theme);
+        else
+            ThemeService.ApplyTheme(Models.AppTheme.System);
     }
 }

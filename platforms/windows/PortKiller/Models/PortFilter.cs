@@ -87,22 +87,26 @@ public enum SidebarItem
 
 public static class SidebarItemExtensions
 {
-    public static string GetTitle(this SidebarItem item) => item switch
+    public static string GetTitle(this SidebarItem item)
     {
-        SidebarItem.AllPorts => "All Ports",
-        SidebarItem.Favorites => "Favorites",
-        SidebarItem.Watched => "Watched",
-        SidebarItem.WebServer => "Web Server",
-        SidebarItem.Database => "Database",
-        SidebarItem.Development => "Development",
-        SidebarItem.System => "System",
-        SidebarItem.Other => "Other",
-        SidebarItem.KubernetesPortForward => "K8s Port Forward",
-        SidebarItem.ManagedServices => "Local Services",
-        SidebarItem.CloudflareTunnels => "Cloudflare Tunnels",
-        SidebarItem.Settings => "Settings",
-        _ => "Unknown"
-    };
+        var loc = Services.LocalizationService.Instance;
+        return item switch
+        {
+            SidebarItem.AllPorts => loc["sidebar.allPorts"],
+            SidebarItem.Favorites => loc["sidebar.favorites"],
+            SidebarItem.Watched => loc["sidebar.watched"],
+            SidebarItem.WebServer => loc["sidebar.webServer"],
+            SidebarItem.Database => loc["sidebar.database"],
+            SidebarItem.Development => loc["sidebar.development"],
+            SidebarItem.System => loc["sidebar.system"],
+            SidebarItem.Other => loc["sidebar.other"],
+            SidebarItem.KubernetesPortForward => loc["sidebar.k8sPortForward"],
+            SidebarItem.ManagedServices => loc["sidebar.localServices"],
+            SidebarItem.CloudflareTunnels => loc["sidebar.cloudflareTunnels"],
+            SidebarItem.Settings => loc["sidebar.settingsItem"],
+            _ => item.ToString()
+        };
+    }
 
     public static string GetIcon(this SidebarItem item) => item switch
     {

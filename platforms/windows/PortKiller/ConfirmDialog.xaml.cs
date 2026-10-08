@@ -6,10 +6,10 @@ public partial class ConfirmDialog : Window
 {
     public bool Result { get; private set; }
 
-    public ConfirmDialog(string message, string details, string title = "Confirm Action")
+    public ConfirmDialog(string message, string details, string? title = null)
     {
         InitializeComponent();
-        TitleText.Text = title;
+        TitleText.Text = title ?? Services.LocalizationService.Instance["dialog.confirmAction"];
         MessageText.Text = message;
         DetailsText.Text = details;
     }
