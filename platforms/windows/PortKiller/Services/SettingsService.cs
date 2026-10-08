@@ -40,6 +40,10 @@ public class SettingsService
         public bool ShowNotifications { get; set; } = true;
         public string CloudflaredProtocol { get; set; } = "http2";
         public List<ManagedServiceConfig>? ManagedServices { get; set; }
+        public string Language { get; set; } = "System";
+        public string Theme { get; set; } = "System";
+        public bool HideSystemProcesses { get; set; }
+        public bool SkipKillConfirmation { get; set; }
     }
 
     private SettingsData LoadSettingsData()
@@ -111,6 +115,62 @@ public class SettingsService
     {
         var data = LoadSettingsData();
         data.RefreshInterval = seconds;
+        SaveSettingsData(data);
+    }
+
+    // Language (stored as enum name: System / English / SimplifiedChinese)
+    public string GetLanguage()
+    {
+        var data = LoadSettingsData();
+        return string.IsNullOrEmpty(data.Language) ? "System" : data.Language;
+    }
+
+    public void SaveLanguage(string language)
+    {
+        var data = LoadSettingsData();
+        data.Language = language;
+        SaveSettingsData(data);
+    }
+
+    // Theme (stored as enum name: System / Light / Dark)
+    public string GetTheme()
+    {
+        var data = LoadSettingsData();
+        return string.IsNullOrEmpty(data.Theme) ? "System" : data.Theme;
+    }
+
+    public void SaveTheme(string theme)
+    {
+        var data = LoadSettingsData();
+        data.Theme = theme;
+        SaveSettingsData(data);
+    }
+
+    // Hide System Processes
+    public bool GetHideSystemProcesses()
+    {
+        var data = LoadSettingsData();
+        return data.HideSystemProcesses;
+    }
+
+    public void SaveHideSystemProcesses(bool hide)
+    {
+        var data = LoadSettingsData();
+        data.HideSystemProcesses = hide;
+        SaveSettingsData(data);
+    }
+
+    // Skip Kill Confirmation
+    public bool GetSkipKillConfirmation()
+    {
+        var data = LoadSettingsData();
+        return data.SkipKillConfirmation;
+    }
+
+    public void SaveSkipKillConfirmation(bool skip)
+    {
+        var data = LoadSettingsData();
+        data.SkipKillConfirmation = skip;
         SaveSettingsData(data);
     }
 

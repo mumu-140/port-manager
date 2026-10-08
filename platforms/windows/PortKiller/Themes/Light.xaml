@@ -1,0 +1,33 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Light theme: same keys as Dark.xaml, light palette -->
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="BrushBackground" Color="#F3F3F3"/>
+    <SolidColorBrush x:Key="BrushSurface" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BrushCard" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BrushCardHover" Color="#F5F5F5"/>
+    <SolidColorBrush x:Key="BrushField" Color="#F5F5F5"/>
+    <SolidColorBrush x:Key="BrushBorder" Color="#E2E2E2"/>
+    <SolidColorBrush x:Key="BrushBorderHover" Color="#C9C9C9"/>
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="BrushTextPrimary" Color="#1A1A1A"/>
+    <SolidColorBrush x:Key="BrushTextSecondary" Color="#5C5C5C"/>
+    <SolidColorBrush x:Key="BrushTextTertiary" Color="#8A8A8A"/>
+
+    <!-- Semantic (darkened for contrast on light surfaces) -->
+    <SolidColorBrush x:Key="BrushAccent" Color="#2B7CD3"/>
+    <SolidColorBrush x:Key="BrushSuccess" Color="#1E9E5A"/>
+    <SolidColorBrush x:Key="BrushWarning" Color="#B87A1A"/>
+    <SolidColorBrush x:Key="BrushDanger" Color="#D33F2E"/>
+    <SolidColorBrush x:Key="BrushFavorite" Color="#9A7B00"/>
+
+    <!-- Tinted fills for badges/pills (solid color at ~15% alpha) -->
+    <SolidColorBrush x:Key="BrushSuccessTint" Color="#261E9E5A"/>
+    <SolidColorBrush x:Key="BrushWarningTint" Color="#26B87A1A"/>
+    <SolidColorBrush x:Key="BrushDangerTint" Color="#26D33F2E"/>
+    <SolidColorBrush x:Key="BrushAccentTint" Color="#262B7CD3"/>
+
+</ResourceDictionary>
