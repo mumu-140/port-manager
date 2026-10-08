@@ -6,6 +6,7 @@
         xmlns:tb="http://www.hardcodet.net/taskbar"
         xmlns:helpers="clr-namespace:PortKiller.Helpers"
         xmlns:views="clr-namespace:PortKiller.Views"
+        xmlns:loc="clr-namespace:PortKiller.Helpers"
         mc:Ignorable="d"
         Title="PortKiller" 
         Height="700" Width="1200"
@@ -61,7 +62,7 @@
         <!-- Modern Button Style -->
         <Style x:Key="ModernButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="FontSize" Value="13"/>
@@ -80,7 +81,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#20FFFFFF"/>
+                    <Setter Property="Background" Value="{DynamicResource BrushCardHover}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -88,7 +89,7 @@
         <!-- Dark Sidebar Button Style -->
         <Style x:Key="SidebarButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#909090"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextTertiary}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="16,10"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -108,8 +109,8 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#15FFFFFF"/>
-                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                    <Setter Property="Background" Value="{DynamicResource BrushCardHover}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -117,9 +118,9 @@
         <!-- Outline Button Style -->
         <Style x:Key="OutlineButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="#30FFFFFF"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderHover}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
             <Setter Property="Padding" Value="16,10"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -139,8 +140,8 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#10FFFFFF"/>
-                    <Setter Property="BorderBrush" Value="#50FFFFFF"/>
+                    <Setter Property="Background" Value="{DynamicResource BrushCardHover}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushTextTertiary}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -209,7 +210,7 @@
                 <!-- Left sidebar area: Transparent for blur -->
                 <Border Grid.Column="0" Background="Transparent"/>
                 <!-- Right content area: Solid background -->
-                <Border Grid.Column="1" Background="#1A1A1A" CornerRadius="0,16,16,0"/>
+                <Border Grid.Column="1" Background="{DynamicResource BrushBackground}" CornerRadius="0,16,16,0"/>
             </Grid>
             
             <!-- Content on top of background -->
@@ -229,7 +230,7 @@
                     <!-- App Title (Draggable) -->
                     <Border Grid.Row="0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                         <StackPanel Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="PortKiller" FontSize="15" FontWeight="SemiBold" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            <TextBlock Text="PortKiller" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -244,81 +245,81 @@
                         <ScrollViewer VerticalScrollBarVisibility="Hidden" Margin="12">
                             <StackPanel>
                                 <!-- Categories Section -->
-                                <TextBlock Text="CATEGORIES" Style="{StaticResource TextSectionHeader}" Margin="12,12,0,8"/>
+                                <TextBlock Text="{loc:Loc sidebar.categories}" Style="{StaticResource TextSectionHeader}" Margin="12,12,0,8"/>
                                 <Button Click="SidebarButton_Click" Tag="AllPorts" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE8FD;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="All Ports" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.allPorts}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Click="SidebarButton_Click" Tag="Favorites" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE734;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Favorites" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.favorites}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Click="SidebarButton_Click" Tag="Watched" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE890;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Watched" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.watched}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
 
                                 <!-- Process Types Section -->
-                                <TextBlock Text="PROCESS TYPES" Style="{StaticResource TextSectionHeader}" Margin="12,24,0,8"/>
+                                <TextBlock Text="{loc:Loc sidebar.processTypes}" Style="{StaticResource TextSectionHeader}" Margin="12,24,0,8"/>
                                 <Button Click="SidebarButton_Click" Tag="WebServer" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE774;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Web Server" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.webServer}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Click="SidebarButton_Click" Tag="Database" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xF1AA;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Database" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.database}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Click="SidebarButton_Click" Tag="Development" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE90F;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Development" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.development}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Click="SidebarButton_Click" Tag="System" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE713;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="System" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.system}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Click="SidebarButton_Click" Tag="Other" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE7E8;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Other" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.other}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
 
                                 <!-- Cloudflare Tunnels Section -->
-                                <TextBlock Text="SERVICES" Style="{StaticResource TextSectionHeader}" Margin="12,24,0,8"/>
+                                <TextBlock Text="{loc:Loc sidebar.services}" Style="{StaticResource TextSectionHeader}" Margin="12,24,0,8"/>
                                 <Button Click="SidebarButton_Click" Tag="ManagedServices" Style="{StaticResource SidebarButton}"
                                         AutomationProperties.AutomationId="NavLocalServices" AutomationProperties.Name="Local Services">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE8F1;" Style="{StaticResource IconGlyph}" Foreground="#4EA1F3" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Local Services" VerticalAlignment="Center"/>
+                                        <TextBlock Text="&#xE8F1;" Style="{StaticResource IconGlyph}" Foreground="{DynamicResource BrushAccent}" Margin="0,0,10,0"/>
+                                        <TextBlock Text="{loc:Loc sidebar.localServices}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Click="SidebarButton_Click" Tag="CloudflareTunnels" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" Foreground="{StaticResource BrushWarning}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Cloudflare Tunnels" VerticalAlignment="Center"/>
+                                        <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" Foreground="{DynamicResource BrushWarning}" Margin="0,0,10,0"/>
+                                        <TextBlock Text="{loc:Loc sidebar.cloudflareTunnels}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
 
                                 <!-- Settings Section -->
-                                <TextBlock Text="SETTINGS" Style="{StaticResource TextSectionHeader}" Margin="12,24,0,8"/>
+                                <TextBlock Text="{loc:Loc sidebar.settings}" Style="{StaticResource TextSectionHeader}" Margin="12,24,0,8"/>
                                 <Button Click="SidebarButton_Click" Tag="Settings" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE713;" Style="{StaticResource IconGlyph}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="Settings" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{loc:Loc sidebar.settingsItem}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -334,7 +335,7 @@
                     </Grid.RowDefinitions>
 
                     <!-- Top Bar with Search and Controls -->
-                    <Border Grid.Row="0" CornerRadius="0,16,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Background="{StaticResource BrushCard}" Height="50">
+                    <Border Grid.Row="0" CornerRadius="0,16,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Background="{DynamicResource BrushCard}" Height="50">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -343,20 +344,20 @@
 
                             <!-- Search and Actions - Centered (No Icon) -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Border BorderThickness="0" CornerRadius="20" Padding="0" Background="#1E1E1E">
+                                <Border BorderThickness="0" CornerRadius="20" Padding="0" Background="{DynamicResource BrushSurface}">
                                     <Grid Width="400" Height="36">
                                         <TextBox x:Name="SearchBox" 
                                                  Background="Transparent"
                                                  BorderThickness="0"
                                                  Padding="16,8,16,8"
                                                  FontSize="13"
-                                                 Foreground="#E0E0E0"
-                                                 CaretBrush="#E0E0E0"
+                                                 Foreground="{DynamicResource BrushTextPrimary}"
+                                                 CaretBrush="{DynamicResource BrushTextPrimary}"
                                                  VerticalContentAlignment="Center"
                                                  TextChanged="SearchBox_TextChanged"/>
-                                        <TextBlock x:Name="SearchPlaceholder" Text="Search ports, processes..." 
+                                        <TextBlock x:Name="SearchPlaceholder" Text="{loc:Loc ports.search.placeholder}" 
                                                    FontSize="13" 
-                                                   Foreground="#606060" 
+                                                   Foreground="{DynamicResource BrushTextTertiary}" 
                                                    VerticalAlignment="Center" 
                                                    Margin="16,0,0,0" 
                                                    IsHitTestVisible="False"
@@ -367,7 +368,7 @@
 
                             <!-- Window Controls -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,10,0">
-                                <Button Click="RefreshButton_Click" Style="{StaticResource ModernButton}" Width="40" Height="40" ToolTip="Refresh (Ctrl+R)" Margin="0,0,8,0">
+                                <Button Click="RefreshButton_Click" Style="{StaticResource ModernButton}" Width="40" Height="40" ToolTip="{loc:Loc tooltip.refresh}" Margin="0,0,8,0">
                                     <TextBlock Text="&#xE72C;" Style="{StaticResource IconGlyph}" FontSize="15" Margin="0,1,0,0"/>
                                 </Button>
                                 <Button Click="MinimizeButton_Click" Style="{StaticResource ModernButton}" Width="40" Height="40">
@@ -391,7 +392,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Port List with Solid Grey Background -->
-                        <Grid Grid.Column="0" x:Name="PortsPanel" Background="{StaticResource BrushSurface}">
+                        <Grid Grid.Column="0" x:Name="PortsPanel" Background="{DynamicResource BrushSurface}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
@@ -399,7 +400,7 @@
                             </Grid.RowDefinitions>
 
                             <!-- Solid Grey Header -->
-                            <Border Grid.Row="0" BorderThickness="0,0,0,1" Padding="24,16" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushBorder}">
+                            <Border Grid.Row="0" BorderThickness="0,0,0,1" Padding="24,16" Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}">
                                 <TextBlock x:Name="HeaderText" Text="All Ports" Style="{StaticResource TextDisplayTitle}"/>
                             </Border>
 
@@ -418,7 +419,7 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <!-- Status dot -->
-                                                    <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{StaticResource BrushSuccess}"
+                                                    <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource BrushSuccess}"
                                                              VerticalAlignment="Center" Margin="0,0,10,0"
                                                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
@@ -448,11 +449,11 @@
                                                                     <RotateTransform/>
                                                                 </Grid.RenderTransform>
                                                                 <Ellipse Width="14" Height="14"
-                                                                         Stroke="#e74c3c"
+                                                                         Stroke="{DynamicResource BrushDanger}"
                                                                          StrokeThickness="2"
                                                                          Opacity="0.3"/>
                                                                 <Path Data="M 7,0 A 7,7 0 0 1 14,7"
-                                                                      Stroke="#e74c3c"
+                                                                      Stroke="{DynamicResource BrushDanger}"
                                                                       StrokeThickness="2"
                                                                       StrokeStartLineCap="Round"
                                                                       StrokeEndLineCap="Round"
@@ -483,7 +484,7 @@
                                                                 Tag="{Binding}"
                                                                 Padding="10,6"
                                                                 Cursor="Hand"
-                                                                ToolTip="Kill Process"
+                                                                ToolTip="{loc:Loc tooltip.kill}"
                                                                 Visibility="{Binding IsKilling, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                                                             <TextBlock Text="&#xE711;" Style="{StaticResource IconGlyph}" FontSize="13"
                                                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -510,7 +511,7 @@
                                                                                     <SolidColorBrush Color="#40FFFFFF" Opacity="0.1"/>
                                                                                 </Setter.Value>
                                                                             </Setter>
-                                                                            <Setter Property="Foreground" Value="#e74c3c"/>
+                                                                            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
                                                                         </Trigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -526,19 +527,19 @@
 
                             <!-- Empty State -->
                             <StackPanel Grid.Row="1" x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
-                                <TextBlock Text="&#xE8FD;" Style="{StaticResource IconGlyph}" FontSize="56" Foreground="{StaticResource BrushTextTertiary}" HorizontalAlignment="Center" Margin="0,0,0,16" Opacity="0.4"/>
-                                <TextBlock Text="No ports found" Style="{StaticResource TextTitle}" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Start some services to see them here" Style="{StaticResource TextCaption}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                <TextBlock Text="&#xE8FD;" Style="{StaticResource IconGlyph}" FontSize="56" Foreground="{DynamicResource BrushTextTertiary}" HorizontalAlignment="Center" Margin="0,0,0,16" Opacity="0.4"/>
+                                <TextBlock Text="{loc:Loc ports.empty.title}" Style="{StaticResource TextTitle}" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{loc:Loc ports.empty.subtitle}" Style="{StaticResource TextCaption}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
                             </StackPanel>
 
                             <!-- Status Bar - Solid Grey -->
-                            <Border Grid.Row="2" BorderThickness="0,1,0,0" Padding="24,10" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushBorder}">
+                            <Border Grid.Row="2" BorderThickness="0,1,0,0" Padding="24,10" Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}">
                                 <Grid>
                                     <TextBlock x:Name="StatusText" Text="Ready" Style="{StaticResource TextCaption}" VerticalAlignment="Center"/>
-                                    <Border Style="{StaticResource Badge}" Background="{StaticResource BrushSuccessTint}" HorizontalAlignment="Right">
+                                    <Border Style="{StaticResource Badge}" Background="{DynamicResource BrushSuccessTint}" HorizontalAlignment="Right">
                                         <StackPanel Orientation="Horizontal">
-                                            <Ellipse Width="6" Height="6" Fill="{StaticResource BrushSuccess}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text="Auto-refresh" FontSize="11" Foreground="{StaticResource BrushSuccess}" VerticalAlignment="Center"/>
+                                            <Ellipse Width="6" Height="6" Fill="{DynamicResource BrushSuccess}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{loc:Loc ports.autoRefresh}" FontSize="11" Foreground="{DynamicResource BrushSuccess}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
                                 </Grid>
@@ -546,22 +547,22 @@
                         </Grid>
 
                         <!-- Detail Panel - Solid Grey -->
-                        <Border Grid.Column="1" x:Name="DetailPanel" Width="320" BorderThickness="1,0,0,0" Padding="24" Visibility="Collapsed" CornerRadius="0,0,16,0" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}">
+                        <Border Grid.Column="1" x:Name="DetailPanel" Width="320" BorderThickness="1,0,0,0" Padding="24" Visibility="Collapsed" CornerRadius="0,0,16,0" Background="{DynamicResource BrushSurface}" BorderBrush="{DynamicResource BrushBorder}">
                             <ScrollViewer VerticalScrollBarVisibility="Hidden">
                                 <StackPanel>
-                                    <TextBlock Text="Port Details" Style="{StaticResource TextTitle}" Margin="0,0,0,20"/>
+                                    <TextBlock Text="{loc:Loc ports.details.title}" Style="{StaticResource TextTitle}" Margin="0,0,0,20"/>
 
                                     <!-- Detail Items - Solid Grey -->
                                     <StackPanel Margin="0,0,0,16">
-                                        <TextBlock Text="PORT" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
-                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{StaticResource BrushField}">
+                                        <TextBlock Text="{loc:Loc ports.column.port}" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
+                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{DynamicResource BrushField}">
                                             <TextBlock x:Name="DetailPort" Text="-" Style="{StaticResource TextRowTitle}"/>
                                         </Border>
                                     </StackPanel>
 
                                     <StackPanel Margin="0,0,0,16">
-                                        <TextBlock Text="PROCESS" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
-                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{StaticResource BrushField}">
+                                        <TextBlock Text="{loc:Loc ports.column.process}" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
+                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{DynamicResource BrushField}">
                                             <TextBlock x:Name="DetailProcess" Text="-" TextWrapping="Wrap" Style="{StaticResource TextRowTitle}"/>
                                         </Border>
                                     </StackPanel>
@@ -573,30 +574,30 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                            <TextBlock Text="PID" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
-                                            <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{StaticResource BrushField}">
+                                            <TextBlock Text="{loc:Loc ports.column.pid}" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
+                                            <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{DynamicResource BrushField}">
                                                 <TextBlock x:Name="DetailPid" Text="-" Style="{StaticResource TextRowTitle}"/>
                                             </Border>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                            <TextBlock Text="USER" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
-                                            <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{StaticResource BrushField}">
+                                            <TextBlock Text="{loc:Loc ports.column.user}" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
+                                            <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{DynamicResource BrushField}">
                                                 <TextBlock x:Name="DetailUser" Text="-" Style="{StaticResource TextRowTitle}"/>
                                             </Border>
                                         </StackPanel>
                                     </Grid>
 
                                     <StackPanel Margin="0,0,0,16">
-                                        <TextBlock Text="ADDRESS" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
-                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{StaticResource BrushField}">
+                                        <TextBlock Text="{loc:Loc ports.column.address}" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
+                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{DynamicResource BrushField}">
                                             <TextBlock x:Name="DetailAddress" Text="-" Style="{StaticResource TextRowTitle}"/>
                                         </Border>
                                     </StackPanel>
 
                                     <StackPanel Margin="0,0,0,20">
-                                        <TextBlock Text="COMMAND" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
-                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{StaticResource BrushField}">
+                                        <TextBlock Text="{loc:Loc ports.column.command}" Style="{StaticResource TextFieldLabel}" Margin="0,0,0,6"/>
+                                        <Border CornerRadius="{StaticResource RadiusM}" Padding="12,8" Background="{DynamicResource BrushField}">
                                             <TextBlock x:Name="DetailCommand" Text="-" TextWrapping="Wrap" Style="{StaticResource TextRowSubtitle}"/>
                                         </Border>
                                     </StackPanel>
@@ -609,7 +610,7 @@
                                                 Margin="0,0,0,10"
                                                 HorizontalAlignment="Stretch">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" Foreground="{StaticResource BrushWarning}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" Foreground="{DynamicResource BrushWarning}" Margin="0,0,8,0"/>
                                                 <TextBlock Text="Share via Tunnel" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
@@ -620,8 +621,8 @@
                                                 Margin="0,0,0,10"
                                                 HorizontalAlignment="Stretch">
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                                <TextBlock Text="&#xE735;" Style="{StaticResource IconGlyph}" Foreground="{StaticResource BrushFavorite}" Margin="0,0,8,0"/>
-                                                <TextBlock Text="Add to Favorites" VerticalAlignment="Center"/>
+                                                <TextBlock Text="&#xE735;" Style="{StaticResource IconGlyph}" Foreground="{DynamicResource BrushFavorite}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="{loc:Loc ports.addFavorite}" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
 
@@ -631,7 +632,7 @@
                                                 HorizontalAlignment="Stretch">
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                 <TextBlock Text="&#xE890;" Style="{StaticResource IconGlyph}" Margin="0,0,8,0"/>
-                                                <TextBlock Text="Watch Port" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{loc:Loc ports.watch}" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>
@@ -641,17 +642,17 @@
                     </Grid>
 
                     <!-- Local Services Panel (Hidden by Default) -->
-                    <Grid Grid.Row="1" x:Name="ManagedServicesPanel" Background="{StaticResource BrushSurface}" Visibility="Collapsed">
+                    <Grid Grid.Row="1" x:Name="ManagedServicesPanel" Background="{DynamicResource BrushSurface}" Visibility="Collapsed">
                         <views:ManagedServicesView x:Name="ManagedServicesViewControl"/>
                     </Grid>
 
                     <!-- Settings Panel (Hidden by Default) -->
-                    <Grid Grid.Row="1" x:Name="SettingsPanel" Background="{StaticResource BrushSurface}" Visibility="Collapsed">
+                    <Grid Grid.Row="1" x:Name="SettingsPanel" Background="{DynamicResource BrushSurface}" Visibility="Collapsed">
                         <views:SettingsView x:Name="SettingsViewControl"/>
                     </Grid>
 
                     <!-- Cloudflare Tunnels Panel (Hidden by Default) -->
-                    <Grid Grid.Column="0" Grid.ColumnSpan="2" x:Name="TunnelsPanel" Background="{StaticResource BrushSurface}" Visibility="Collapsed">
+                    <Grid Grid.Column="0" Grid.ColumnSpan="2" x:Name="TunnelsPanel" Background="{DynamicResource BrushSurface}" Visibility="Collapsed">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
@@ -659,34 +660,34 @@
                         </Grid.RowDefinitions>
 
                         <!-- Tunnels Header -->
-                        <Border Grid.Row="0" BorderThickness="0,0,0,1" Padding="24,16" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushBorder}">
+                        <Border Grid.Row="0" BorderThickness="0,0,0,1" Padding="24,16" Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}">
                             <Grid>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" FontSize="18" Margin="0,0,10,0" Foreground="{StaticResource BrushWarning}"/>
-                                    <TextBlock Text="Cloudflare Tunnels" FontSize="20" FontWeight="SemiBold" Foreground="#E0E0E0"/>
+                                    <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" FontSize="18" Margin="0,0,10,0" Foreground="{DynamicResource BrushWarning}"/>
+                                    <TextBlock Text="{loc:Loc tunnels.title}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                                        <TextBlock Text="Protocol" FontSize="12" Foreground="#A0A0A0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{loc:Loc tunnels.protocol}" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                         <ComboBox x:Name="TunnelProtocolCombo"
                                                   Width="90"
                                                   ItemsSource="{Binding ProtocolOptions}"
                                                   SelectedValuePath="Value"
                                                   SelectedValue="{Binding CloudflaredProtocol, Mode=TwoWay}"
                                                   DisplayMemberPath="Label"
-                                                  Background="#3A3A3A"
-                                                  Foreground="#E0E0E0"
+                                                  Background="{DynamicResource BrushField}"
+                                                  Foreground="{DynamicResource BrushTextPrimary}"
                                                   BorderThickness="0"
                                                   Padding="6,2"/>
                                     </StackPanel>
                                     <Button x:Name="StopAllTunnelsButton" 
-                                            Content="Stop All" 
+                                            Content="{loc:Loc tunnels.stopAll}" 
                                             Click="StopAllTunnels_Click"
                                             Visibility="Collapsed"
                                             Margin="0,0,8,0">
                                         <Button.Style>
                                             <Style TargetType="Button">
-                                                <Setter Property="Background" Value="#e74c3c"/>
+                                                <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
                                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                                                 <Setter Property="BorderThickness" Value="0"/>
                                                 <Setter Property="Padding" Value="12,6"/>
@@ -703,7 +704,7 @@
                                                 </Setter>
                                                 <Style.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#c0392b"/>
+                                                        <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
                                                     </Trigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -722,8 +723,8 @@
                         <!-- Cloudflared Not Installed Warning -->
                         <Border Grid.Row="1" 
                                 x:Name="CloudflaredWarning"
-                                Background="#3d2918" 
-                                BorderBrush="#8B4513" 
+                                Background="{DynamicResource BrushWarningTint}" 
+                                BorderBrush="{DynamicResource BrushWarning}" 
                                 BorderThickness="1" 
                                 CornerRadius="8" 
                                 Padding="16"
@@ -732,13 +733,13 @@
                                 Visibility="Collapsed">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="⚠" FontSize="20" Margin="0,0,12,0" Foreground="#f39c12"/>
-                                    <TextBlock Text="cloudflared Not Installed" FontSize="16" FontWeight="Bold" Foreground="#f39c12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="⚠" FontSize="20" Margin="0,0,12,0" Foreground="{DynamicResource BrushWarning}"/>
+                                    <TextBlock Text="{loc:Loc tunnels.notInstalled}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushWarning}" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock TextWrapping="Wrap" Foreground="#E0E0E0" Margin="32,0,0,8">
-                                    To use Cloudflare Tunnels, you need to install cloudflared:
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource BrushTextPrimary}" Margin="32,0,0,8"
+                                           Text="{loc:Loc tunnels.install.instructions}">
                                 </TextBlock>
-                                <TextBlock TextWrapping="Wrap" Foreground="#B0B0B0" Margin="32,0,0,0" FontFamily="Consolas" FontSize="11">
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSecondary}" Margin="32,0,0,0" FontFamily="Consolas" FontSize="11">
                                     • Download from: https://github.com/cloudflare/cloudflared/releases
                                     • Or use Chocolatey: choco install cloudflared
                                 </TextBlock>
@@ -766,24 +767,24 @@
                                                              Margin="0,0,0,4"/>
                                                     <TextBlock Text="{Binding StatusText}" 
                                                                FontSize="10" 
-                                                               Foreground="#A0A0A0"
+                                                               Foreground="{DynamicResource BrushTextSecondary}"
                                                                HorizontalAlignment="Center"/>
                                                 </StackPanel>
 
                                                 <!-- Port and URL Info -->
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="#E0E0E0" Margin="0,0,0,4">
+                                                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,4">
                                                         <Run Text="Port"/>
-                                                        <Run Text="{Binding Port}" Foreground="#3498db"/>
+                                                        <Run Text="{Binding Port}" Foreground="{DynamicResource BrushAccent}"/>
                                                     </TextBlock>
                                                     <TextBlock Text="{Binding DisplayUrl}" 
                                                                FontSize="13" 
-                                                               Foreground="#2ecc71"
+                                                               Foreground="{DynamicResource BrushSuccess}"
                                                                FontFamily="Consolas"
                                                                Margin="0,2,0,0"/>
                                                     <TextBlock Text="{Binding LastError}" 
                                                                FontSize="11" 
-                                                               Foreground="#e74c3c"
+                                                               Foreground="{DynamicResource BrushDanger}"
                                                                TextWrapping="Wrap"
                                                                Margin="0,4,0,0"/>
                                                 </StackPanel>
@@ -791,7 +792,7 @@
                                                 <!-- Actions -->
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <!-- Uptime -->
-                                                    <Border Background="#3A3A3A" 
+                                                    <Border Background="{DynamicResource BrushField}" 
                                                             CornerRadius="6" 
                                                             Padding="10,6" 
                                                             Margin="0,0,8,0"
@@ -799,7 +800,7 @@
                                                             Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}">
                                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                             
-                                                            <TextBlock Text="{Binding Uptime}" FontSize="14" Foreground="#E0E0E0" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding Uptime}" FontSize="14" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                                         </StackPanel>
                                                     </Border>
 
@@ -833,7 +834,7 @@
                                                             Padding="6">
                                                         <Button.Style>
                                                             <Style TargetType="Button">
-                                                                <Setter Property="Background" Value="#e74c3c"/>
+                                                                <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
                                                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                                                                 <Setter Property="BorderThickness" Value="0"/>
                                                                 <Setter Property="Cursor" Value="Hand"/>
@@ -848,7 +849,7 @@
                                                                 </Setter>
                                                                 <Style.Triggers>
                                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter Property="Background" Value="#c0392b"/>
+                                                                        <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
                                                                     </Trigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -865,17 +866,17 @@
 
                         <!-- Tunnels Empty State -->
                         <StackPanel Grid.Row="1" x:Name="TunnelsEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Visible">
-                            <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" FontSize="52" Foreground="{StaticResource BrushWarning}" HorizontalAlignment="Center" Margin="0,0,0,16" Opacity="0.35"/>
-                            <TextBlock Text="No Active Tunnels" Style="{StaticResource TextTitle}" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Start a tunnel from the port list to create a public URL" 
+                            <TextBlock Text="&#xE753;" Style="{StaticResource IconGlyph}" FontSize="52" Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center" Margin="0,0,0,16" Opacity="0.35"/>
+                            <TextBlock Text="{loc:Loc tunnels.empty.title}" Style="{StaticResource TextTitle}" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{loc:Loc tunnels.empty.subtitle}" 
                                        FontSize="13" 
-                                       Foreground="#808080" 
+                                       Foreground="{DynamicResource BrushTextSecondary}" 
                                        HorizontalAlignment="Center" 
                                        Margin="0,8,0,16"
                                        TextAlignment="Center"/>
                             <TextBlock TextWrapping="Wrap" 
                                        FontSize="12" 
-                                       Foreground="#606060" 
+                                       Foreground="{DynamicResource BrushTextTertiary}" 
                                        HorizontalAlignment="Center" 
                                        TextAlignment="Center"
                                        MaxWidth="400">
@@ -888,11 +889,11 @@
                             <Grid>
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse x:Name="TunnelStatusDot" Width="6" Height="6" Fill="#808080" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock x:Name="TunnelStatusText" Text="0 active tunnel(s)" FontSize="11" Foreground="#808080" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TunnelStatusText" Text="0 active tunnel(s)" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel x:Name="CloudflaredInstalledIndicator" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed">
-                                    <TextBlock Text="✓" FontSize="14" Foreground="#2ecc71" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="cloudflared installed" FontSize="11" Foreground="#808080" VerticalAlignment="Center"/>
+                                    <TextBlock Text="✓" FontSize="14" Foreground="{DynamicResource BrushSuccess}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="cloudflared installed" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
