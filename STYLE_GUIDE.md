@@ -1,6 +1,10 @@
-# PortKiller Style Guide
+# PortKiller Style Guide (macOS / Swift)
 
-This document defines the coding standards and conventions for the PortKiller project.
+> **Scope:** this guide documents the **macOS Swift** codebase in `platforms/macos`. It was inherited from the original project, [productdevbook/port-killer](https://github.com/productdevbook/port-killer) (MIT), and is maintained here for that platform.
+>
+> The Windows app (C# / .NET, `platforms/windows` — see [its README](platforms/windows/README.md)) and the Linux tray app (Python, `platforms/linux`) are developed in this fork but are not covered by this guide yet. Provenance: [FORK_NOTICE.md](FORK_NOTICE.md).
+
+This document defines the coding standards and conventions for the PortKiller macOS project.
 
 ## Table of Contents
 

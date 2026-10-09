@@ -1,227 +1,213 @@
 # PortKiller for Windows
 
-A native Windows app for finding and killing processes on open ports. Perfect for developers who need to quickly free up ports like 3000, 8080, 5173, etc.
+> Part of **[Port Manager](https://github.com/mumu-140/port-manager)** (`mumu-140/port-manager`) — an independently maintained cross-platform port-management project. The desktop app keeps the **PortKiller** product/executable name for compatibility.
+>
+> **Fork provenance:** this code began as a fork of [productdevbook/port-killer](https://github.com/productdevbook/port-killer); upstream authorship and the MIT license are preserved. This fork does not use the upstream release feed, sponsor data, Homebrew tap, or update infrastructure. See [FORK_NOTICE.md](../../FORK_NOTICE.md).
+
+A native Windows app for finding and killing the processes that hold your listening ports — 3000, 8080, 5173, 22, … — plus Cloudflare tunnel inspection and managed local services. Built with **WPF on .NET 9**.
 
 ## Features
 
-- 🔍 Auto-discovers listening TCP ports
-- ⚡ One-click process termination
-- 🔄 Auto-refresh every 5 seconds
-- 🔎 Search by port or process name
-- ⭐ Favorite ports for quick access
-- 👁️ Watch ports and get notifications
-- 🎨 Modern Windows 11 design with WinUI 3
-- 🔔 System tray integration
+- 🔍 Auto-discovers listening TCP ports (IPv4 and IPv6) with their owning process
+- ⚡ One-click kill: graceful shutdown first, then force kill, with a deep-kill that takes the process tree
+- 🔄 Auto-refresh on a configurable interval
+- 🔎 Search across port, process name, PID, address, user, and command line
+- ⭐ Favorites, 👁️ watched ports, labels and notes
+- 🗂️ Process-type categories: Web service, Database, Development, System, Other
+- 🧩 Managed local services with five built-in presets, exposure warnings, and per-service runtime logs
+- ☁️ Cloudflare Tunnel (quick and named) inspection with start/stop
+- 🌏 English / 简体中文 UI, light / dark / system theme
+- 🔔 System tray integration and a compact mini window
+- 🛡️ Runs elevated (manifest) so it can terminate other users' and services' processes
 
 ## Requirements
 
-- Windows 10 version 1809 (build 17763) or later
-- Windows 11 (recommended)
-- .NET 9.0 Runtime
-- Administrator privileges (required to kill processes)
+- Windows 10 version 1809 (build 17763) or later; Windows 11 recommended
+- [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) — release packages are framework-dependent
+- Administrator privileges: `app.manifest` requests elevation
 
 ## Installation
 
-### Option 1: Download from GitHub Releases (Recommended)
+### Option 1 — Download a release (recommended)
 
-1. Go to [GitHub Releases](https://github.com/productdevbook/port-killer/releases)
-2. Download the latest `PortKiller-vX.X.X-windows-x64.zip` (or `arm64` for ARM devices)
-3. Extract the ZIP to a folder of your choice
-4. Run `PortKiller.exe`
+1. Open this fork's [GitHub Releases](https://github.com/mumu-140/port-manager/releases).
+2. Download the latest `PortKiller-*-windows-x64.zip` (use the `arm64` package on ARM devices).
+3. Extract the ZIP and run `PortKiller.exe`.
 
-> **Note:** Requires [.NET 9 Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) to be installed.
+### Option 2 — Build from source
 
-### Option 2: Build from Source
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/productdevbook/port-killer.git
-cd port-killer/platforms/windows
+git clone https://github.com/mumu-140/port-manager.git
+cd port-manager/platforms/windows
+dotnet restore PortKiller.sln
+dotnet build PortKiller/PortKiller.csproj -c Debug
+dotnet run --project PortKiller/PortKiller.csproj
 ```
 
-2. Open in Visual Studio 2022 or later:
-```bash
-cd PortKiller
-dotnet restore
-dotnet build
-```
+### Option 3 — Visual Studio
 
-3. Run the application:
-```bash
-dotnet run
-```
+1. Open `platforms/windows/PortKiller.sln` in Visual Studio 2022 17.8 or later.
+2. Build the solution (Ctrl+Shift+B), then run (F5).
 
-### Option 3: Visual Studio
-
-1. Open `PortKiller.csproj` in Visual Studio 2022
-2. Build the solution (Ctrl+Shift+B)
-3. Run (F5) or Debug
-
-### Option 4: Package for Distribution
+### Option 4 — Package for distribution
 
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained
+# Framework-dependent, matches the CI artifacts
+dotnet publish PortKiller/PortKiller.csproj -c Release -r win-x64 --self-contained false
+
+# Self-contained single file
+dotnet publish PortKiller/PortKiller.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
 ## Usage
 
-### Basic Operations
+### Basic operations
 
-1. **View All Ports**: The app automatically scans and displays all listening TCP ports
-2. **Kill a Process**: Click the kill button next to any port
-3. **Search**: Use the search box to filter by port number or process name
-4. **Refresh**: Click the refresh button or wait for auto-refresh
+- The list shows every listening TCP port with its process, PID, address, and owning user; select a row for details including the command line.
+- **Kill** closes the window gracefully first and force-kills only if that fails; the deep-kill option also terminates child processes.
+- The search box filters on port, process name, PID, address, user, and command line; the sidebar narrows by category, favorites, or watched ports.
+- Settings control the refresh interval, notifications, language, and theme.
 
-### Favorites
+### Watched ports
 
-- Click on a port to view details
-- Click "Add to Favorites" to mark important ports
-- Access favorites from the sidebar
+- Select a port → watch it → get a notification when it starts or stops listening.
+- Watched ports are managed from the sidebar. (Notifications are raised in-app today; Windows toast integration is a planned enhancement.)
 
-### Watched Ports
+### Managed services
 
-- Click on a port and select "Watch Port"
-- Get notifications when the port starts or stops
-- Manage watched ports from the sidebar
+- The **Services** tab starts, stops, and supervises local services defined by a profile.
+- Five built-in presets generate a profile from a short form — no shell command writing required:
+  - **Static file share** — `python3 -m http.server`, read-only, loopback-bound
+  - **SSH local forward** — your existing SSH agent/config, keepalives and `ExitOnForwardFailure` fixed
+  - **SSH SOCKS5 proxy** — a dynamic forward from the same form
+  - **Dufs file share** — read-only / upload / read-write modes (external binary, detected on `PATH`)
+  - **Jupyter Lab** — notebook server profile
+- Profiles that bind beyond loopback raise an exposure warning; runtime logs are stored per service.
 
-### Sidebar Navigation
+### Cloudflare tunnels
 
-- **All Ports**: View all listening ports
-- **Favorites**: Quick access to favorite ports
-- **Watched**: Monitored ports with notifications
-- **Process Types**: Filter by Web Server, Database, Development, System, Other
-- **Settings**: Configure refresh interval and notifications
+- Inspect quick and named tunnels, their ingress configuration, and runtime state.
+- Start/stop supported local tunnel workflows and copy public URLs.
 
-### System Tray
+### System tray and mini window
 
-- The app runs in the system tray
-- Left-click the tray icon to show/hide the window
-- Right-click for context menu
+- Left-click the tray icon to show/hide the window, right-click for the context menu.
+- The mini window keeps a compact always-available view of the port list.
 
 ## Architecture
 
-### Technology Stack
+### Technology stack
 
-- **Language**: C# 12 with .NET 8
-- **UI Framework**: WinUI 3 (Windows App SDK)
-- **Architecture**: MVVM with CommunityToolkit.Mvvm
-- **DI Container**: Microsoft.Extensions.DependencyInjection
+- **Language:** C# on **.NET 9** (`net9.0-windows`)
+- **UI:** **WPF** with shared design tokens (`DesignTokens.xaml`) and `Hardcodet.NotifyIcon.Wpf` for the tray
+- **Architecture:** MVVM via `CommunityToolkit.Mvvm`; DI via `Microsoft.Extensions.DependencyInjection`
+- **Windows APIs:** `GetExtendedTcpTable` (P/Invoke) for the listening table, `System.Management` (WMI) for command lines
 
-### Project Structure
+### Project structure
 
 ```
-PortKiller/
-├── Models/              # Data models (PortInfo, ProcessType, etc.)
-├── Services/            # Business logic services
-│   ├── PortScannerService.cs       # Scans ports using Win32 API
-│   ├── ProcessKillerService.cs     # Terminates processes
-│   ├── SettingsService.cs          # Persistent settings
-│   └── NotificationService.cs      # Windows notifications
-├── ViewModels/          # MVVM ViewModels
-│   └── MainViewModel.cs
-├── App.xaml             # Application entry point
-└── MainWindow.xaml      # Main UI
+platforms/windows/
+├── PortKiller/
+│   ├── Models/        # PortInfo, ProcessType, PortFilter, ManagedService, CloudflareTunnel, AppLanguage, AppTheme
+│   ├── Services/      # PortScannerService, ProcessKillerService, SettingsService, NotificationService,
+│   │                  # LocalizationService, ThemeService, TunnelService, ManagedService*
+│   │   └── Presets/   # ManagedServicePresets, ManagedServicePresetFieldExtractor
+│   ├── ViewModels/    # MainViewModel, ManagedServicesViewModel, TunnelViewModel
+│   ├── Views/         # ManagedServicesView, SettingsView, ManagedServiceEditorWindow
+│   ├── Helpers/       # LocExtension, ValueConverters, WindowBlurHelper
+│   ├── MainWindow.xaml, CloudflareTunnelsView.xaml, MiniPortKillerWindow.xaml
+│   └── App.xaml
+├── PortKiller.Tests/  # xUnit tests for the scan, kill, settings, and managed-service paths
+├── scripts/           # smoke-gui.ps1, smoke-service-survival.ps1
+└── PortKiller.sln
 ```
 
-### How It Works
+### How it works
 
-#### Port Scanning
+#### Port scanning
 
-The app uses the Windows `GetExtendedTcpTable` API to get all TCP connections:
+`GetExtendedTcpTable` returns the listening TCP table (IPv4 and IPv6) together with the owning PIDs in a single call, so filtering happens in the OS rather than in the app. Process names, owners, and command lines are resolved afterwards: command lines come from one bulk `Win32_Process` WMI query that is cached per scan and bounded by a timeout, so a wedged WMI provider host degrades the command-line column instead of stalling the scan (`Services/ProcessCommandLineProvider.cs`).
 
-```csharp
-// Get all listening TCP connections with process IDs
-GetExtendedTcpTable(IntPtr, ref int, bool, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
-```
+#### Process termination
 
-This is equivalent to macOS `lsof -iTCP -sTCP:LISTEN` but more efficient.
+1. Try a graceful close with `Process.CloseMainWindow()`.
+2. Fall back to `Process.Kill(entireProcessTree: true)`, which also covers child processes.
 
-#### Process Information
+#### Settings and state
 
-Uses WMI (Windows Management Instrumentation) to get detailed process info:
-
-```csharp
-// Get command line
-ManagementObjectSearcher("SELECT CommandLine FROM Win32_Process WHERE ProcessId = {pid}")
-
-// Get process owner
-OpenProcessToken() + WindowsIdentity
-```
-
-#### Process Termination
-
-Two-stage approach:
-1. Try graceful shutdown with `CloseMainWindow()`
-2. Force kill with `Process.Kill(entireProcessTree: true)`
+Settings live in `settings.json` under `%LOCALAPPDATA%\PortKiller`. Favorites, watched ports, and managed-service profiles are stored alongside it.
 
 ## Development
 
 ### Prerequisites
 
-- Visual Studio 2022 17.8 or later
-- Windows App SDK 1.5 or later
-- .NET 8 SDK
+- .NET 9 SDK (`dotnet --version` ≥ 9.0) or Visual Studio 2022 17.8+
+- Windows 10 1809+ / Windows 11
 
 ### Build
 
 ```bash
-dotnet build -c Debug
+dotnet build platforms/windows/PortKiller/PortKiller.csproj -c Debug
 ```
 
 ### Test
 
 ```bash
-dotnet test
+dotnet test platforms/windows/PortKiller.sln -c Debug
 ```
 
-### Package for Distribution
+### Smoke scripts
 
-```bash
-dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+```powershell
+pwsh platforms/windows/scripts/smoke-gui.ps1
+pwsh platforms/windows/scripts/smoke-service-survival.ps1
 ```
 
-## Known Limitations
+### Continuous integration
 
-- Requires administrator privileges to kill processes
-- Cannot kill system processes (by design)
-- IPv6 support is limited (IPv4 only currently)
-- Some processes may require force kill
+[`.github/workflows/ci-windows.yml`](../../.github/workflows/ci-windows.yml) restores the solution, runs the tests in Debug, publishes `win-x64` and `win-arm64`, and uploads `PortKiller-windows-x64` / `PortKiller-windows-arm64` artifacts on `windows-latest`.
+
+## Known limitations
+
+- Killing another user's process or a service requires elevation; the manifest requests it at startup.
+- Protected system processes cannot be killed (by design).
+- Only TCP listeners are listed — UDP sockets are out of scope.
+- Command lines require WMI; while the provider host is unresponsive they are omitted and the app retries once it recovers.
 
 ## Troubleshooting
 
-### "Access Denied" when killing process
+### "Access denied" when killing a process
 
-Run the app as Administrator. Right-click and select "Run as administrator".
+Run the app elevated (right-click → "Run as administrator"). The manifest normally prompts already; if the app was started from a non-elevated shell, restart it.
 
-### Port scan not showing all ports
+### The port list is empty and the status stays at "Ready"
 
-Make sure you're running as Administrator. Some ports require elevated privileges to view.
+The scan waits on WMI for command lines. Check that the **Windows Management Instrumentation** (`Winmgmt`) service is running — `services.msc` → Windows Management Instrumentation → Restart. The app recovers on the next refresh without a restart.
 
-### App doesn't start
+### The app does not start
 
-1. Check Windows version (Windows 10 1809+ or Windows 11)
-2. Install .NET 8 Runtime
-3. Install Windows App SDK Runtime
+1. Confirm Windows 10 1809+ or Windows 11.
+2. Install the [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0).
 
-## Comparison with macOS Version
+## Comparison with the macOS app
 
 | Feature | macOS | Windows |
-|---------|-------|---------|
-| Port Scanning | `lsof` | Win32 API |
-| Process Killing | `kill -15/-9` | `Process.Kill()` |
-| UI Framework | SwiftUI | WinUI 3 |
-| System Tray | MenuBarExtra | TaskbarIcon |
-| Notifications | UNNotification | AppNotification |
-| Settings Storage | UserDefaults | ApplicationData |
+| --- | --- | --- |
+| Port scanning | `lsof` / libproc | `GetExtendedTcpTable` (P/Invoke) |
+| Process killing | `kill -15/-9` | `Process.CloseMainWindow()` / `Process.Kill()` |
+| UI framework | SwiftUI | WPF |
+| System tray | `MenuBarExtra` | `Hardcodet.NotifyIcon.Wpf` |
+| Settings storage | `UserDefaults` | `settings.json` in `%LOCALAPPDATA%` |
 
 ## Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development guidelines.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) and [STYLE_GUIDE.md](../../STYLE_GUIDE.md).
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE).
+MIT — see [LICENSE](../../LICENSE).
 
 ## Credits
 
-Windows port by the PortKiller team. Original macOS version available at [github.com/productdevbook/port-killer](https://github.com/productdevbook/port-killer).
+- **Original project:** [productdevbook/port-killer](https://github.com/productdevbook/port-killer) — the Windows app, macOS app, and Linux tray app all started there. Original authorship and the MIT license are preserved.
+- **This fork:** maintained independently at [mumu-140/port-manager](https://github.com/mumu-140/port-manager), which owns this repository's roadmap, localization, CI, and release infrastructure. Full provenance statement: [FORK_NOTICE.md](../../FORK_NOTICE.md).
