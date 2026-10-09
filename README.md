@@ -1,114 +1,84 @@
 # Port Manager
 
 <p align="center">
-  <img src=".github/assets/icon.svg" alt="Port Manager icon" width="128" height="128">
+  <img src=".github/assets/icon.svg" alt="Port Manager 图标" width="128" height="128">
 </p>
 
 <p align="center">
-  <a href="https://github.com/mumu-140/port-manager/actions/workflows/ci.yml"><img src="https://github.com/mumu-140/port-manager/actions/workflows/ci.yml/badge.svg" alt="macOS CI"></a>
+  <a href="https://github.com/mumu-140/port-manager/actions/workflows/ci.yml"><img src="https://github.com/mumu-140/port-manager/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-15%2B-brightgreen" alt="macOS 15+"></a>
   <a href="https://www.microsoft.com/windows"><img src="https://img.shields.io/badge/Windows-10%2B-0078D6" alt="Windows 10+"></a>
 </p>
 
-Port Manager is an independently maintained cross-platform port-management project. The current desktop application keeps the **PortKiller** product/executable name for compatibility while this repository develops its own roadmap, localization, CI, runtime data sources, and release infrastructure.
+<p align="center">
+  <a href="README_EN.md">English</a> | <b>简体中文</b>
+</p>
 
-> **Fork provenance:** this repository began as a fork of [productdevbook/port-killer](https://github.com/productdevbook/port-killer). Original upstream authorship and the MIT license are preserved. Development in `mumu-140/port-manager` is now maintained independently; upstream release feeds, sponsor data, Homebrew publishing, and update infrastructure are not used by this fork. See [FORK_NOTICE.md](FORK_NOTICE.md).
+Port Manager 是一个跨平台的端口管理工具，帮你看清本机哪些端口被占用、被谁占用，并提供终止进程、端口转发、隧道管理等能力。macOS、Windows、Linux 三端均为原生应用。
 
-## Current status
+> 本仓库由 [productdevbook/port-killer](https://github.com/productdevbook/port-killer) fork 而来，现独立维护，MIT 协议，详见 [FORK_NOTICE.md](FORK_NOTICE.md)。为兼容起见，桌面端可执行文件仍保留 **PortKiller** 名称。
 
-| Area | Status |
-| --- | --- |
-| macOS native app | Active |
-| macOS English / Simplified Chinese UI | Phase 1 frozen |
-| Kubernetes port-forward management | Active |
-| Cloudflare Tunnel integration | Active |
-| Windows native app | Active |
-| Linux tray app / AppImage | Active |
-| GitHub Actions CI artifacts | Active |
-| Independent GitHub Releases | Available from `v*` tags |
-| macOS Developer ID signing / notarization | Not yet configured for this fork |
-| Sparkle automatic updates | Intentionally disabled until this fork has its own signing key/feed |
-| Upstream Homebrew tap | Not used |
+## 功能
 
-The repository is the source of truth for this fork:
+### 端口与进程管理
 
-`https://github.com/mumu-140/port-manager`
+- 自动发现本机监听中的 TCP 端口及其归属进程
+- 优雅终止、强制结束、深度清理三种结束方式
+- 按端口号 / 进程名搜索与过滤
+- 收藏端口、关注端口（状态变化时通知）
+- 端口备注与标签
+- 进程类型归类
+- 自动刷新与自动结束规则
 
-## Screenshots
+### Kubernetes 端口转发
+
+- 创建、管理 `kubectl port-forward` 连接
+- 浏览 context、namespace、service 与端口
+- 自动重连、连接日志、状态监控
+
+### Cloudflare Tunnel
+
+- 查看 quick tunnel 与 named tunnel
+- 查看 ingress 配置与运行状态
+- 在应用内启停本地隧道
+- 一键打开或复制公网 URL
+
+### 服务预设（一键起服务）
+
+内置 5 种常用服务预设，填几个参数就能起一个服务，不用手写命令：
+
+- **静态文件分享** —— `python3 -m http.server`，只读，绑定回环地址
+- **SSH 本地转发 / SOCKS5 代理** —— 复用本机 SSH agent 与配置，自动保活
+- **Dufs 文件分享** —— 只读 / 上传 / 读写三种模式（需本机已安装 dufs）
+- **Jupyter Lab** —— 绑定回环地址，端口被占时直接报错而不是静默换端口
+
+安全设计：所有预设默认只绑 `127.0.0.1`；不收集任何密码、token；依赖检测只读 PATH，从不自动安装东西。
+
+### 中文界面
+
+- macOS 端：English / 简体中文 / 跟随系统
+- Windows 端：English / 简体中文 / 跟随系统，浅色 / 深色主题可切
+
+## 截图
 
 ### macOS
 
 <p align="center">
-  <img src=".github/assets/macos.png" alt="PortKiller on macOS" width="800">
+  <img src=".github/assets/macos.png" alt="Port Manager on macOS" width="800">
 </p>
 
 ### Windows
 
 <p align="center">
-  <img src=".github/assets/windows.jpeg" alt="PortKiller on Windows" width="800">
+  <img src=".github/assets/windows.jpeg" alt="Port Manager on Windows" width="800">
 </p>
 
-## Features
-
-### Port management
-
-- Discover listening TCP ports and owning processes.
-- Graceful termination, force kill, and deep-kill workflows.
-- Search, filtering, favorites, watched ports, labels, and notes.
-- Process-type categorization and configurable notifications.
-- Auto-refresh and auto-kill rules.
-
-### Kubernetes port forwarding
-
-- Create and manage `kubectl port-forward` connections.
-- Browse contexts, namespaces, services, and ports.
-- Auto-reconnect, connection logs, and status monitoring.
-- Optional proxy handling and dependency checks.
-
-### Cloudflare Tunnels
-
-- Inspect quick and named tunnels.
-- View ingress configuration and runtime state.
-- Start/stop supported local tunnel workflows.
-- Open or copy public URLs directly from the app.
-
-### Managed service presets
-
-The Managed Services tab ships five built-in presets that generate a ready-to-run profile from a short form (no shell command writing required):
-
-- **Static file share** — `python3 -m http.server`, read-only, loopback-bound.
-- **SSH local forward / SOCKS5 proxy** — your existing SSH agent and config (enter the host or `user@host` manually); keepalives and `ExitOnForwardFailure` are fixed.
-- **Dufs file share** — read-only / upload / read-write modes (external binary; detected via PATH, with install docs when missing).
-- **Jupyter Lab** — loopback-bound, `--port-retries=0` so a busy port becomes a conflict instead of a silent port move.
-
-Safety properties:
-
-- Every listening preset binds `127.0.0.1` explicitly — including the SSH local forward's listener (`-L 127.0.0.1:{port}:`); no non-loopback bind is offered.
-- No credentials, tokens, or key-path fields in any preset; Jupyter's token stays server-generated.
-- Dependency discovery is read-only (PATH probes only) — the app never installs anything.
-- Choosing your home directory root as a share folder warns and suggests a narrower folder.
-- Publicly sharing a writable Dufs or Jupyter asks for explicit confirmation first.
-
-The detail view groups access as **Network Access** (Local / Temporary public / Stable public on macOS), and delete confirmations state exactly what will happen — a conflict profile is deleted without ever touching the external process holding the port.
-
-### macOS localization
-
-The macOS application supports:
-
-- English
-- Simplified Chinese
-- Follow System
-
-Localization is implemented through the repository-local `L("key")` registry. CI guards format-specifier parity, missing keys, and common hardcoded-English regressions.
-
-## Installation
+## 安装
 
 ### macOS
 
-The fork does **not** use the upstream Homebrew tap.
-
-For development and testing, use a CI artifact from the latest successful [macOS CI workflow](https://github.com/mumu-140/port-manager/actions/workflows/ci.yml), or build from source:
+不使用上游的 Homebrew tap。去 [Actions](https://github.com/mumu-140/port-manager/actions/workflows/ci.yml) 下载最新 CI 构建，或从源码编译：
 
 ```bash
 git clone https://github.com/mumu-140/port-manager.git
@@ -117,11 +87,11 @@ cd port-manager/platforms/macos
 open .build/apple/Products/Release/PortKiller.app
 ```
 
-CI/test macOS builds are not Developer-ID notarized. macOS may therefore require an explicit first launch through Finder → **Open**.
+> CI 构建未经 Apple 公证，首次启动请在 Finder 里右键 → 打开。
 
 ### Windows
 
-Build from source:
+从源码运行：
 
 ```powershell
 git clone https://github.com/mumu-140/port-manager.git
@@ -129,11 +99,11 @@ cd port-manager\platforms\windows\PortKiller
 dotnet run
 ```
 
-Tagged releases may also include x64 and ARM64 ZIP artifacts.
+打 tag 的 release 会附带 x64 / ARM64 的 ZIP 包。
 
 ### Linux
 
-Run directly:
+直接运行：
 
 ```bash
 git clone https://github.com/mumu-140/port-manager.git
@@ -141,94 +111,37 @@ cd port-manager
 ./platforms/linux/port-killer.py
 ```
 
-Or use the local installer:
+或使用自带安装脚本：
 
 ```bash
 ./platforms/linux/install.sh
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for dependency details.
-
-## Repository layout
+## 仓库结构
 
 ```text
 platforms/
-├── macos/                  Swift / SwiftUI application
-├── windows/                .NET / WPF application
-└── linux/                  Python / GTK tray application
+├── macos/                  Swift / SwiftUI 原生应用
+├── windows/                .NET 9 / WPF 原生应用
+└── linux/                  Python / GTK 托盘应用
 
-portkiller-core/            Rust core used by Linux-side work
-.github/workflows/          CI, PR artifact builds, independent releases
-appcast.xml                 Reserved fork-local Sparkle feed
-sponsors.json               Fork-local supporter data
+portkiller-core/            Rust 核心（Linux 侧使用）
+.github/workflows/          CI、PR 构建、独立发布流程
+appcast.xml                 本仓库预留的 Sparkle 更新源
+sponsors.json               本仓库的赞助者数据
 ```
 
-## CI and release model
+## 发布与更新
 
-Normal development uses platform-specific CI:
+- 推送 `v*` tag 会在本仓库创建 GitHub Release 并附上各平台构建产物
+- 自动更新目前处于禁用状态，直到本仓库配好自己的签名与更新源（避免静默切回上游渠道）
 
-- `.github/workflows/ci.yml` — macOS build, tests, Universal app artifact.
-- `.github/workflows/ci-windows.yml` — Windows x64/ARM64 validation.
-- `.github/workflows/ci-linux.yml` — Rust, Python, GTK/import validation.
-- `.github/workflows/pr-build.yml` — optional macOS PR test artifact.
+详见 [RELEASES.md](RELEASES.md)。
 
-The release workflow is repository-local. A pushed `v*` tag creates a GitHub Release in **this repository** and attaches independently built artifacts. Manual dispatch produces test artifacts and does not create a production release.
+## 参与贡献
 
-For the current release limitations and signing policy, see [RELEASES.md](RELEASES.md).
+欢迎提 issue、修 bug、补翻译、测各平台构建。提 PR 前请先看 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## Update policy
+## 许可证
 
-The previous upstream Sparkle URL and upstream EdDSA key have been removed.
-
-Automatic in-app updates are intentionally disabled until this fork provisions:
-
-1. its own Apple Developer ID/signing identity,
-2. its own notarization credentials,
-3. its own Sparkle EdDSA key pair,
-4. a release feed generated from this repository.
-
-This prevents builds from silently switching back to an upstream release channel.
-
-## Fork history and attribution
-
-This project contains substantial work originating from the upstream PortKiller project. That history is intentionally acknowledged rather than hidden.
-
-- Upstream: [productdevbook/port-killer](https://github.com/productdevbook/port-killer)
-- Independent fork: [mumu-140/port-manager](https://github.com/mumu-140/port-manager)
-- License: MIT
-- Compatibility name retained: PortKiller
-
-See [FORK_NOTICE.md](FORK_NOTICE.md) for the detailed provenance policy.
-
-## Support the project
-
-There is currently no upstream funding account or upstream sponsor feed attached to this fork.
-
-Useful ways to support this project are:
-
-- report reproducible bugs,
-- propose focused improvements,
-- test macOS/Windows/Linux artifacts,
-- improve localization,
-- submit reviewed pull requests,
-- star the repository if it is useful.
-
-The in-app Community page reads contributor data from this repository and optional supporter data from the repository-local `sponsors.json`.
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes. In particular:
-
-- keep upstream attribution intact,
-- do not reintroduce upstream runtime/update/release dependencies,
-- keep user-visible macOS text inside the localization registry,
-- run the relevant platform tests,
-- keep changes scoped and reviewable.
-
-## Security
-
-See [SECURITY.md](SECURITY.md).
-
-## License
-
-MIT. The original PortKiller copyright notice is retained, with an additional notice for independent fork contributions. See [LICENSE](LICENSE).
+MIT，详见 [LICENSE](LICENSE)。
